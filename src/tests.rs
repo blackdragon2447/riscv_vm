@@ -101,4 +101,16 @@ mod instructions {
             }
         )
     }
+
+    #[test]
+    fn addiw() {
+        assert_eq!(
+            decode(0xead5859b),
+            ADDIW {
+                rd: X11,
+                rs1: X11,
+                imm: 3757
+            }
+        )
+    }
 }
