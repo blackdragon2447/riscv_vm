@@ -80,6 +80,31 @@ fn decode(inst: u32) -> Instruction {
                         rs1: rs1.into(),
                         rs2: rs2.into(),
                     },
+                    (0b0111011, 0b000, 0b0000000) => Instruction::ADDW {
+                        rd: rd.into(),
+                        rs1: rs1.into(),
+                        rs2: rs2.into(),
+                    },
+                    (0b0111011, 0b000, 0b0100000) => Instruction::SUBW {
+                        rd: rd.into(),
+                        rs1: rs1.into(),
+                        rs2: rs2.into(),
+                    },
+                    (0b0111011, 0b001, 0b0000000) => Instruction::SLLW {
+                        rd: rd.into(),
+                        rs1: rs1.into(),
+                        rs2: rs2.into(),
+                    },
+                    (0b0111011, 0b101, 0b0000000) => Instruction::SRLW {
+                        rd: rd.into(),
+                        rs1: rs1.into(),
+                        rs2: rs2.into(),
+                    },
+                    (0b0111011, 0b101, 0b0100000) => Instruction::SRAW {
+                        rd: rd.into(),
+                        rs1: rs1.into(),
+                        rs2: rs2.into(),
+                    },
                     _ => Instruction::Undifined,
                 }
             }
@@ -112,12 +137,22 @@ fn decode(inst: u32) -> Instruction {
                         rs1: rs1.into(),
                         imm,
                     },
+                    (0b0000011, 0b011) => Instruction::LD {
+                        rd: rd.into(),
+                        rs1: rs1.into(),
+                        imm,
+                    },
                     (0b0000011, 0b100) => Instruction::LBU {
                         rd: rd.into(),
                         rs1: rs1.into(),
                         imm,
                     },
                     (0b0000011, 0b101) => Instruction::LHU {
+                        rd: rd.into(),
+                        rs1: rs1.into(),
+                        imm,
+                    },
+                    (0b0000011, 0b110) => Instruction::LWU {
                         rd: rd.into(),
                         rs1: rs1.into(),
                         imm,
@@ -153,7 +188,7 @@ fn decode(inst: u32) -> Instruction {
                         imm,
                     },
                     (0b0010011, 0b001) => {
-                        let shamt = (imm & 0b1_1111).try_into().unwrap();
+                        let shamt = (imm & 0b11_1111).try_into().unwrap();
                         Instruction::SLLI {
                             rd: rd.into(),
                             rs1: rs1.into(),
@@ -161,14 +196,43 @@ fn decode(inst: u32) -> Instruction {
                         }
                     }
                     (0b0010011, 0b101) => {
-                        let shamt = (imm & 0b1_1111).try_into().unwrap();
-                        match imm & 0b1111_1110_0000 {
+                        let shamt = (imm & 0b11_1111).try_into().unwrap();
+                        match imm & 0b1111_1100_0000 {
                             0b0000000 => Instruction::SRLI {
                                 rd: rd.into(),
                                 rs1: rs1.into(),
                                 shamt,
                             },
                             0b0100000 => Instruction::SRAI {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                shamt,
+                            },
+                            _ => unreachable!(),
+                        }
+                    }
+                    (0b0011011, 0b000) => Instruction::ADDIW {
+                        rd: rd.into(),
+                        rs1: rs1.into(),
+                        imm,
+                    },
+                    (0b0011011, 0b001) => {
+                        let shamt = (imm & 0b11_1111).try_into().unwrap();
+                        Instruction::SLLIW {
+                            rd: rd.into(),
+                            rs1: rs1.into(),
+                            shamt,
+                        }
+                    }
+                    (0b0011011, 0b101) => {
+                        let shamt = (imm & 0b11_1111).try_into().unwrap();
+                        match imm & 0b1111_1100_0000 {
+                            0b0000000 => Instruction::SRLIW {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                shamt,
+                            },
+                            0b0100000 => Instruction::SRAIW {
                                 rd: rd.into(),
                                 rs1: rs1.into(),
                                 shamt,
@@ -216,6 +280,11 @@ fn decode(inst: u32) -> Instruction {
                         imm,
                     },
                     (0b0100011, 010) => Instruction::SW {
+                        rs1: rs1.into(),
+                        rs2: rs2.into(),
+                        imm,
+                    },
+                    (0b0100011, 011) => Instruction::SD {
                         rs1: rs1.into(),
                         rs2: rs2.into(),
                         imm,

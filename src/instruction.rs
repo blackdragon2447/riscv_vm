@@ -67,12 +67,22 @@ pub enum Instruction {
         rs1: Register,
         imm: u32,
     },
+    LD {
+        rd: Register,
+        rs1: Register,
+        imm: u32,
+    },
     LBU {
         rd: Register,
         rs1: Register,
         imm: u32,
     },
     LHU {
+        rd: Register,
+        rs1: Register,
+        imm: u32,
+    },
+    LWU {
         rd: Register,
         rs1: Register,
         imm: u32,
@@ -92,6 +102,12 @@ pub enum Instruction {
         rs2: Register,
         imm: u32,
     },
+    SD {
+        rs1: Register,
+        rs2: Register,
+        imm: u32,
+    },
+
     ADDI {
         rd: Register,
         rs1: Register,
@@ -188,6 +204,64 @@ pub enum Instruction {
         rs1: Register,
         rs2: Register,
     },
+
+    ADDW {
+        rd: Register,
+        rs1: Register,
+        rs2: Register,
+    },
+    SUBW {
+        rd: Register,
+        rs1: Register,
+        rs2: Register,
+    },
+    SLLW {
+        rd: Register,
+        rs1: Register,
+        rs2: Register,
+    },
+    SLTW {
+        rd: Register,
+        rs1: Register,
+        rs2: Register,
+    },
+    SRLW {
+        rd: Register,
+        rs1: Register,
+        rs2: Register,
+    },
+    SRAW {
+        rd: Register,
+        rs1: Register,
+        rs2: Register,
+    },
+
+    ADDIW {
+        rd: Register,
+        rs1: Register,
+        imm: u32,
+    },
+    SLTIW {
+        rd: Register,
+        rs1: Register,
+        imm: u32,
+    },
+    SLLIW {
+        rd: Register,
+        rs1: Register,
+        shamt: i32,
+    },
+    SRLIW {
+        rd: Register,
+        rs1: Register,
+        shamt: i32,
+    },
+    SRAIW {
+        rd: Register,
+        rs1: Register,
+        shamt: i32,
+    },
+
     FENCE {
         rd: Register,
         rs1: Register,
