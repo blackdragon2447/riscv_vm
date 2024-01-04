@@ -6,6 +6,7 @@ use registers::Register;
 
 pub mod elf_load;
 mod instruction;
+mod memory;
 mod registers;
 #[cfg(test)]
 mod tests;

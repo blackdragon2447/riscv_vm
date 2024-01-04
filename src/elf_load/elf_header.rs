@@ -1,3 +1,7 @@
+use std::fmt::Debug;
+
+use crate::memory::Address;
+
 use super::{
     data::{AbiType, Bitness, Endianess, ObjectType, ASI},
     BitRanges, ElfParseError,
@@ -81,7 +85,7 @@ pub struct ElfHeader {
     abi_ver: u8,
     obj_type: ObjectType,
     arch: ASI,
-    entry: u64,
+    entry: Address,
     p_header: u64,
     s_header: u64,
     flags: u32,
@@ -127,7 +131,7 @@ impl ElfHeader {
             return Err(ElfParseError::InvalidVersionOrig(version_orig));
         }
 
-        let entry = u64::from_le_bytes(raw.entry);
+        let entry = u64::from_le_bytes(raw.entry).into();
 
         let p_header = u64::from_le_bytes(raw.p_header);
         let s_header = u64::from_le_bytes(raw.s_header);
