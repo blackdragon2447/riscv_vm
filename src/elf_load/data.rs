@@ -1,6 +1,8 @@
+use std::error::Error;
+
 use enumflags2::bitflags;
 
-use super::ElfParseError;
+use super::{ElfHeaderParseError, ProgramHeaderParseError, SectionHeaderParseError};
 
 #[repr(u8)]
 #[derive(Debug)]
@@ -18,13 +20,13 @@ pub enum Endianess {
 }
 
 impl TryFrom<u8> for Endianess {
-    type Error = ElfParseError;
+    type Error = ElfHeaderParseError;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
             1 => Ok(Endianess::Little),
             2 => Ok(Endianess::Big),
-            _ => Err(ElfParseError::InvalidEndianess),
+            _ => Err(ElfHeaderParseError::InvalidEndianess),
         }
     }
 }
@@ -53,7 +55,7 @@ pub enum AbiType {
 }
 
 impl TryFrom<u8> for AbiType {
-    type Error = ElfParseError;
+    type Error = ElfHeaderParseError;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
@@ -75,7 +77,7 @@ impl TryFrom<u8> for AbiType {
             0x10 => Ok(AbiType::FenixOS),
             0x11 => Ok(AbiType::NuxiCloudABI),
             0x12 => Ok(AbiType::OpenVOS),
-            _ => Err(ElfParseError::InvalidAbi(value)),
+            _ => Err(ElfHeaderParseError::InvalidAbi(value)),
         }
     }
 }
@@ -88,14 +90,14 @@ pub enum ObjectType {
     Exec = 0x02,
     Dyn = 0x03,
     Core = 0x04,
-    /// Ramge 0xFE00..0xFEFF
+    /// Range 0xFE00..0xFEFF
     Os(u16) = 0xFE00,
-    /// Ramge 0xFF00..0xFFFF
+    /// Range 0xFF00..0xFFFF
     Proc(u16) = 0xFF00,
 }
 
 impl TryFrom<u16> for ObjectType {
-    type Error = ElfParseError;
+    type Error = ElfHeaderParseError;
 
     fn try_from(value: u16) -> Result<Self, Self::Error> {
         match value {
@@ -106,7 +108,7 @@ impl TryFrom<u16> for ObjectType {
             0x04 => Ok(ObjectType::Core),
             0xFE00..=0xFEFF => Ok(ObjectType::Os(value)),
             0xFF00..=0xFFFF => Ok(ObjectType::Proc(value)),
-            _ => Err(ElfParseError::InvalidObjType(value)),
+            _ => Err(ElfHeaderParseError::InvalidObjType(value)),
         }
     }
 }
@@ -184,7 +186,7 @@ pub enum ASI {
 }
 
 impl TryFrom<u16> for ASI {
-    type Error = ElfParseError;
+    type Error = ElfHeaderParseError;
 
     fn try_from(value: u16) -> Result<Self, Self::Error> {
         match value {
@@ -199,14 +201,14 @@ impl TryFrom<u16> for ASI {
             0x08 => Ok(ASI::MIPS),
             0x09 => Ok(ASI::IBMSystem370),
             0x0A => Ok(ASI::MIPSRS3000LE),
-            0x0B..=0x0E => Err(ElfParseError::ReservedASI),
+            0x0B..=0x0E => Err(ElfHeaderParseError::ReservedASI),
             0x0F => Ok(ASI::HPPARISC),
             0x13 => Ok(ASI::Intel80960),
             0x14 => Ok(ASI::PowerPC32),
             0x15 => Ok(ASI::PowerPC64),
             0x16 => Ok(ASI::S390),
             0x17 => Ok(ASI::IBMSPUSPC),
-            0x18..=0x23 => Err(ElfParseError::ReservedASI),
+            0x18..=0x23 => Err(ElfHeaderParseError::ReservedASI),
             0x24 => Ok(ASI::NECV800),
             0x25 => Ok(ASI::FujitsuFR20),
             0x27 => Ok(ASI::MotorolaRCE),
@@ -257,23 +259,45 @@ impl TryFrom<u16> for ASI {
             0xF3 => Ok(ASI::RISCV),
             0xF7 => Ok(ASI::BerkeleyPacketFilter),
             0x101 => Ok(ASI::WDC65C816),
-            _ => Err(ElfParseError::InvalidASI),
+            _ => Err(ElfHeaderParseError::InvalidASI),
         }
     }
 }
 
 #[repr(u32)]
+#[derive(Debug)]
 pub enum ProgramType {
     Null = 0x00000000,
     Load = 0x00000001,
     Dynamic = 0x00000002,
     Interp = 0x00000003,
     Note = 0x00000004,
+    /// range 0x60000000..0x6FFFFFFF
+    Os(u32) = 0x60000000,
+    /// range 0x70000000..0x7FFFFFFF
+    Proc(u32) = 0x70000000,
+}
+
+impl TryFrom<u32> for ProgramType {
+    type Error = ProgramHeaderParseError;
+
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
+        match value {
+            0x00000000 => Ok(ProgramType::Null),
+            0x00000001 => Ok(ProgramType::Load),
+            0x00000002 => Ok(ProgramType::Dynamic),
+            0x00000003 => Ok(ProgramType::Interp),
+            0x00000004 => Ok(ProgramType::Note),
+            0x60000000..=0x6FFFFFFF => Ok(ProgramType::Os(value)),
+            0x70000000..=0x7FFFFFFF => Ok(ProgramType::Proc(value)),
+            i => Err(ProgramHeaderParseError::InvalidProgramType(i)),
+        }
+    }
 }
 
 #[repr(u32)]
 #[bitflags]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum ProgramFlags {
     Exec = 0x1,
     Write = 0x2,
@@ -281,9 +305,10 @@ pub enum ProgramFlags {
 }
 
 #[repr(u32)]
+#[derive(Debug)]
 pub enum SectionType {
     Null = 0x0,
-    Progbitsp = 0x1,
+    Progbits = 0x1,
     Symtab = 0x2,
     Strtab = 0x3,
     Rela = 0x4,
@@ -300,11 +325,42 @@ pub enum SectionType {
     Group = 0x11,
     SymtabShndx = 0x12,
     Num = 0x13,
+    /// range 0x60000000..u32::MAX
+    Os(u32) = 0x60000000,
+}
+
+impl TryFrom<u32> for SectionType {
+    type Error = SectionHeaderParseError;
+
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
+        match value {
+            0x0 => Ok(SectionType::Null),
+            0x1 => Ok(SectionType::Progbits),
+            0x2 => Ok(SectionType::Symtab),
+            0x3 => Ok(SectionType::Strtab),
+            0x4 => Ok(SectionType::Rela),
+            0x5 => Ok(SectionType::Hash),
+            0x6 => Ok(SectionType::Dynamic),
+            0x7 => Ok(SectionType::Note),
+            0x8 => Ok(SectionType::Nobits),
+            0x9 => Ok(SectionType::Rel),
+            0x0A => Ok(SectionType::Shlib),
+            0x0B => Ok(SectionType::Dynsym),
+            0x0E => Ok(SectionType::InitArray),
+            0x0F => Ok(SectionType::FiniArray),
+            0x10 => Ok(SectionType::PreinitArray),
+            0x11 => Ok(SectionType::Group),
+            0x12 => Ok(SectionType::SymtabShndx),
+            0x13 => Ok(SectionType::Num),
+            0x60000000..=u32::MAX => Ok(SectionType::Os(value)),
+            _ => Err(SectionHeaderParseError::InvalidSectionType(value)),
+        }
+    }
 }
 
 #[repr(u64)]
 #[bitflags]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum SectionFlags {
     Write = 0x1,
     Alloc = 0x2,

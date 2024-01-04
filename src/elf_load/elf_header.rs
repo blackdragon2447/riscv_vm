@@ -4,7 +4,7 @@ use crate::memory::Address;
 
 use super::{
     data::{AbiType, Bitness, Endianess, ObjectType, ASI},
-    BitRanges, ElfParseError,
+    BitRanges, ElfHeaderParseError, ElfParseError,
 };
 
 #[derive(Debug)]
@@ -79,44 +79,44 @@ impl RawElfHeader {
 
 #[derive(Debug)]
 pub struct ElfHeader {
-    bitness: Bitness,
-    endianess: Endianess,
-    abi_type: AbiType,
-    abi_ver: u8,
-    obj_type: ObjectType,
-    arch: ASI,
-    entry: Address,
-    p_header: u64,
-    s_header: u64,
-    flags: u32,
+    pub bitness: Bitness,
+    pub endianess: Endianess,
+    pub abi_type: AbiType,
+    pub abi_ver: u8,
+    pub obj_type: ObjectType,
+    pub arch: ASI,
+    pub entry: Address,
+    pub p_header: u64,
+    pub s_header: u64,
+    pub flags: u32,
     // header_size: u16,
-    p_header_size: u16,
-    p_header_ecount: u16,
-    s_header_size: u16,
-    s_header_ecount: u16,
-    s_header_name_entry: u16,
+    pub p_header_size: u16,
+    pub p_header_ecount: u16,
+    pub s_header_size: u16,
+    pub s_header_ecount: u16,
+    pub s_header_name_entry: u16,
 }
 
 impl ElfHeader {
     /// Bytes may be longer than the header, header is assumed to be at 0x00
-    pub fn from_bytes(bytes: &Vec<u8>) -> Result<ElfHeader, ElfParseError> {
+    pub fn from_bytes(bytes: &Vec<u8>) -> Result<ElfHeader, ElfHeaderParseError> {
         let raw = RawElfHeader::from_bytes(&bytes);
 
         if raw.magic != [0x7F, 0x45, 0x4C, 0x46] {
-            return Err(ElfParseError::InvalidMagic);
+            return Err(ElfHeaderParseError::InvalidMagic);
         }
 
         let bitness = match u8::from_le_bytes(raw.bitness) {
             1 => Bitness::B32,
             2 => Bitness::B64,
-            i => return Err(ElfParseError::InvalidBitness(i)),
+            i => return Err(ElfHeaderParseError::InvalidBitness(i)),
         };
 
         let endianess = Endianess::try_from(u8::from_le_bytes(raw.endianess))?;
 
         let version = u8::from_le_bytes(raw.version);
         if version != 1 {
-            return Err(ElfParseError::InvalidVersion(version));
+            return Err(ElfHeaderParseError::InvalidVersion(version));
         }
 
         let abi = AbiType::try_from(u8::from_le_bytes(raw.abi))?;
@@ -128,7 +128,7 @@ impl ElfHeader {
 
         let version_orig = u32::from_le_bytes(raw.version_orig);
         if version_orig != 1 {
-            return Err(ElfParseError::InvalidVersionOrig(version_orig));
+            return Err(ElfHeaderParseError::InvalidVersionOrig(version_orig));
         }
 
         let entry = u64::from_le_bytes(raw.entry).into();
@@ -142,12 +142,12 @@ impl ElfHeader {
         match bitness {
             Bitness::B32 => {
                 if header_size != 52 {
-                    return Err(ElfParseError::InvalidSize(header_size));
+                    return Err(ElfHeaderParseError::InvalidSize(header_size));
                 }
             }
             Bitness::B64 => {
                 if header_size != 64 {
-                    return Err(ElfParseError::InvalidSize(header_size));
+                    return Err(ElfHeaderParseError::InvalidSize(header_size));
                 }
             }
             Bitness::B128 => unreachable!(),
