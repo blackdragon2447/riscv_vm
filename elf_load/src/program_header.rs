@@ -1,10 +1,10 @@
 use enumflags2::BitFlags;
 
-use crate::memory::Address;
+use crate::{error::ProgramHeaderParseError, Address};
 
 use super::{
     data::{ProgramFlags, ProgramType},
-    BitRanges, ProgramHeaderParseError,
+    BitRanges,
 };
 
 struct RawProgramHeader {
@@ -43,14 +43,14 @@ impl RawProgramHeader {
 
 #[derive(Debug)]
 pub struct ProgramHeader {
-    program_type: ProgramType,
-    flags: BitFlags<ProgramFlags>,
-    seg_offset: u64,
-    seg_v_addr: Address,
-    seg_p_addr: Address,
-    seg_f_size: Address,
-    seg_m_size: Address,
-    align: u64,
+    pub program_type: ProgramType,
+    pub flags: BitFlags<ProgramFlags>,
+    pub seg_offset: u64,
+    pub seg_v_addr: Address,
+    pub seg_p_addr: Address,
+    pub seg_f_size: Address,
+    pub seg_m_size: Address,
+    pub align: u64,
 }
 
 impl ProgramHeader {

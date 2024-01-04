@@ -1,8 +1,10 @@
 use enumflags2::BitFlags;
 
+use crate::{error::SectionHeaderParseError, Address};
+
 use super::{
     data::{SectionFlags, SectionType},
-    BitRanges, SectionHeaderParseError,
+    BitRanges,
 };
 
 struct RawSectionHeader {
@@ -45,24 +47,24 @@ impl RawSectionHeader {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum SectionName {
     Offset(u32),
     String(u32, String),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SectionHeader {
-    name: SectionName,
-    sec_type: SectionType,
-    flags: BitFlags<SectionFlags>,
-    sec_addr: u64,
-    sec_offset: u64,
-    sec_size: u64,
-    sec_link: u32,
-    sec_info: u32,
-    sec_align: u64,
-    sec_entry_size: Option<u64>,
+    pub name: SectionName,
+    pub sec_type: SectionType,
+    pub flags: BitFlags<SectionFlags>,
+    pub sec_addr: Address,
+    pub sec_offset: u64,
+    pub sec_size: u64,
+    pub sec_link: u32,
+    pub sec_info: u32,
+    pub sec_align: u64,
+    pub sec_entry_size: Option<u64>,
 }
 
 impl SectionHeader {
@@ -79,7 +81,7 @@ impl SectionHeader {
 
         let flags: BitFlags<SectionFlags> = BitFlags::from_bits(u64::from_le_bytes(raw.flags))?;
 
-        let sec_addr = u64::from_le_bytes(raw.sec_addr);
+        let sec_addr = u64::from_le_bytes(raw.sec_addr).into();
         let sec_offset = u64::from_le_bytes(raw.sec_offset);
         let sec_size = u64::from_le_bytes(raw.sec_size);
         let sec_link = u32::from_le_bytes(raw.sec_link);

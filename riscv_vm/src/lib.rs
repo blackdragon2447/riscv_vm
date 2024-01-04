@@ -4,9 +4,8 @@
 use instruction::Instruction;
 use registers::Register;
 
-pub mod elf_load;
 mod instruction;
-mod memory;
+pub mod memory;
 mod registers;
 #[cfg(test)]
 mod tests;
@@ -21,7 +20,7 @@ pub enum InstructionType {
     J,
 }
 
-fn decode(inst: u32) -> Instruction {
+pub fn decode(inst: u32) -> Instruction {
     if let Some((inst_type, opcode)) = get_type_and_opcode(inst) {
         match inst_type {
             InstructionType::R => {

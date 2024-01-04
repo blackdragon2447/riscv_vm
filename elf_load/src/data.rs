@@ -1,8 +1,6 @@
-use std::error::Error;
-
 use enumflags2::bitflags;
 
-use super::{ElfHeaderParseError, ProgramHeaderParseError, SectionHeaderParseError};
+use crate::error::{ElfHeaderParseError, ProgramHeaderParseError, SectionHeaderParseError};
 
 #[repr(u8)]
 #[derive(Debug)]
@@ -265,7 +263,7 @@ impl TryFrom<u16> for ASI {
 }
 
 #[repr(u32)]
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum ProgramType {
     Null = 0x00000000,
     Load = 0x00000001,
@@ -305,7 +303,7 @@ pub enum ProgramFlags {
 }
 
 #[repr(u32)]
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SectionType {
     Null = 0x0,
     Progbits = 0x1,

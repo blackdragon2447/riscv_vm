@@ -1,10 +1,10 @@
 use std::fmt::Debug;
 
-use crate::memory::Address;
+use crate::{error::ElfHeaderParseError, Address};
 
 use super::{
     data::{AbiType, Bitness, Endianess, ObjectType, ASI},
-    BitRanges, ElfHeaderParseError, ElfParseError,
+    BitRanges,
 };
 
 #[derive(Debug)]
