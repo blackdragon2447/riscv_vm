@@ -1,4 +1,9 @@
+use enumflags2::bitflags;
+
+use super::ElfParseError;
+
 #[repr(u8)]
+#[derive(Debug)]
 pub enum Bitness {
     B32 = 1,
     B64 = 2,
@@ -6,12 +11,26 @@ pub enum Bitness {
 }
 
 #[repr(u8)]
+#[derive(Debug)]
 pub enum Endianess {
     Little = 1,
     Big = 2,
 }
 
-#[repr(u16)]
+impl TryFrom<u8> for Endianess {
+    type Error = ElfParseError;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            1 => Ok(Endianess::Little),
+            2 => Ok(Endianess::Big),
+            _ => Err(ElfParseError::InvalidEndianess),
+        }
+    }
+}
+
+#[repr(u8)]
+#[derive(Debug)]
 pub enum AbiType {
     SystemV = 0x00,
     HpUx = 0x01,
@@ -33,17 +52,68 @@ pub enum AbiType {
     OpenVOS = 0x12,
 }
 
-#[repr(u8)]
+impl TryFrom<u8> for AbiType {
+    type Error = ElfParseError;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0x00 => Ok(AbiType::SystemV),
+            0x01 => Ok(AbiType::HpUx),
+            0x02 => Ok(AbiType::NetBSD),
+            0x03 => Ok(AbiType::Linux),
+            0x04 => Ok(AbiType::GnuHurd),
+            0x06 => Ok(AbiType::Solaris),
+            0x07 => Ok(AbiType::AIX),
+            0x08 => Ok(AbiType::IRIX),
+            0x09 => Ok(AbiType::FreeBSD),
+            0x0A => Ok(AbiType::Tru64),
+            0x0B => Ok(AbiType::NovellModesto),
+            0x0C => Ok(AbiType::OpenBSD),
+            0x0D => Ok(AbiType::OpenVMS),
+            0x0E => Ok(AbiType::NonStopKernel),
+            0x0F => Ok(AbiType::AROS),
+            0x10 => Ok(AbiType::FenixOS),
+            0x11 => Ok(AbiType::NuxiCloudABI),
+            0x12 => Ok(AbiType::OpenVOS),
+            _ => Err(ElfParseError::InvalidAbi(value)),
+        }
+    }
+}
+
+#[repr(u16)]
+#[derive(Debug)]
 pub enum ObjectType {
     None = 0x00,
     Rel = 0x01,
     Exec = 0x02,
     Dyn = 0x03,
     Core = 0x04,
+    /// Ramge 0xFE00..0xFEFF
+    Os(u16) = 0xFE00,
+    /// Ramge 0xFF00..0xFFFF
+    Proc(u16) = 0xFF00,
+}
+
+impl TryFrom<u16> for ObjectType {
+    type Error = ElfParseError;
+
+    fn try_from(value: u16) -> Result<Self, Self::Error> {
+        match value {
+            0x00 => Ok(ObjectType::None),
+            0x01 => Ok(ObjectType::Rel),
+            0x02 => Ok(ObjectType::Exec),
+            0x03 => Ok(ObjectType::Dyn),
+            0x04 => Ok(ObjectType::Core),
+            0xFE00..=0xFEFF => Ok(ObjectType::Os(value)),
+            0xFF00..=0xFFFF => Ok(ObjectType::Proc(value)),
+            _ => Err(ElfParseError::InvalidObjType(value)),
+        }
+    }
 }
 
 #[repr(u16)]
-pub enum Architecture {
+#[derive(Debug)]
+pub enum ASI {
     None = 0x00,
     ATnT = 0x01,
     SPARC = 0x02,
@@ -113,6 +183,85 @@ pub enum Architecture {
     WDC65C816 = 0x101,
 }
 
+impl TryFrom<u16> for ASI {
+    type Error = ElfParseError;
+
+    fn try_from(value: u16) -> Result<Self, Self::Error> {
+        match value {
+            0x00 => Ok(ASI::None),
+            0x01 => Ok(ASI::ATnT),
+            0x02 => Ok(ASI::SPARC),
+            0x03 => Ok(ASI::X86),
+            0x04 => Ok(ASI::M68k),
+            0x05 => Ok(ASI::M88k),
+            0x06 => Ok(ASI::IntelMCU),
+            0x07 => Ok(ASI::Intel80860),
+            0x08 => Ok(ASI::MIPS),
+            0x09 => Ok(ASI::IBMSystem370),
+            0x0A => Ok(ASI::MIPSRS3000LE),
+            0x0B..=0x0E => Err(ElfParseError::ReservedASI),
+            0x0F => Ok(ASI::HPPARISC),
+            0x13 => Ok(ASI::Intel80960),
+            0x14 => Ok(ASI::PowerPC32),
+            0x15 => Ok(ASI::PowerPC64),
+            0x16 => Ok(ASI::S390),
+            0x17 => Ok(ASI::IBMSPUSPC),
+            0x18..=0x23 => Err(ElfParseError::ReservedASI),
+            0x24 => Ok(ASI::NECV800),
+            0x25 => Ok(ASI::FujitsuFR20),
+            0x27 => Ok(ASI::MotorolaRCE),
+            0x28 => Ok(ASI::Arm),
+            0x29 => Ok(ASI::DigitalAlpha),
+            0x2A => Ok(ASI::SuperH),
+            0x2B => Ok(ASI::SPARCV9),
+            0x2C => Ok(ASI::SiemensTRiCore),
+            0x2D => Ok(ASI::ArgonautRISC),
+            0x2E => Ok(ASI::HitachiH8300),
+            0x2F => Ok(ASI::HitachiH8300H),
+            0x30 => Ok(ASI::HitachiH8S),
+            0x31 => Ok(ASI::HitachiH8500),
+            0x32 => Ok(ASI::IA64),
+            0x33 => Ok(ASI::StanfordMIPSX),
+            0x34 => Ok(ASI::MotorolaColfFire),
+            0x35 => Ok(ASI::MotorolaM68HC12),
+            0x36 => Ok(ASI::FujitsuMMA),
+            0x37 => Ok(ASI::SiemensPCP),
+            0x38 => Ok(ASI::SonynCPUembeddedRISC),
+            0x39 => Ok(ASI::DensoNDR1),
+            0x3A => Ok(ASI::MotorolaStar),
+            0x3B => Ok(ASI::ToyotaME16),
+            0x3C => Ok(ASI::STMicroelectronicsST100),
+            0x3D => Ok(ASI::AdvancedLogicCorpTinyJ),
+            0x3E => Ok(ASI::AMDx86_64),
+            0x3F => Ok(ASI::SonyDSP),
+            0x40 => Ok(ASI::DigitalEquipmentCorpPDP10),
+            0x41 => Ok(ASI::DigitalEquipmentCorpPDP11),
+            0x42 => Ok(ASI::SiemensFX66),
+            0x43 => Ok(ASI::STMicroelectronicsST9_8_16bit),
+            0x44 => Ok(ASI::STMicroelectronicsST7_8bit),
+            0x45 => Ok(ASI::MotorolaMC68HC16),
+            0x46 => Ok(ASI::MotorolaMC68HC11),
+            0x47 => Ok(ASI::MotorolaMC68HC08),
+            0x48 => Ok(ASI::MotorolaMC68HC05),
+            0x49 => Ok(ASI::SiliconGraphicsSVx),
+            0x4A => Ok(ASI::STMicroelectronicsST19_8bit),
+            0x4B => Ok(ASI::DigitalVAX),
+            0x4C => Ok(ASI::AxisCommunications32bit),
+            0x4D => Ok(ASI::InfineonTechnologies32bit),
+            0x4E => Ok(ASI::Element14_64bitDSP),
+            0x4F => Ok(ASI::LSILogic16bitDSP),
+            0x8C => Ok(ASI::TMS320C6000),
+            0xAF => Ok(ASI::MCSTElbruse2k),
+            0xB7 => Ok(ASI::Arm64bits),
+            0xDC => Ok(ASI::ZilogZ80),
+            0xF3 => Ok(ASI::RISCV),
+            0xF7 => Ok(ASI::BerkeleyPacketFilter),
+            0x101 => Ok(ASI::WDC65C816),
+            _ => Err(ElfParseError::InvalidASI),
+        }
+    }
+}
+
 #[repr(u32)]
 pub enum ProgramType {
     Null = 0x00000000,
@@ -123,6 +272,8 @@ pub enum ProgramType {
 }
 
 #[repr(u32)]
+#[bitflags]
+#[derive(Clone, Copy)]
 pub enum ProgramFlags {
     Exec = 0x1,
     Write = 0x2,
@@ -152,6 +303,8 @@ pub enum SectionType {
 }
 
 #[repr(u64)]
+#[bitflags]
+#[derive(Clone, Copy)]
 pub enum SectionFlags {
     Write = 0x1,
     Alloc = 0x2,

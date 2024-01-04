@@ -1,6 +1,6 @@
 use super::data::{SectionFlags, SectionType};
 
-pub struct RawSectionHeader {
+struct RawSectionHeader {
     // 0x00 : 4
     name: [u8; 4],
     // 0x04 : 4

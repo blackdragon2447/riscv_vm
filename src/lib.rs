@@ -4,7 +4,7 @@
 use instruction::Instruction;
 use registers::Register;
 
-mod elf_load;
+pub mod elf_load;
 mod instruction;
 mod registers;
 #[cfg(test)]

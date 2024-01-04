@@ -19,7 +19,7 @@ struct RawProgramHeader {
     align: [u8; 8],
 }
 
-struct ProgramHeader {
+pub struct ProgramHeader {
     program_type: ProgramType,
     flasgs: ProgramFlags,
     seg_offset: u64,
