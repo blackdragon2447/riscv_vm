@@ -3,7 +3,7 @@ use enumflags2::bitflags;
 use crate::error::{ElfHeaderParseError, ProgramHeaderParseError, SectionHeaderParseError};
 
 #[repr(u8)]
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Bitness {
     B32 = 1,
     B64 = 2,
@@ -11,7 +11,7 @@ pub enum Bitness {
 }
 
 #[repr(u8)]
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Endianess {
     Little = 1,
     Big = 2,
@@ -30,7 +30,7 @@ impl TryFrom<u8> for Endianess {
 }
 
 #[repr(u8)]
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum AbiType {
     SystemV = 0x00,
     HpUx = 0x01,
@@ -81,7 +81,7 @@ impl TryFrom<u8> for AbiType {
 }
 
 #[repr(u16)]
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum ObjectType {
     None = 0x00,
     Rel = 0x01,
@@ -112,7 +112,7 @@ impl TryFrom<u16> for ObjectType {
 }
 
 #[repr(u16)]
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum ASI {
     None = 0x00,
     ATnT = 0x01,

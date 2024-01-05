@@ -1,7 +1,4 @@
-use crate::{
-    data::{ProgramType, SectionType},
-    section_header::SectionName,
-};
+use crate::{data::SectionType, section_header::SectionName};
 
 use self::{program_header::ProgramHeader, section_header::SectionHeader};
 use elf_header::ElfHeader;
@@ -13,6 +10,8 @@ pub mod elf_header;
 pub mod error;
 pub mod program_header;
 pub mod section_header;
+#[cfg(test)]
+mod tests;
 
 pub struct Elf {
     pub header: elf_header::ElfHeader,
@@ -87,13 +86,13 @@ impl Elf {
     }
 }
 
-pub trait BitRanges {
+pub trait ByteRanges {
     fn get_bytes(&self, offset: u64, size: u64) -> &[u8];
 
     fn get_bytes_copy<const SIZE: usize>(&self, offset: u64) -> [u8; SIZE];
 }
 
-impl BitRanges for Vec<u8> {
+impl ByteRanges for Vec<u8> {
     fn get_bytes(&self, offset: u64, size: u64) -> &[u8] {
         let slice = &self[(offset as usize)..((offset + size) as usize)];
         slice
@@ -106,7 +105,7 @@ impl BitRanges for Vec<u8> {
     }
 }
 
-impl BitRanges for &[u8] {
+impl ByteRanges for &[u8] {
     fn get_bytes(&self, offset: u64, size: u64) -> &[u8] {
         let slice = &self[(offset as usize)..((offset + size) as usize)];
         slice
@@ -119,7 +118,20 @@ impl BitRanges for &[u8] {
     }
 }
 
-#[derive(Clone, Copy)]
+impl<const MEM_SIZE: usize> ByteRanges for [u8; MEM_SIZE] {
+    fn get_bytes(&self, offset: u64, size: u64) -> &[u8] {
+        let slice = &self[(offset as usize)..((offset + size) as usize)];
+        slice
+    }
+
+    fn get_bytes_copy<const SIZE: usize>(&self, offset: u64) -> [u8; SIZE] {
+        let mut buffer: [u8; SIZE] = [0; SIZE];
+        buffer.copy_from_slice(self.get_bytes(offset, SIZE as u64));
+        return buffer;
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Address(pub u64);
 
 impl Debug for Address {

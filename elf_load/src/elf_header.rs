@@ -4,7 +4,7 @@ use crate::{error::ElfHeaderParseError, Address};
 
 use super::{
     data::{AbiType, Bitness, Endianess, ObjectType, ASI},
-    BitRanges,
+    ByteRanges,
 };
 
 #[derive(Debug)]
@@ -77,7 +77,7 @@ impl RawElfHeader {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct ElfHeader {
     pub bitness: Bitness,
     pub endianess: Endianess,

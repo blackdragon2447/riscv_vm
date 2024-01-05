@@ -4,7 +4,7 @@ use crate::{error::ProgramHeaderParseError, Address};
 
 use super::{
     data::{ProgramFlags, ProgramType},
-    BitRanges,
+    ByteRanges,
 };
 
 struct RawProgramHeader {
@@ -41,7 +41,7 @@ impl RawProgramHeader {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct ProgramHeader {
     pub program_type: ProgramType,
     pub flags: BitFlags<ProgramFlags>,

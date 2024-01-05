@@ -4,7 +4,7 @@ use crate::{error::SectionHeaderParseError, Address};
 
 use super::{
     data::{SectionFlags, SectionType},
-    BitRanges,
+    ByteRanges,
 };
 
 struct RawSectionHeader {
@@ -47,13 +47,13 @@ impl RawSectionHeader {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SectionName {
     Offset(u32),
     String(u32, String),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SectionHeader {
     pub name: SectionName,
     pub sec_type: SectionType,

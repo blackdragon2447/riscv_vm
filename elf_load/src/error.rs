@@ -2,7 +2,7 @@ use std::string::FromUtf8Error;
 
 use enumflags2::{BitFlag, FromBitsError};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum ElfHeaderParseError {
     InvalidMagic,
     InvalidBitness(u8),
@@ -16,7 +16,7 @@ pub enum ElfHeaderParseError {
     InvalidSize(u16),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum ProgramHeaderParseError {
     InvalidProgramType(u32),
     InvalidFlags,
@@ -28,7 +28,7 @@ impl<T: BitFlag> From<FromBitsError<T>> for ProgramHeaderParseError {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum SectionHeaderParseError {
     InvalidSectionType(u32),
     InvalidFlags,
