@@ -1,10 +1,9 @@
 #![allow(dead_code)]
 #![allow(unused)]
 
-use registers::Register;
-
 pub mod decode;
+mod hart;
 pub mod memory;
-mod registers;
 #[cfg(test)]
 mod tests;
+pub mod vmstate;

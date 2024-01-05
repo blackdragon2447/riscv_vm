@@ -1,10 +1,16 @@
 use std::{
     fmt::Debug,
-    ops::{Add, Sub},
+    ops::{Add, AddAssign, Sub},
     vec,
 };
 
 use elf_load::ByteRanges;
+
+use registers::IntRegister;
+
+pub mod registers;
+#[cfg(test)]
+mod tests;
 
 #[derive(Clone, Copy)]
 pub struct Address(u64);
@@ -12,6 +18,7 @@ pub struct Address(u64);
 pub const KB: usize = 1024;
 pub const MB: usize = 1024 * KB;
 
+#[derive(Debug)]
 pub struct Memory<const SIZE: usize> {
     mem: [u8; SIZE],
     mem_start: Address,
@@ -26,9 +33,8 @@ pub enum MemoryError {
 
 impl<const SIZE: usize> Memory<SIZE> {
     pub fn new() -> Self {
-        let mem = [0; SIZE];
         Self {
-            mem,
+            mem: [0; SIZE],
             mem_start: 0x80000000.into(),
         }
     }
@@ -54,6 +60,8 @@ impl<const SIZE: usize> Memory<SIZE> {
             Err(MemoryError::OutOfBoundsRead)
         }
     }
+
+    pub fn write_reg(&mut self) {}
 }
 
 impl Debug for Address {
@@ -67,6 +75,12 @@ impl Add for Address {
 
     fn add(self, rhs: Self) -> Self::Output {
         Self(self.0 + rhs.0)
+    }
+}
+
+impl AddAssign for Address {
+    fn add_assign(&mut self, rhs: Self) {
+        self.0 += rhs.0
     }
 }
 
