@@ -4,52 +4,54 @@ use std::{
     vec,
 };
 
-use elf_load::BitRanges;
+use elf_load::ByteRanges;
 
 #[derive(Clone, Copy)]
 pub struct Address(u64);
 
-const KB: usize = 1024;
-const MB: usize = 1024 ^ 2;
+pub const KB: usize = 1024;
+pub const MB: usize = 1024 * KB;
 
-pub struct Memory {
-    mem: Vec<u8>,
+pub struct Memory<const SIZE: usize> {
+    mem: [u8; SIZE],
     mem_start: Address,
 }
 
-impl Memory {
-    pub fn new_kb(size: usize) -> Self {
-        let mut mem = Vec::new();
-        mem.resize(size * KB, 0);
+#[derive(Debug)]
+pub enum MemoryError {
+    OutOfBoundsWrite,
+    OutOfBoundsRead,
+    OutOfMemory,
+}
+
+impl<const SIZE: usize> Memory<SIZE> {
+    pub fn new() -> Self {
+        let mem = [0; SIZE];
         Self {
             mem,
             mem_start: 0x80000000.into(),
         }
     }
 
-    pub fn new_mb(size: usize) -> Self {
-        let mut mem = Vec::new();
-        mem.resize(size * MB, 0);
-        Self {
-            mem,
-            mem_start: 0x80000000.into(),
-        }
-    }
-
-    pub fn write_bytes(&mut self, bytes: &[u8], addr: Address) {
+    pub fn write_bytes(&mut self, bytes: &[u8], addr: Address) -> Result<(), MemoryError> {
         let idx = addr - self.mem_start;
-        if <Address as Into<usize>>::into(idx) + bytes.len() < self.mem.len() {
-            self.mem[idx.into()..(<Address as Into<usize>>::into(idx) + bytes.len())]
-                .copy_from_slice(bytes);
+        if <Address as Into<usize>>::into(idx) > self.mem.len() {
+            return Err(MemoryError::OutOfBoundsWrite);
         }
+        if <Address as Into<usize>>::into(idx) + bytes.len() > self.mem.len() {
+            return Err(MemoryError::OutOfMemory);
+        }
+        self.mem[idx.into()..(<Address as Into<usize>>::into(idx) + bytes.len())]
+            .copy_from_slice(bytes);
+        Ok(())
     }
 
-    pub fn read_bytes(&self, addr: Address, size: usize) -> Option<&[u8]> {
+    pub fn read_bytes(&self, addr: Address, size: usize) -> Result<&[u8], MemoryError> {
         let idx = addr - self.mem_start;
         if <Address as Into<usize>>::into(idx) + size < self.mem.len() {
-            Some(&self.mem.get_bytes(idx.into(), size as u64))
+            Ok(&self.mem.get_bytes(idx.into(), size as u64))
         } else {
-            None
+            Err(MemoryError::OutOfBoundsRead)
         }
     }
 }
