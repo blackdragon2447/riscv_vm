@@ -58,7 +58,7 @@ impl<const SIZE: usize> Memory<SIZE> {
         if (self.mem_range.contains(&addr)) {
             let idx = addr - self.mem_range.start;
             if <Address as Into<usize>>::into(idx) + size < self.mem.len() {
-                Ok(&self.mem.get_bytes(idx.into(), size as u64))
+                Ok(self.mem.get_bytes(idx.into(), size as u64))
             } else {
                 Err(MemoryError::OutOfBoundsRead)
             }

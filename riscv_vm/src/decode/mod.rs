@@ -183,7 +183,7 @@ pub fn decode(inst: u32) -> Instruction {
                         imm,
                     },
                     (0b0010011, 0b001) => {
-                        let shamt = (imm & 0b11_1111).try_into().unwrap();
+                        let shamt = (imm & 0b11_1111);
                         Instruction::SLLI {
                             rd: rd.into(),
                             rs1: rs1.into(),
@@ -191,7 +191,7 @@ pub fn decode(inst: u32) -> Instruction {
                         }
                     }
                     (0b0010011, 0b101) => {
-                        let shamt = (imm & 0b11_1111).try_into().unwrap();
+                        let shamt = (imm & 0b11_1111);
                         match imm & 0b1111_1100_0000 {
                             0b0000000 => Instruction::SRLI {
                                 rd: rd.into(),
@@ -212,7 +212,7 @@ pub fn decode(inst: u32) -> Instruction {
                         imm,
                     },
                     (0b0011011, 0b001) => {
-                        let shamt = (imm & 0b11_1111).try_into().unwrap();
+                        let shamt = (imm & 0b11_1111);
                         Instruction::SLLIW {
                             rd: rd.into(),
                             rs1: rs1.into(),
@@ -220,7 +220,7 @@ pub fn decode(inst: u32) -> Instruction {
                         }
                     }
                     (0b0011011, 0b101) => {
-                        let shamt = (imm & 0b11_1111).try_into().unwrap();
+                        let shamt = (imm & 0b11_1111);
                         match imm & 0b1111_1100_0000 {
                             0b0000000 => Instruction::SRLIW {
                                 rd: rd.into(),

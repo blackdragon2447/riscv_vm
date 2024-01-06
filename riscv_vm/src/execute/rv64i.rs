@@ -7,7 +7,7 @@ pub(super) fn ld<const SIZE: usize>(
     rs1: &i64,
     imm: i32,
 ) {
-    let imm = ((imm << 20) as i32) >> 20;
+    let imm = (imm << 20) >> 20;
     let bytes = mem
         .read_bytes(rs1.overflowing_add(imm.into()).0.into(), 8)
         .unwrap();
@@ -23,7 +23,7 @@ pub(super) fn lwu<const SIZE: usize>(
     rs1: &i64,
     imm: i32,
 ) {
-    let imm = ((imm << 20) as i32) >> 20;
+    let imm = (imm << 20) >> 20;
     let bytes = mem
         .read_bytes(rs1.overflowing_add(imm.into()).0.into(), 4)
         .unwrap();
@@ -39,7 +39,7 @@ pub(super) fn sd<const SIZE: usize>(
     rs2: &i64,
     imm: i32,
 ) {
-    let imm = ((imm << 20) as i32) >> 20;
+    let imm = (imm << 20) >> 20;
     mem.write_bytes(
         &rs2.to_le_bytes()[0..8],
         rs1.overflowing_add(imm.into()).0.into(),
@@ -48,7 +48,7 @@ pub(super) fn sd<const SIZE: usize>(
 
 pub(super) fn addiw(_: &Hart, rd: &mut i64, rs1: &i64, imm: i32) {
     let imm = (imm << 20) >> 20;
-    *rd = (*rs1 as i32).overflowing_add(imm.into()).0 as i64;
+    *rd = (*rs1 as i32).overflowing_add(imm).0 as i64;
 }
 
 pub(super) fn sltiw(_: &Hart, rd: &mut i64, rs1: &i64, imm: i32) {

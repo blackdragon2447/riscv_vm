@@ -78,7 +78,7 @@ where
     let rs1 = hart.get_reg(rs1);
     let rs2 = hart.get_reg(rs2);
     let mut rdv = 0;
-    executor(&hart, &mut rdv, &rs1, &rs2);
+    executor(hart, &mut rdv, &rs1, &rs2);
     hart.set_reg(rd, rdv);
     hart.inc_pc();
 }
@@ -89,7 +89,7 @@ where
 {
     let rs1 = hart.get_reg(rs1);
     let mut rdv = 0;
-    executor(&hart, &mut rdv, &rs1, imm);
+    executor(hart, &mut rdv, &rs1, imm);
     hart.set_reg(rd, rdv);
     hart.inc_pc();
 }
@@ -100,7 +100,7 @@ where
 {
     let rs1 = hart.get_reg(rs1);
     let mut rdv = 0;
-    executor(&hart, &mut rdv, &rs1, shamt);
+    executor(hart, &mut rdv, &rs1, shamt);
     hart.set_reg(rd, rdv);
     hart.inc_pc();
 }
@@ -117,7 +117,7 @@ fn i_type_mem_access<E, const SIZE: usize>(
 {
     let rs1 = hart.get_reg(rs1);
     let mut rdv = 0;
-    executor(&hart, mem, &mut rdv, &rs1, imm);
+    executor(hart, mem, &mut rdv, &rs1, imm);
     hart.set_reg(rd, rdv);
     hart.inc_pc();
 }
@@ -138,7 +138,7 @@ where
 {
     let rs1 = hart.get_reg(rs1);
     let rs2 = hart.get_reg(rs2);
-    executor(&hart, &rs1, &rs2, imm);
+    executor(hart, &rs1, &rs2, imm);
     hart.inc_pc();
 }
 
@@ -154,7 +154,7 @@ fn s_type_mem_access<E, const SIZE: usize>(
 {
     let rs1 = hart.get_reg(rs1);
     let rs2 = hart.get_reg(rs2);
-    executor(&hart, mem, &rs1, &rs2, imm);
+    executor(hart, mem, &rs1, &rs2, imm);
     hart.inc_pc();
 }
 

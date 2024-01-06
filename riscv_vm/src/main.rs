@@ -1,11 +1,7 @@
-use std::{fs, io::stdin, ops::RangeBounds};
+use std::{fs, io::stdin};
 
 use elf_load::Elf;
-use riscv_vm::{
-    decode::decode,
-    memory::{address::Address, MB},
-    vmstate::VMState,
-};
+use riscv_vm::{memory::MB, vmstate::VMState};
 
 fn main() {
     let bytes = fs::read("./test_os/os.elf").unwrap();
