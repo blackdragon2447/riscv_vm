@@ -1,6 +1,6 @@
 #[derive(Debug)]
 pub struct Registers {
-    registers: [u64; 32],
+    registers: [i64; 32],
 }
 
 impl Registers {
@@ -8,11 +8,11 @@ impl Registers {
         Self { registers: [0; 32] }
     }
 
-    pub fn get(&self, register: IntRegister) -> u64 {
+    pub fn get(&self, register: IntRegister) -> i64 {
         self.registers[register as usize]
     }
 
-    pub fn set(&mut self, register: IntRegister, value: u64) {
+    pub fn set(&mut self, register: IntRegister, value: i64) {
         match register {
             IntRegister::X0 => {}
             register => self.registers[register as usize] = value,

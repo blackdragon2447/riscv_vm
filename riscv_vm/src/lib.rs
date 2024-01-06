@@ -2,6 +2,7 @@
 #![allow(unused)]
 
 pub mod decode;
+mod execute;
 mod hart;
 pub mod memory;
 #[cfg(test)]

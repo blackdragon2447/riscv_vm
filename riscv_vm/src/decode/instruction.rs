@@ -4,42 +4,42 @@ use crate::memory::registers::IntRegister;
 pub enum Instruction {
     LUI {
         rd: IntRegister,
-        imm: u32,
+        imm: i32,
     },
     AUIPC {
         rd: IntRegister,
-        imm: u32,
+        imm: i32,
     },
 
     JAL {
         rd: IntRegister,
-        imm: u32,
+        imm: i32,
     },
     JALR {
         rd: IntRegister,
         rs1: IntRegister,
-        imm: u32,
+        imm: i32,
     },
 
     BEQ {
         rs1: IntRegister,
         rs2: IntRegister,
-        imm: u32,
+        imm: i32,
     },
     BNE {
         rs1: IntRegister,
         rs2: IntRegister,
-        imm: u32,
+        imm: i32,
     },
     BLT {
         rs1: IntRegister,
         rs2: IntRegister,
-        imm: u32,
+        imm: i32,
     },
     BGE {
         rs1: IntRegister,
         rs2: IntRegister,
-        imm: u32,
+        imm: i32,
     },
     BLTU {
         rs1: IntRegister,
@@ -55,68 +55,68 @@ pub enum Instruction {
     LB {
         rd: IntRegister,
         rs1: IntRegister,
-        imm: u32,
+        imm: i32,
     },
     LH {
         rd: IntRegister,
         rs1: IntRegister,
-        imm: u32,
+        imm: i32,
     },
     LW {
         rd: IntRegister,
         rs1: IntRegister,
-        imm: u32,
+        imm: i32,
     },
     LD {
         rd: IntRegister,
         rs1: IntRegister,
-        imm: u32,
+        imm: i32,
     },
     LBU {
         rd: IntRegister,
         rs1: IntRegister,
-        imm: u32,
+        imm: i32,
     },
     LHU {
         rd: IntRegister,
         rs1: IntRegister,
-        imm: u32,
+        imm: i32,
     },
     LWU {
         rd: IntRegister,
         rs1: IntRegister,
-        imm: u32,
+        imm: i32,
     },
     SB {
         rs1: IntRegister,
         rs2: IntRegister,
-        imm: u32,
+        imm: i32,
     },
     SH {
         rs1: IntRegister,
         rs2: IntRegister,
-        imm: u32,
+        imm: i32,
     },
     SW {
         rs1: IntRegister,
         rs2: IntRegister,
-        imm: u32,
+        imm: i32,
     },
     SD {
         rs1: IntRegister,
         rs2: IntRegister,
-        imm: u32,
+        imm: i32,
     },
 
     ADDI {
         rd: IntRegister,
         rs1: IntRegister,
-        imm: u32,
+        imm: i32,
     },
     SLTI {
         rd: IntRegister,
         rs1: IntRegister,
-        imm: u32,
+        imm: i32,
     },
     SLTIU {
         rd: IntRegister,
@@ -126,17 +126,17 @@ pub enum Instruction {
     XORI {
         rd: IntRegister,
         rs1: IntRegister,
-        imm: u32,
+        imm: i32,
     },
     ORI {
         rd: IntRegister,
         rs1: IntRegister,
-        imm: u32,
+        imm: i32,
     },
     ANDI {
         rd: IntRegister,
         rs1: IntRegister,
-        imm: u32,
+        imm: i32,
     },
     SLLI {
         rd: IntRegister,
@@ -205,6 +205,32 @@ pub enum Instruction {
         rs2: IntRegister,
     },
 
+    ADDIW {
+        rd: IntRegister,
+        rs1: IntRegister,
+        imm: i32,
+    },
+    SLTIW {
+        rd: IntRegister,
+        rs1: IntRegister,
+        imm: i32,
+    },
+    SLLIW {
+        rd: IntRegister,
+        rs1: IntRegister,
+        shamt: i32,
+    },
+    SRLIW {
+        rd: IntRegister,
+        rs1: IntRegister,
+        shamt: i32,
+    },
+    SRAIW {
+        rd: IntRegister,
+        rs1: IntRegister,
+        shamt: i32,
+    },
+
     ADDW {
         rd: IntRegister,
         rs1: IntRegister,
@@ -236,41 +262,15 @@ pub enum Instruction {
         rs2: IntRegister,
     },
 
-    ADDIW {
-        rd: IntRegister,
-        rs1: IntRegister,
-        imm: u32,
-    },
-    SLTIW {
-        rd: IntRegister,
-        rs1: IntRegister,
-        imm: u32,
-    },
-    SLLIW {
-        rd: IntRegister,
-        rs1: IntRegister,
-        shamt: i32,
-    },
-    SRLIW {
-        rd: IntRegister,
-        rs1: IntRegister,
-        shamt: i32,
-    },
-    SRAIW {
-        rd: IntRegister,
-        rs1: IntRegister,
-        shamt: i32,
-    },
-
     FENCE {
         rd: IntRegister,
         rs1: IntRegister,
-        imm: u32,
+        imm: i32,
     },
     ECALL,
     EBREAK,
 
-    Undifined,
+    Undifined(u32),
 }
 
 macro_rules! r_type {

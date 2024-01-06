@@ -7,8 +7,9 @@ use elf_load::{
 
 use crate::{
     decode::decode,
+    execute::execute,
     hart::Hart,
-    memory::{Address, Memory, MemoryError},
+    memory::{address::Address, Memory, MemoryError},
 };
 
 pub struct VMState<const MEM_SIZE: usize> {
@@ -70,7 +71,7 @@ impl<const MEM_SIZE: usize> VMState<MEM_SIZE> {
                 self.mem.read_bytes(hart.get_pc(), 4)?.try_into().unwrap(),
             ));
             dbg!(inst);
-            hart.inc_pc();
+            execute(hart, &mut self.mem, inst);
         }
 
         Ok(())

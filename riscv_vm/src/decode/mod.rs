@@ -1,6 +1,6 @@
 use self::instruction::Instruction;
 
-mod instruction;
+pub mod instruction;
 #[cfg(test)]
 mod tests;
 
@@ -100,7 +100,7 @@ pub fn decode(inst: u32) -> Instruction {
                         rs1: rs1.into(),
                         rs2: rs2.into(),
                     },
-                    _ => Instruction::Undifined,
+                    _ => Instruction::Undifined(inst),
                 }
             }
             InstructionType::I => {
@@ -109,7 +109,7 @@ pub fn decode(inst: u32) -> Instruction {
                 let rs1 = (inst & masks::RS1_MASK) >> 15;
                 let imm11_0 = (inst & masks::IMM11_0_MASK) >> 20;
 
-                let imm = imm11_0;
+                let imm = imm11_0 as i32;
 
                 match (opcode, funct3) {
                     (0b1100111, 0b000) => Instruction::JALR {
@@ -165,7 +165,7 @@ pub fn decode(inst: u32) -> Instruction {
                     (0b0010011, 0b011) => Instruction::SLTIU {
                         rd: rd.into(),
                         rs1: rs1.into(),
-                        imm,
+                        imm: imm as u32,
                     },
                     (0b0010011, 0b100) => Instruction::XORI {
                         rd: rd.into(),
@@ -245,13 +245,13 @@ pub fn decode(inst: u32) -> Instruction {
                             match imm {
                                 0 => Instruction::ECALL,
                                 1 => Instruction::EBREAK,
-                                _ => Instruction::Undifined,
+                                _ => Instruction::Undifined(inst),
                             }
                         } else {
-                            Instruction::Undifined
+                            Instruction::Undifined(inst)
                         }
                     }
-                    _ => Instruction::Undifined,
+                    _ => Instruction::Undifined(inst),
                 }
             }
             InstructionType::S => {
@@ -261,30 +261,30 @@ pub fn decode(inst: u32) -> Instruction {
                 let rs2 = (inst & masks::RS2_MASK) >> 20;
                 let imm11_5 = (inst & masks::FUNCT7_MASK) >> 25;
 
-                let imm = imm4_0 | (imm11_5 << 5);
+                let imm = (imm4_0 | (imm11_5 << 5)) as i32;
 
                 match (opcode, funct3) {
-                    (0b0100011, 000) => Instruction::SB {
+                    (0b0100011, 0b000) => Instruction::SB {
                         rs1: rs1.into(),
                         rs2: rs2.into(),
                         imm,
                     },
-                    (0b0100011, 001) => Instruction::SH {
+                    (0b0100011, 0b001) => Instruction::SH {
                         rs1: rs1.into(),
                         rs2: rs2.into(),
                         imm,
                     },
-                    (0b0100011, 010) => Instruction::SW {
+                    (0b0100011, 0b010) => Instruction::SW {
                         rs1: rs1.into(),
                         rs2: rs2.into(),
                         imm,
                     },
-                    (0b0100011, 011) => Instruction::SD {
+                    (0b0100011, 0b011) => Instruction::SD {
                         rs1: rs1.into(),
                         rs2: rs2.into(),
                         imm,
                     },
-                    _ => Instruction::Undifined,
+                    _ => Instruction::Undifined(inst),
                 }
             }
             InstructionType::B => {
@@ -299,7 +299,9 @@ pub fn decode(inst: u32) -> Instruction {
                 let imm12 = imm12_10_5 & 0b1000000;
                 let imm10_5 = imm12_10_5 & 0b0111111;
 
-                let imm = (imm4_1 << 1) | (imm12_10_5 << 4) | (imm11 << 11) | (imm12 << 12);
+                let imm = (((imm4_1 | (imm12_10_5 << 5) | (imm11 << 11) | (imm12 << 6)) as i32)
+                    << 19)
+                    >> 19;
 
                 match (opcode, funct3) {
                     (0b1100011, 0b000) => Instruction::BEQ {
@@ -325,47 +327,47 @@ pub fn decode(inst: u32) -> Instruction {
                     (0b1100011, 0b110) => Instruction::BLTU {
                         rs1: rs1.into(),
                         rs2: rs2.into(),
-                        imm,
+                        imm: imm as u32,
                     },
                     (0b1100011, 0b111) => Instruction::BGEU {
                         rs1: rs1.into(),
                         rs2: rs2.into(),
-                        imm,
+                        imm: imm as u32,
                     },
-                    _ => Instruction::Undifined,
+                    _ => Instruction::Undifined(inst),
                 }
             }
             InstructionType::U => {
                 let rd = (inst & masks::RD_MASK) >> 7;
                 let imm32_12 = inst & masks::IMM31_12_MASK;
 
-                let imm = imm32_12;
+                let imm = imm32_12 as i32;
 
                 match opcode {
                     0b0110111 => Instruction::LUI { rd: rd.into(), imm },
                     0b0010111 => Instruction::AUIPC { rd: rd.into(), imm },
-                    _ => Instruction::Undifined,
+                    _ => Instruction::Undifined(inst),
                 }
             }
             InstructionType::J => {
                 let rd = (inst & masks::RD_MASK) >> 7;
-                let imm20_10_1_11_19_12 = inst & masks::IMM31_12_MASK >> 12;
+                let imm20_10_1_11_19_12 = (inst & masks::IMM31_12_MASK) >> 12;
 
-                let imm20 = imm20_10_1_11_19_12 & 0b1000_0000_0000_0000_0000;
-                let imm10_1 = imm20_10_1_11_19_12 & 0b0111_1111_1110_0000_0000;
-                let imm11 = imm20_10_1_11_19_12 & 0b0000_0000_0001_0000_0000;
-                let imm12_19 = imm20_10_1_11_19_12 & 0b0000_0000_0000_1111_1111;
+                let imm20 = (imm20_10_1_11_19_12 & 0b1000_0000_0000_0000_0000) << 1;
+                let imm10_1 = (imm20_10_1_11_19_12 & 0b0111_1111_1110_0000_0000) >> 8;
+                let imm11 = (imm20_10_1_11_19_12 & 0b0000_0000_0001_0000_0000) << 3;
+                let imm12_19 = (imm20_10_1_11_19_12 & 0b0000_0000_0000_1111_1111) << 12;
 
-                let imm = (imm10_1 << 1) | (imm11 << 11) | (imm12_19 << 12) | (imm20 << 20);
+                let imm = (imm10_1 | imm11 | imm12_19 | imm20) as i32;
 
                 match opcode {
                     0b1101111 => Instruction::JAL { rd: rd.into(), imm },
-                    _ => Instruction::Undifined,
+                    _ => Instruction::Undifined(inst),
                 }
             }
         }
     } else {
-        Instruction::Undifined
+        Instruction::Undifined(inst)
     }
 }
 
