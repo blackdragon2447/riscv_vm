@@ -31,6 +31,12 @@ pub enum MemoryError {
     OutOfMemory,
 }
 
+impl<const SIZE: usize> Default for Memory<SIZE> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<const SIZE: usize> Memory<SIZE> {
     pub fn new() -> Self {
         Self {

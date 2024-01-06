@@ -62,21 +62,21 @@ impl Sub for Address {
     }
 }
 
-impl Into<usize> for Address {
-    fn into(self) -> usize {
-        self.0 as usize
+impl From<Address> for usize {
+    fn from(val: Address) -> Self {
+        val.0 as usize
     }
 }
 
-impl Into<u64> for Address {
-    fn into(self) -> u64 {
-        self.0
+impl From<Address> for u64 {
+    fn from(val: Address) -> Self {
+        val.0
     }
 }
 
-impl Into<i64> for Address {
-    fn into(self) -> i64 {
-        self.0 as i64
+impl From<Address> for i64 {
+    fn from(val: Address) -> Self {
+        val.0 as i64
     }
 }
 
