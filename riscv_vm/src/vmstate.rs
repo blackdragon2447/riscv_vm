@@ -9,7 +9,11 @@ use crate::{
     decode::decode,
     execute::execute,
     hart::Hart,
-    memory::{address::Address, Memory, MemoryError},
+    memory::{
+        address::Address,
+        mem_map_device::{DeviceError, MemMapDevice},
+        Memory, MemoryError,
+    },
 };
 
 pub struct VMState<const MEM_SIZE: usize> {
@@ -63,6 +67,14 @@ impl<const MEM_SIZE: usize> VMState<MEM_SIZE> {
         Ok(())
     }
 
+    pub fn add_mem_map_device<const DEV_SIZE: usize>(
+        &mut self,
+        device: Box<dyn MemMapDevice>,
+        addr: Address,
+    ) -> Result<(), DeviceError> {
+        self.mem.add_mem_map_device::<DEV_SIZE>(device, addr)
+    }
+
     pub fn step(&mut self) -> Result<(), VMError> {
         for hart in &mut self.harts {
             // Unwrap here is safe since u32 expects 4 bytes and we alyaws read 4 bytes (read_bytes
@@ -70,9 +82,10 @@ impl<const MEM_SIZE: usize> VMState<MEM_SIZE> {
             let inst = decode(u32::from_le_bytes(
                 self.mem.read_bytes(hart.get_pc(), 4)?.try_into().unwrap(),
             ));
-            dbg!(inst);
+            // dbg!(inst);
             execute(hart, &mut self.mem, inst);
         }
+        self.mem.update_devices();
 
         Ok(())
     }

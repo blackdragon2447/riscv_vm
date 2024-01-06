@@ -8,3 +8,4 @@ pub mod memory;
 #[cfg(test)]
 mod tests;
 pub mod vmstate;
+pub mod devices;
