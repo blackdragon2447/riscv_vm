@@ -94,40 +94,37 @@ pub trait ByteRanges {
 
 impl ByteRanges for Vec<u8> {
     fn get_bytes(&self, offset: u64, size: u64) -> &[u8] {
-        let slice = &self[(offset as usize)..((offset + size) as usize)];
-        slice
+        &self[(offset as usize)..((offset + size) as usize)]
     }
 
     fn get_bytes_copy<const SIZE: usize>(&self, offset: u64) -> [u8; SIZE] {
         let mut buffer: [u8; SIZE] = [0; SIZE];
         buffer.copy_from_slice(self.get_bytes(offset, SIZE as u64));
-        return buffer;
+        buffer
     }
 }
 
 impl ByteRanges for &[u8] {
     fn get_bytes(&self, offset: u64, size: u64) -> &[u8] {
-        let slice = &self[(offset as usize)..((offset + size) as usize)];
-        slice
+        &self[(offset as usize)..((offset + size) as usize)]
     }
 
     fn get_bytes_copy<const SIZE: usize>(&self, offset: u64) -> [u8; SIZE] {
         let mut buffer: [u8; SIZE] = [0; SIZE];
         buffer.copy_from_slice(self.get_bytes(offset, SIZE as u64));
-        return buffer;
+        buffer
     }
 }
 
 impl<const MEM_SIZE: usize> ByteRanges for [u8; MEM_SIZE] {
     fn get_bytes(&self, offset: u64, size: u64) -> &[u8] {
-        let slice = &self[(offset as usize)..((offset + size) as usize)];
-        slice
+        &self[(offset as usize)..((offset + size) as usize)]
     }
 
     fn get_bytes_copy<const SIZE: usize>(&self, offset: u64) -> [u8; SIZE] {
         let mut buffer: [u8; SIZE] = [0; SIZE];
         buffer.copy_from_slice(self.get_bytes(offset, SIZE as u64));
-        return buffer;
+        buffer
     }
 }
 

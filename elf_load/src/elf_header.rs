@@ -100,7 +100,7 @@ pub struct ElfHeader {
 impl ElfHeader {
     /// Bytes may be longer than the header, header is assumed to be at 0x00
     pub fn from_bytes(bytes: &Vec<u8>) -> Result<ElfHeader, ElfHeaderParseError> {
-        let raw = RawElfHeader::from_bytes(&bytes);
+        let raw = RawElfHeader::from_bytes(bytes);
 
         if raw.magic != [0x7F, 0x45, 0x4C, 0x46] {
             return Err(ElfHeaderParseError::InvalidMagic);
