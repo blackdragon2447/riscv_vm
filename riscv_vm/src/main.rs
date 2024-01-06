@@ -10,8 +10,12 @@ fn main() {
     let mut vmstate = VMState::<{ 4 * MB }>::new(1);
     vmstate.load_elf_kernel(&elf).unwrap();
 
+    // vmstate
+    // .add_mem_map_device::<8>(Box::new(SimpleUart), 0x10000000u64.into())
+    // .unwrap();
+
     vmstate
-        .add_mem_map_device::<8>(Box::new(SimpleUart), 0x10000000u64.into())
+        .add_device::<SimpleUart>(8, 0x10000000u64.into())
         .unwrap();
 
     loop {

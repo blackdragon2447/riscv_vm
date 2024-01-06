@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{collections::HashMap, fmt::Debug};
 
 use elf_load::{
     data::{Bitness, Endianess, ProgramType, ASI},
@@ -7,18 +7,17 @@ use elf_load::{
 
 use crate::{
     decode::decode,
+    devices::{Device, DeviceError, DeviceInitError, HandledDevice},
     execute::execute,
     hart::Hart,
-    memory::{
-        address::Address,
-        mem_map_device::{DeviceError, MemMapDevice},
-        Memory, MemoryError,
-    },
+    memory::{address::Address, DeviceMemory, Memory, MemoryError},
 };
 
 pub struct VMState<const MEM_SIZE: usize> {
     harts: Vec<Hart>,
     mem: Memory<MEM_SIZE>,
+    devices: HashMap<usize, Box<dyn HandledDevice>>,
+    next_dev_id: usize,
 }
 
 #[derive(Debug)]
@@ -32,6 +31,8 @@ pub enum KernelError {
 pub enum VMError {
     MemoryError(MemoryError),
     InvalidElfKernel(KernelError),
+    NoDeviceMemory,
+    DeviceError(DeviceError),
 }
 
 impl<const MEM_SIZE: usize> VMState<MEM_SIZE> {
@@ -44,6 +45,8 @@ impl<const MEM_SIZE: usize> VMState<MEM_SIZE> {
         Self {
             harts,
             mem: Memory::new(),
+            devices: HashMap::new(),
+            next_dev_id: 0,
         }
     }
 
@@ -67,12 +70,17 @@ impl<const MEM_SIZE: usize> VMState<MEM_SIZE> {
         Ok(())
     }
 
-    pub fn add_mem_map_device<const DEV_SIZE: usize>(
+    pub fn add_device<D: Device + HandledDevice + 'static>(
         &mut self,
-        device: Box<dyn MemMapDevice>,
+        mem_size: u64,
         addr: Address,
-    ) -> Result<(), DeviceError> {
-        self.mem.add_mem_map_device::<DEV_SIZE>(device, addr)
+    ) -> Result<(), DeviceInitError> {
+        let mut memory = DeviceMemory::new(mem_size, addr);
+        self.devices
+            .insert(self.next_dev_id, Box::new(D::init(&mut memory)?));
+        self.mem.add_device_memory(self.next_dev_id, memory)?;
+        self.next_dev_id += 1;
+        Ok(())
     }
 
     pub fn step(&mut self) -> Result<(), VMError> {
@@ -85,7 +93,15 @@ impl<const MEM_SIZE: usize> VMState<MEM_SIZE> {
             // dbg!(inst);
             execute(hart, &mut self.mem, inst);
         }
-        self.mem.update_devices();
+        // self.mem.update_devices();
+
+        for dev in &mut self.devices {
+            dev.1.update(
+                self.mem
+                    .get_device_memory(dev.0)
+                    .ok_or(VMError::NoDeviceMemory)?,
+            )?;
+        }
 
         Ok(())
     }
@@ -105,6 +121,12 @@ impl<const MEM_SIZE: usize> Debug for VMState<MEM_SIZE> {
 impl From<MemoryError> for VMError {
     fn from(value: MemoryError) -> Self {
         Self::MemoryError(value)
+    }
+}
+
+impl From<DeviceError> for VMError {
+    fn from(value: DeviceError) -> Self {
+        Self::DeviceError(value)
     }
 }
 

@@ -1,22 +1,32 @@
-use crate::memory::mem_map_device::{DeviceError, MemMapDevice};
+use crate::memory::DeviceMemory;
 
-/// Note, not a full impl, just enough to send data out of a vm.
+use super::{Device, DeviceError, DeviceInitError, HandledDevice};
+
 pub struct SimpleUart;
 
-impl MemMapDevice for SimpleUart {
-    fn update(&mut self, memory: &mut [u8]) -> Result<(), DeviceError> {
-        // dbg!(memory[0]);
-        let reg = memory[0];
+impl Device for SimpleUart {
+    fn init(mem: &mut DeviceMemory) -> Result<Self, DeviceInitError>
+    where
+        Self: Sized,
+    {
+        if mem.size() < 8 {
+            return Err(DeviceInitError::InsufficientMemory);
+        } else {
+            mem.get_mem_mut()[5] |= 0x40;
+            Ok(Self)
+        }
+    }
+}
+
+impl HandledDevice for SimpleUart {
+    fn update(&mut self, mem: &mut DeviceMemory) -> Result<(), DeviceError> {
+        let reg = mem.get_mem()[0];
         if reg != 0 {
             print!("{}", std::str::from_utf8(&[reg])?);
-            memory[0] = 0;
-            memory[5] |= 0x40;
+            mem.get_mem_mut()[0] = 0;
+            mem.get_mem_mut()[5] |= 0x40;
         }
 
         Ok(())
-    }
-
-    fn init_mem(&mut self, memory: &mut [u8]) {
-        memory[5] |= 0x40;
     }
 }
