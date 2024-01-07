@@ -105,6 +105,17 @@ mod instructions {
     }
 
     #[test]
+    fn jal() {
+        assert_eq!(
+            decode(0x0b80206f),
+            JAL {
+                rd: X0,
+                imm: 0x20b8
+            }
+        );
+    }
+
+    #[test]
     fn addiw() {
         assert_eq!(
             decode(0xead5859b),
