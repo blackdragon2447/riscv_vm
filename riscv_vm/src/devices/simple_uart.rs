@@ -2,9 +2,13 @@ use crate::memory::DeviceMemory;
 
 use super::{Device, DeviceError, DeviceInitError, HandledDevice};
 
+/// It's not uart and probably breaks if you look at it wrong.
 pub struct SimpleUart;
 
 impl Device for SimpleUart {
+    /// Hint for vm's using this device, a vm may give more/less memory.
+    const MEN_SIZE: u64 = 8;
+
     fn init(mem: &mut DeviceMemory) -> Result<Self, DeviceInitError>
     where
         Self: Sized,

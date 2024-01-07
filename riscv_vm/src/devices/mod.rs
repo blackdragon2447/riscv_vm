@@ -19,6 +19,8 @@ pub enum DeviceError {
 }
 
 pub trait Device {
+    const MEN_SIZE: u64;
+
     fn init(mem: &mut DeviceMemory) -> Result<Self, DeviceInitError>
     where
         Self: Sized;

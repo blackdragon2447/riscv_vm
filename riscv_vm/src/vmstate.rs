@@ -72,10 +72,10 @@ impl<const MEM_SIZE: usize> VMState<MEM_SIZE> {
 
     pub fn add_device<D: Device + HandledDevice + 'static>(
         &mut self,
-        mem_size: u64,
+        // mem_size: u64,
         addr: Address,
     ) -> Result<(), DeviceInitError> {
-        let mut memory = DeviceMemory::new(mem_size, addr);
+        let mut memory = DeviceMemory::new(D::MEN_SIZE, addr);
         self.devices
             .insert(self.next_dev_id, Box::new(D::init(&mut memory)?));
         self.mem.add_device_memory(self.next_dev_id, memory)?;
