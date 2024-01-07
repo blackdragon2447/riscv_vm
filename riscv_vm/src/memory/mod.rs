@@ -24,7 +24,7 @@ pub const MB: usize = 1024 * KB;
 pub struct DeviceMemory(Range<Address>, Vec<u8>);
 
 pub struct Memory<const SIZE: usize> {
-    mem: [u8; SIZE],
+    mem: Box<[u8; SIZE]>,
     mem_range: Range<Address>,
     device_regions: HashMap<usize, DeviceMemory>,
 }
@@ -45,7 +45,7 @@ impl<'a, const SIZE: usize> Default for Memory<SIZE> {
 impl<'a, const SIZE: usize> Memory<SIZE> {
     pub fn new() -> Self {
         Self {
-            mem: [0; SIZE],
+            mem: Box::new([0; SIZE]),
             mem_range: 0x80000000u64.into()..(0x80000000u64 + SIZE as u64).into(),
             device_regions: HashMap::new(),
         }

@@ -15,7 +15,7 @@ fn main() {
     // .unwrap();
 
     vmstate
-        .add_device::<SimpleUart>(8, 0x10000000u64.into())
+        .add_device::<SimpleUart>(0x10000000u64.into())
         .unwrap();
 
     loop {
