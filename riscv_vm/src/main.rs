@@ -1,7 +1,11 @@
 use std::fs;
 
 use elf_load::Elf;
-use riscv_vm::{devices::simple_uart::SimpleUart, memory::MB, vmstate::VMState};
+use riscv_vm::{
+    devices::{simple_uart::SimpleUart, vga_text_mode::VgaTextMode},
+    memory::MB,
+    vmstate::VMState,
+};
 
 fn main() {
     let bytes = fs::read("./test_os/os.elf").unwrap();
@@ -11,7 +15,11 @@ fn main() {
     vmstate.load_elf_kernel(&elf).unwrap();
 
     vmstate
-        .add_device::<SimpleUart>(0x10000000u64.into())
+        .add_sync_device::<SimpleUart>(0x10000000u64.into())
+        .unwrap();
+
+    vmstate
+        .add_async_device::<VgaTextMode>(0xB8000u64.into())
         .unwrap();
 
     loop {

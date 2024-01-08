@@ -2,6 +2,7 @@ use std::{
     collections::HashMap,
     fmt::Debug,
     ops::{Add, AddAssign, Range, Sub},
+    sync::{Arc, PoisonError, RwLock, RwLockWriteGuard},
     vec,
 };
 
@@ -26,14 +27,15 @@ pub struct DeviceMemory(Range<Address>, Vec<u8>);
 pub struct Memory<const SIZE: usize> {
     mem: Box<[u8; SIZE]>,
     mem_range: Range<Address>,
-    device_regions: HashMap<usize, DeviceMemory>,
+    device_regions: HashMap<usize, Arc<RwLock<DeviceMemory>>>,
 }
 
 #[derive(Debug)]
 pub enum MemoryError {
-    OutOfBoundsWrite,
-    OutOfBoundsRead(Address),
+    OutOfBoundsWrite(Address, Range<Address>),
+    OutOfBoundsRead(Address, Range<Address>),
     OutOfMemory,
+    DeviceMemoryPoison,
 }
 
 impl<'a, const SIZE: usize> Default for Memory<SIZE> {
@@ -55,7 +57,7 @@ impl<'a, const SIZE: usize> Memory<SIZE> {
         if (self.mem_range.contains(&addr)) {
             let idx = addr - self.mem_range.start;
             if <Address as Into<usize>>::into(idx) > self.mem.len() {
-                return Err(MemoryError::OutOfBoundsWrite);
+                return Err(MemoryError::OutOfBoundsWrite(addr, self.mem_range.clone()));
             }
             if <Address as Into<usize>>::into(idx) + bytes.len() > self.mem.len() {
                 return Err(MemoryError::OutOfMemory);
@@ -65,29 +67,31 @@ impl<'a, const SIZE: usize> Memory<SIZE> {
             Ok(())
         } else {
             for dev in &mut self.device_regions.values_mut() {
+                let mut dev = dev.write()?;
                 if dev.0.contains(&addr) {
                     return dev.write_bytes(bytes, addr);
                 }
             }
-            Err(MemoryError::OutOfBoundsWrite)
+            Err(MemoryError::OutOfBoundsWrite(addr, self.mem_range.clone()))
         }
     }
 
-    pub fn read_bytes(&self, addr: Address, size: usize) -> Result<&[u8], MemoryError> {
+    pub fn read_bytes(&self, addr: Address, size: usize) -> Result<Vec<u8>, MemoryError> {
         if (self.mem_range.contains(&addr)) {
             let idx = addr - self.mem_range.start;
             if <Address as Into<usize>>::into(idx) + size < self.mem.len() {
-                Ok(self.mem.get_bytes(idx.into(), size as u64))
+                Ok(self.mem.get_bytes(idx.into(), size as u64).to_vec())
             } else {
-                Err(MemoryError::OutOfBoundsRead(addr))
+                Err(MemoryError::OutOfBoundsRead(addr, self.mem_range.clone()))
             }
         } else {
             for dev in self.device_regions.values() {
+                let dev = dev.read()?;
                 if dev.0.contains(&addr) {
                     return dev.read_bytes(addr, size);
                 }
             }
-            Err(MemoryError::OutOfBoundsRead(addr))
+            Err(MemoryError::OutOfBoundsRead(addr, self.mem_range.clone()))
         }
     }
 
@@ -95,22 +99,31 @@ impl<'a, const SIZE: usize> Memory<SIZE> {
         &mut self,
         id: usize,
         mem: DeviceMemory,
-    ) -> Result<(), DeviceInitError> {
+    ) -> Result<Arc<RwLock<DeviceMemory>>, DeviceInitError> {
         for dev in &self.device_regions {
-            if dev.1 .0.contains(&mem.0.start)
-                || dev.1 .0.contains(&mem.0.end)
-                || mem.0.contains(&dev.1 .0.start)
-                || mem.0.contains(&dev.1 .0.end)
+            let dev = dev.1.read()?;
+            if dev.0.contains(&mem.0.start)
+                || dev.0.contains(&mem.0.end)
+                || mem.0.contains(&dev.0.start)
+                || mem.0.contains(&dev.0.end)
             {
                 return Err(DeviceInitError::MemoryOverlap);
             }
         }
-        self.device_regions.insert(id, mem);
-        Ok(())
+        let mem = Arc::new(RwLock::new(mem));
+        self.device_regions.insert(id, mem.clone());
+        Ok(mem)
     }
 
-    pub fn get_device_memory(&mut self, id: &usize) -> Option<&mut DeviceMemory> {
-        self.device_regions.get_mut(id)
+    pub fn get_device_memory(
+        &mut self,
+        id: &usize,
+    ) -> Result<Option<RwLockWriteGuard<DeviceMemory>>, MemoryError> {
+        if let Some(mem) = self.device_regions.get_mut(id) {
+            Ok(Some(mem.write()?))
+        } else {
+            Ok(None)
+        }
     }
 }
 
@@ -139,7 +152,7 @@ impl DeviceMemory {
         if (self.0.contains(&addr)) {
             let idx = addr - self.0.start;
             if <Address as Into<usize>>::into(idx) > self.1.len() {
-                return Err(MemoryError::OutOfBoundsWrite);
+                return Err(MemoryError::OutOfBoundsWrite(addr, self.0.clone()));
             }
             if <Address as Into<usize>>::into(idx) + bytes.len() > self.1.len() {
                 return Err(MemoryError::OutOfMemory);
@@ -147,21 +160,31 @@ impl DeviceMemory {
             self.1[idx.into()..(<Address as Into<usize>>::into(idx) + bytes.len())]
                 .copy_from_slice(bytes);
         } else {
-            return Err(MemoryError::OutOfBoundsWrite);
+            return Err(MemoryError::OutOfBoundsWrite(addr, self.0.clone()));
         }
         Ok(())
     }
 
-    pub fn read_bytes(&self, addr: Address, size: usize) -> Result<&[u8], MemoryError> {
+    pub fn read_bytes(&self, addr: Address, size: usize) -> Result<Vec<u8>, MemoryError> {
         if (self.0.contains(&addr)) {
             let idx = addr - self.0.start;
             if <Address as Into<usize>>::into(idx) + size < self.1.len() {
-                Ok(self.1.get_bytes(idx.into(), size as u64))
+                Ok(self.1.get_bytes(idx.into(), size as u64).to_vec())
             } else {
-                Err(MemoryError::OutOfBoundsRead(addr))
+                Err(MemoryError::OutOfBoundsRead(addr, self.0.clone()))
             }
         } else {
-            Err(MemoryError::OutOfBoundsRead(addr))
+            Err(MemoryError::OutOfBoundsRead(addr, self.0.clone()))
         }
+    }
+
+    pub fn start(&self) -> Address {
+        self.0.start
+    }
+}
+
+impl<T> From<PoisonError<T>> for MemoryError {
+    fn from(value: PoisonError<T>) -> Self {
+        Self::DeviceMemoryPoison
     }
 }

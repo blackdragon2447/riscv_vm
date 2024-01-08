@@ -12,7 +12,7 @@ pub(super) fn ld<const SIZE: usize>(
         .read_bytes(rs1.overflowing_add(imm.into()).0.into(), 8)
         .unwrap();
     let mut buf = [0; 8];
-    buf.copy_from_slice(bytes);
+    buf.copy_from_slice(&bytes);
     *rd = i64::from_le_bytes(buf);
 }
 
@@ -28,7 +28,7 @@ pub(super) fn lwu<const SIZE: usize>(
         .read_bytes(rs1.overflowing_add(imm.into()).0.into(), 4)
         .unwrap();
     let mut buf = [0; 4];
-    buf.copy_from_slice(bytes);
+    buf.copy_from_slice(&bytes);
     *rd = u32::from_le_bytes(buf) as i64;
 }
 

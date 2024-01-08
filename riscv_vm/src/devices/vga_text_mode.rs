@@ -210,8 +210,6 @@ impl AsyncDevice for VgaTextMode {
         event_loop.run(move |event, _, control_flow| {
             *control_flow = ControlFlow::Poll;
 
-            dbg!(&mem.read().unwrap().get_mem());
-
             for i in 0..24 {
                 let bytes = mem
                     .read()

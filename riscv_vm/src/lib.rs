@@ -2,10 +2,10 @@
 #![allow(unused)]
 
 pub mod decode;
+pub mod devices;
 mod execute;
 mod hart;
 pub mod memory;
 #[cfg(test)]
 mod tests;
 pub mod vmstate;
-pub mod devices;

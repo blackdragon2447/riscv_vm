@@ -7,3 +7,7 @@ edition = "2021"
 
 [dependencies]
 elf_load = { path = "../elf_load/" }
+pollster = "0.3.0"
+wgpu = "0.18.0"
+wgpu_text = "0.8.5"
+winit = "0.28"

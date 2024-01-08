@@ -7,7 +7,7 @@ use elf_load::{
 
 use crate::{
     decode::decode,
-    devices::{Device, DeviceError, DeviceInitError, HandledDevice},
+    devices::{AsyncDevice, Device, DeviceError, DeviceInitError, HandledDevice},
     execute::execute,
     hart::Hart,
     memory::{address::Address, DeviceMemory, Memory, MemoryError},
@@ -16,7 +16,8 @@ use crate::{
 pub struct VMState<const MEM_SIZE: usize> {
     harts: Vec<Hart>,
     mem: Memory<MEM_SIZE>,
-    devices: HashMap<usize, Box<dyn HandledDevice>>,
+    sync_devices: HashMap<usize, Box<dyn HandledDevice>>,
+    // async_devices: HashMap<usize, Box<dyn AsyncDevice>>,
     next_dev_id: usize,
 }
 
@@ -45,7 +46,8 @@ impl<const MEM_SIZE: usize> VMState<MEM_SIZE> {
         Self {
             harts,
             mem: Memory::new(),
-            devices: HashMap::new(),
+            sync_devices: HashMap::new(),
+            // async_devices: HashMap::new(),
             next_dev_id: 0,
         }
     }
@@ -70,15 +72,33 @@ impl<const MEM_SIZE: usize> VMState<MEM_SIZE> {
         Ok(())
     }
 
-    pub fn add_device<D: Device + HandledDevice + 'static>(
+    pub fn add_sync_device<D: Device + HandledDevice + 'static>(
         &mut self,
         // mem_size: u64,
         addr: Address,
     ) -> Result<(), DeviceInitError> {
         let mut memory = DeviceMemory::new(D::MEN_SIZE, addr);
-        self.devices
+        self.sync_devices
             .insert(self.next_dev_id, Box::new(D::init(&mut memory)?));
         self.mem.add_device_memory(self.next_dev_id, memory)?;
+        self.next_dev_id += 1;
+        Ok(())
+    }
+
+    pub fn add_async_device<D: Device + AsyncDevice + 'static>(
+        &mut self,
+        // mem_size: u64,
+        addr: Address,
+    ) -> Result<(), DeviceInitError> {
+        let mut memory = DeviceMemory::new(D::MEN_SIZE, addr);
+        // self.async_devices
+        //     .insert(self.next_dev_id, Box::new(D::init(&mut memory)?));
+        let mem = self.mem.add_device_memory(self.next_dev_id, memory)?;
+        std::thread::spawn(move || -> Result<(), DeviceInitError> {
+            let device = D::init(&mut *mem.write().unwrap())?;
+            device.run(mem);
+            Ok(())
+        });
         self.next_dev_id += 1;
         Ok(())
     }
@@ -95,10 +115,11 @@ impl<const MEM_SIZE: usize> VMState<MEM_SIZE> {
         }
         // self.mem.update_devices();
 
-        for dev in &mut self.devices {
+        for dev in &mut self.sync_devices {
             dev.1.update(
-                self.mem
-                    .get_device_memory(dev.0)
+                &mut *self
+                    .mem
+                    .get_device_memory(dev.0)?
                     .ok_or(VMError::NoDeviceMemory)?,
             )?;
         }

@@ -91,7 +91,7 @@ pub(super) fn lb<const SIZE: usize>(
         .read_bytes(rs1.overflowing_add(imm.into()).0.into(), 1)
         .unwrap();
     let mut buf = [0; 1];
-    buf.copy_from_slice(bytes);
+    buf.copy_from_slice(&bytes);
     *rd = i8::from_le_bytes(buf) as i64;
 }
 
@@ -107,7 +107,7 @@ pub(super) fn lh<const SIZE: usize>(
         .read_bytes(rs1.overflowing_add(imm.into()).0.into(), 2)
         .unwrap();
     let mut buf = [0; 2];
-    buf.copy_from_slice(bytes);
+    buf.copy_from_slice(&bytes);
     *rd = i16::from_le_bytes(buf) as i64;
 }
 
@@ -123,7 +123,7 @@ pub(super) fn lw<const SIZE: usize>(
         .read_bytes(rs1.overflowing_add(imm.into()).0.into(), 4)
         .unwrap();
     let mut buf = [0; 4];
-    buf.copy_from_slice(bytes);
+    buf.copy_from_slice(&bytes);
     *rd = i32::from_le_bytes(buf) as i64;
 }
 
@@ -139,7 +139,7 @@ pub(super) fn lbu<const SIZE: usize>(
         .read_bytes(rs1.overflowing_add(imm.into()).0.into(), 1)
         .unwrap();
     let mut buf = [0; 1];
-    buf.copy_from_slice(bytes);
+    buf.copy_from_slice(&bytes);
     *rd = u8::from_le_bytes(buf) as i64;
 }
 
@@ -155,7 +155,7 @@ pub(super) fn lhu<const SIZE: usize>(
         .read_bytes(rs1.overflowing_add(imm.into()).0.into(), 2)
         .unwrap();
     let mut buf = [0; 2];
-    buf.copy_from_slice(bytes);
+    buf.copy_from_slice(&bytes);
     *rd = u16::from_le_bytes(buf) as i64;
 }
 
