@@ -62,14 +62,15 @@ impl<'a, const SIZE: usize> Memory<SIZE> {
             }
             self.mem[idx.into()..(<Address as Into<usize>>::into(idx) + bytes.len())]
                 .copy_from_slice(bytes);
+            Ok(())
         } else {
             for dev in &mut self.device_regions.values_mut() {
                 if dev.0.contains(&addr) {
                     return dev.write_bytes(bytes, addr);
                 }
             }
+            Err(MemoryError::OutOfBoundsWrite)
         }
-        Ok(())
     }
 
     pub fn read_bytes(&self, addr: Address, size: usize) -> Result<&[u8], MemoryError> {

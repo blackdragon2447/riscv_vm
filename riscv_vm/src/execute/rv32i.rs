@@ -170,7 +170,8 @@ pub(super) fn sb<const SIZE: usize>(
     mem.write_bytes(
         &rs2.to_le_bytes()[0..1],
         rs1.overflowing_add(imm.into()).0.into(),
-    );
+    )
+    .unwrap();
 }
 
 pub(super) fn sh<const SIZE: usize>(
@@ -184,7 +185,8 @@ pub(super) fn sh<const SIZE: usize>(
     mem.write_bytes(
         &rs2.to_le_bytes()[0..2],
         rs1.overflowing_add(imm.into()).0.into(),
-    );
+    )
+    .unwrap();
 }
 
 pub(super) fn sw<const SIZE: usize>(
@@ -198,7 +200,8 @@ pub(super) fn sw<const SIZE: usize>(
     mem.write_bytes(
         &rs2.to_le_bytes()[0..4],
         rs1.overflowing_add(imm.into()).0.into(),
-    );
+    )
+    .unwrap();
 }
 
 pub(super) fn addi(_: &Hart, rd: &mut i64, rs1: &i64, imm: i32) {

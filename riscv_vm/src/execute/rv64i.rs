@@ -43,7 +43,8 @@ pub(super) fn sd<const SIZE: usize>(
     mem.write_bytes(
         &rs2.to_le_bytes()[0..8],
         rs1.overflowing_add(imm.into()).0.into(),
-    );
+    )
+    .unwrap();
 }
 
 pub(super) fn addiw(_: &Hart, rd: &mut i64, rs1: &i64, imm: i32) {
