@@ -15,9 +15,10 @@ use crate::{
 
 pub struct VMState<const MEM_SIZE: usize> {
     harts: Vec<Hart>,
+    breakpoints: bool,
     mem: Memory<MEM_SIZE>,
     sync_devices: HashMap<usize, Box<dyn HandledDevice>>,
-    // async_devices: HashMap<usize, Box<dyn AsyncDevice>>,
+    devices: Vec<(usize, &'static str, Address)>,
     next_dev_id: usize,
 }
 
@@ -45,9 +46,10 @@ impl<const MEM_SIZE: usize> VMState<MEM_SIZE> {
 
         Self {
             harts,
+            breakpoints: false,
             mem: Memory::new(),
             sync_devices: HashMap::new(),
-            // async_devices: HashMap::new(),
+            devices: Vec::new(),
             next_dev_id: 0,
         }
     }
@@ -81,6 +83,7 @@ impl<const MEM_SIZE: usize> VMState<MEM_SIZE> {
         self.sync_devices
             .insert(self.next_dev_id, Box::new(D::init(&mut memory)?));
         self.mem.add_device_memory(self.next_dev_id, memory)?;
+        self.devices.push((self.next_dev_id, D::NAME, addr));
         self.next_dev_id += 1;
         Ok(())
     }
@@ -99,8 +102,17 @@ impl<const MEM_SIZE: usize> VMState<MEM_SIZE> {
             device.run(mem);
             Ok(())
         });
+        self.devices.push((self.next_dev_id, D::NAME, addr));
         self.next_dev_id += 1;
         Ok(())
+    }
+
+    pub fn devices(&self) -> &Vec<(usize, &'static str, Address)> {
+        &self.devices
+    }
+
+    pub fn enable_breakpoints(&mut self) {
+        self.breakpoints = true;
     }
 
     pub fn step(&mut self) -> Result<(), VMError> {

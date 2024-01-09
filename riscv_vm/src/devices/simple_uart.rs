@@ -8,6 +8,7 @@ pub struct SimpleUart;
 impl Device for SimpleUart {
     /// Hint for vm's using this device, a vm may give more/less memory.
     const MEN_SIZE: u64 = 8;
+    const NAME: &'static str = "Simple Uart";
 
     fn init(mem: &mut DeviceMemory) -> Result<Self, DeviceInitError>
     where

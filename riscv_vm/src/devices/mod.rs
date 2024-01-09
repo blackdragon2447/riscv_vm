@@ -29,6 +29,7 @@ pub enum DeviceError {
 
 pub trait Device {
     const MEN_SIZE: u64;
+    const NAME: &'static str;
 
     fn init(mem: &mut DeviceMemory) -> Result<Self, DeviceInitError>
     where

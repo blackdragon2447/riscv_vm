@@ -65,6 +65,7 @@ const COLOR: [(f32, f32, f32, f32); 16] = [
 
 impl Device for VgaTextMode {
     const MEN_SIZE: u64 = 80 * 25 * 2;
+    const NAME: &'static str = "Vga Text Mode";
 
     fn init(mem: &mut DeviceMemory) -> Result<Self, super::DeviceInitError>
     where
