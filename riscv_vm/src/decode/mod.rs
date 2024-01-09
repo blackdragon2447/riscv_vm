@@ -75,6 +75,46 @@ pub fn decode(inst: u32) -> Instruction {
                         rs1: rs1.into(),
                         rs2: rs2.into(),
                     },
+                    (0b0110011, 0b000, 0b0000001) => Instruction::MUL {
+                        rd: rd.into(),
+                        rs1: rs1.into(),
+                        rs2: rs2.into(),
+                    },
+                    (0b0110011, 0b001, 0b0000001) => Instruction::MULH {
+                        rd: rd.into(),
+                        rs1: rs1.into(),
+                        rs2: rs2.into(),
+                    },
+                    (0b0110011, 0b010, 0b0000001) => Instruction::MULHSU {
+                        rd: rd.into(),
+                        rs1: rs1.into(),
+                        rs2: rs2.into(),
+                    },
+                    (0b0110011, 0b011, 0b0000001) => Instruction::MULHU {
+                        rd: rd.into(),
+                        rs1: rs1.into(),
+                        rs2: rs2.into(),
+                    },
+                    (0b0110011, 0b100, 0b0000001) => Instruction::DIV {
+                        rd: rd.into(),
+                        rs1: rs1.into(),
+                        rs2: rs2.into(),
+                    },
+                    (0b0110011, 0b101, 0b0000001) => Instruction::DIVU {
+                        rd: rd.into(),
+                        rs1: rs1.into(),
+                        rs2: rs2.into(),
+                    },
+                    (0b0110011, 0b110, 0b0000001) => Instruction::REM {
+                        rd: rd.into(),
+                        rs1: rs1.into(),
+                        rs2: rs2.into(),
+                    },
+                    (0b0110011, 0b111, 0b0000001) => Instruction::REMU {
+                        rd: rd.into(),
+                        rs1: rs1.into(),
+                        rs2: rs2.into(),
+                    },
                     (0b0111011, 0b000, 0b0000000) => Instruction::ADDW {
                         rd: rd.into(),
                         rs1: rs1.into(),
@@ -96,6 +136,31 @@ pub fn decode(inst: u32) -> Instruction {
                         rs2: rs2.into(),
                     },
                     (0b0111011, 0b101, 0b0100000) => Instruction::SRAW {
+                        rd: rd.into(),
+                        rs1: rs1.into(),
+                        rs2: rs2.into(),
+                    },
+                    (0b0111011, 0b000, 0b0000001) => Instruction::MULW {
+                        rd: rd.into(),
+                        rs1: rs1.into(),
+                        rs2: rs2.into(),
+                    },
+                    (0b0111011, 0b100, 0b0000001) => Instruction::DIVW {
+                        rd: rd.into(),
+                        rs1: rs1.into(),
+                        rs2: rs2.into(),
+                    },
+                    (0b0111011, 0b101, 0b0000001) => Instruction::DIVUW {
+                        rd: rd.into(),
+                        rs1: rs1.into(),
+                        rs2: rs2.into(),
+                    },
+                    (0b0111011, 0b110, 0b0000001) => Instruction::REMW {
+                        rd: rd.into(),
+                        rs1: rs1.into(),
+                        rs2: rs2.into(),
+                    },
+                    (0b0111011, 0b111, 0b0000001) => Instruction::REMUW {
                         rd: rd.into(),
                         rs1: rs1.into(),
                         rs2: rs2.into(),

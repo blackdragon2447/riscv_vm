@@ -1,5 +1,7 @@
 mod rv32i;
+mod rv32m;
 mod rv64i;
+mod rv64m;
 
 use crate::{
     decode::instruction::{Instruction, Instruction::*},
@@ -13,6 +15,7 @@ pub fn execute<const SIZE: usize>(
     instruction: Instruction,
 ) {
     match instruction {
+        // rv64i
         LUI { rd, imm } => u_type(hart, rd, imm, rv32i::lui),
         AUIPC { rd, imm } => u_type(hart, rd, imm, rv32i::auipc),
         JAL { rd, imm } => u_type_mut_hart(hart, rd, imm, rv32i::jal),
@@ -64,6 +67,23 @@ pub fn execute<const SIZE: usize>(
         SLTW { rd, rs1, rs2 } => r_type(hart, rd, rs1, rs2, rv64i::sltw),
         SRLW { rd, rs1, rs2 } => r_type(hart, rd, rs1, rs2, rv64i::srlw),
         SRAW { rd, rs1, rs2 } => r_type(hart, rd, rs1, rs2, rv64i::sraw),
+
+        // rv64m
+        MUL { rd, rs1, rs2 } => r_type(hart, rd, rs1, rs2, rv32m::mul),
+        MULH { rd, rs1, rs2 } => r_type(hart, rd, rs1, rs2, rv32m::mulh),
+        MULHSU { rd, rs1, rs2 } => r_type(hart, rd, rs1, rs2, rv32m::mulhsu),
+        MULHU { rd, rs1, rs2 } => r_type(hart, rd, rs1, rs2, rv32m::mulhu),
+        DIV { rd, rs1, rs2 } => r_type(hart, rd, rs1, rs2, rv32m::div),
+        DIVU { rd, rs1, rs2 } => r_type(hart, rd, rs1, rs2, rv32m::divu),
+        REM { rd, rs1, rs2 } => r_type(hart, rd, rs1, rs2, rv32m::rem),
+        REMU { rd, rs1, rs2 } => r_type(hart, rd, rs1, rs2, rv32m::remu),
+        MULW { rd, rs1, rs2 } => r_type(hart, rd, rs1, rs2, rv64m::mulw),
+        DIVW { rd, rs1, rs2 } => r_type(hart, rd, rs1, rs2, rv64m::divw),
+        DIVUW { rd, rs1, rs2 } => r_type(hart, rd, rs1, rs2, rv64m::divuw),
+        REMW { rd, rs1, rs2 } => r_type(hart, rd, rs1, rs2, rv64m::remw),
+        REMUW { rd, rs1, rs2 } => r_type(hart, rd, rs1, rs2, rv64m::remuw),
+
+        // ???
         FENCE { rd, rs1, imm } => nop(),
         ECALL => nop(),
         EBREAK => nop(),

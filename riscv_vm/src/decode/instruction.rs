@@ -2,6 +2,7 @@ use crate::memory::registers::IntRegister;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Instruction {
+    // RV64I
     LUI {
         rd: IntRegister,
         imm: i32,
@@ -269,6 +270,74 @@ pub enum Instruction {
     },
     ECALL,
     EBREAK,
+
+    //RV64m
+    MUL {
+        rd: IntRegister,
+        rs1: IntRegister,
+        rs2: IntRegister,
+    },
+    MULH {
+        rd: IntRegister,
+        rs1: IntRegister,
+        rs2: IntRegister,
+    },
+    MULHSU {
+        rd: IntRegister,
+        rs1: IntRegister,
+        rs2: IntRegister,
+    },
+    MULHU {
+        rd: IntRegister,
+        rs1: IntRegister,
+        rs2: IntRegister,
+    },
+    DIV {
+        rd: IntRegister,
+        rs1: IntRegister,
+        rs2: IntRegister,
+    },
+    DIVU {
+        rd: IntRegister,
+        rs1: IntRegister,
+        rs2: IntRegister,
+    },
+    REM {
+        rd: IntRegister,
+        rs1: IntRegister,
+        rs2: IntRegister,
+    },
+    REMU {
+        rd: IntRegister,
+        rs1: IntRegister,
+        rs2: IntRegister,
+    },
+
+    MULW {
+        rd: IntRegister,
+        rs1: IntRegister,
+        rs2: IntRegister,
+    },
+    DIVW {
+        rd: IntRegister,
+        rs1: IntRegister,
+        rs2: IntRegister,
+    },
+    DIVUW {
+        rd: IntRegister,
+        rs1: IntRegister,
+        rs2: IntRegister,
+    },
+    REMW {
+        rd: IntRegister,
+        rs1: IntRegister,
+        rs2: IntRegister,
+    },
+    REMUW {
+        rd: IntRegister,
+        rs1: IntRegister,
+        rs2: IntRegister,
+    },
 
     Undifined(u32),
 }

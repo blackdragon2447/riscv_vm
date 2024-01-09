@@ -126,4 +126,16 @@ mod instructions {
             }
         )
     }
+
+    #[test]
+    fn mul() {
+        assert_eq!(
+            decode(0x02c58533),
+            MUL {
+                rd: X10,
+                rs1: X11,
+                rs2: X12
+            }
+        )
+    }
 }
