@@ -75,13 +75,18 @@ impl Device for VgaTextMode {
         //     0xB0000u64.into(),
         // );
 
+        let padding = 10;
+
         let event_loop = EventLoopBuilder::new()
             .with_x11()
             .with_any_thread(true)
             .build();
         let window = WindowBuilder::new()
             .with_resizable(false)
-            .with_inner_size(PhysicalSize::new(80 * 9, 25 * 16))
+            .with_inner_size(PhysicalSize::new(
+                80 * 9 + 2 * padding,
+                25 * 16 + 2 * padding,
+            ))
             .build(&event_loop)?;
 
         let instance = Instance::new(InstanceDescriptor {
@@ -177,9 +182,8 @@ impl Device for VgaTextMode {
             sections.push(
                 Section::default()
                     .with_bounds((config.width as f32, config.height as f32))
-                    .with_screen_position((0.0, 16.0 * i as f32))
+                    .with_screen_position((0.0 + padding as f32, 16.0 * i as f32 + padding as f32))
                     .with_layout(Layout::default().v_align(VerticalAlign::Top))
-                    .with_screen_position((0.0, 0.0))
                     .to_owned(),
             );
         }
