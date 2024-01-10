@@ -2,10 +2,11 @@ mod rv32i;
 mod rv32m;
 mod rv64i;
 mod rv64m;
+mod rv64zicsr;
 
 use crate::{
     decode::instruction::{Instruction, Instruction::*},
-    hart::Hart,
+    hart::{CsrAddress, Hart},
     memory::{registers::IntRegister, Memory},
 };
 
@@ -83,11 +84,41 @@ pub fn execute<const SIZE: usize>(
         REMW { rd, rs1, rs2 } => r_type(hart, rd, rs1, rs2, rv64m::remw),
         REMUW { rd, rs1, rs2 } => r_type(hart, rd, rs1, rs2, rv64m::remuw),
 
+        // rv64 Zicsr
+        CSRRW {
+            rd: IntRegister::X0,
+            rs1,
+            csr,
+        } => inst_csrwo(hart, rs1, csr, rv64zicsr::csrw),
+        CSRRW { rd, rs1, csr } => inst_csr(hart, rd, rs1, csr, rv64zicsr::csrrw),
+        CSRRS {
+            rd,
+            rs1: IntRegister::X0,
+            csr,
+        } => inst_csrro(hart, rd, csr, rv64zicsr::csrr),
+        CSRRS { rd, rs1, csr } => inst_csr(hart, rd, rs1, csr, rv64zicsr::csrrs),
+        CSRRC {
+            rd,
+            rs1: IntRegister::X0,
+            csr,
+        } => inst_csrro(hart, rd, csr, rv64zicsr::csrr),
+        CSRRC { rd, rs1, csr } => inst_csr(hart, rd, rs1, csr, rv64zicsr::csrrc),
+        CSRRWI {
+            rd: IntRegister::X0,
+            uimm,
+            csr,
+        } => inst_csrwoi(hart, uimm, csr, rv64zicsr::csrwi),
+        CSRRWI { rd, uimm, csr } => inst_csri(hart, rd, uimm, csr, rv64zicsr::csrrwi),
+        CSRRSI { rd, uimm: 0, csr } => inst_csrroi(hart, rd, csr, rv64zicsr::csrr),
+        CSRRSI { rd, uimm, csr } => inst_csri(hart, rd, uimm, csr, rv64zicsr::csrrsi),
+        CSRRCI { rd, uimm: 0, csr } => inst_csrroi(hart, rd, csr, rv64zicsr::csrr),
+        CSRRCI { rd, uimm, csr } => inst_csri(hart, rd, uimm, csr, rv64zicsr::csrrci),
+
         // ???
         FENCE { rd, rs1, imm } => nop(),
         ECALL => nop(),
         EBREAK => nop(),
-        Undifined(i) => panic!("Undifined Operation: {:x}", i),
+        Undifined(i) => panic!("Undifined Operation: {:#X}", i),
     }
 }
 
@@ -204,6 +235,64 @@ where
     let mut rdv = 0;
     executor(hart, &mut rdv, imm);
     hart.set_reg(rd, rdv);
+}
+
+fn inst_csr<E>(hart: &mut Hart, rd: IntRegister, rs1: IntRegister, csr: CsrAddress, executor: E)
+where
+    E: Fn(&mut Hart, &mut i64, &i64, CsrAddress),
+{
+    let mut rdv = 0;
+    let rs1 = hart.get_reg(rs1);
+    executor(hart, &mut rdv, &rs1, csr);
+    hart.set_reg(rd, rdv);
+    hart.inc_pc();
+}
+
+fn inst_csrwo<E>(hart: &mut Hart, rs1: IntRegister, csr: CsrAddress, executor: E)
+where
+    E: Fn(&mut Hart, &i64, CsrAddress),
+{
+    let rs1 = hart.get_reg(rs1);
+    executor(hart, &rs1, csr);
+    hart.inc_pc();
+}
+
+fn inst_csrro<E>(hart: &mut Hart, rd: IntRegister, csr: CsrAddress, executor: E)
+where
+    E: Fn(&mut Hart, &mut i64, CsrAddress),
+{
+    let mut rdv = 0;
+    executor(hart, &mut rdv, csr);
+    hart.set_reg(rd, rdv);
+    hart.inc_pc();
+}
+
+fn inst_csri<E>(hart: &mut Hart, rd: IntRegister, uimm: u32, csr: CsrAddress, executor: E)
+where
+    E: Fn(&mut Hart, &mut i64, u32, CsrAddress),
+{
+    let mut rdv = 0;
+    executor(hart, &mut rdv, uimm, csr);
+    hart.set_reg(rd, rdv);
+    hart.inc_pc();
+}
+
+fn inst_csrwoi<E>(hart: &mut Hart, imm: u32, csr: CsrAddress, executor: E)
+where
+    E: Fn(&mut Hart, u32, CsrAddress),
+{
+    executor(hart, imm, csr);
+    hart.inc_pc();
+}
+
+fn inst_csrroi<E>(hart: &mut Hart, rd: IntRegister, csr: CsrAddress, executor: E)
+where
+    E: Fn(&mut Hart, &mut i64, CsrAddress),
+{
+    let mut rdv = 0;
+    executor(hart, &mut rdv, csr);
+    hart.set_reg(rd, rdv);
+    hart.inc_pc();
 }
 
 fn nop() {}

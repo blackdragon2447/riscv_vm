@@ -105,13 +105,7 @@ impl<const MEM_SIZE: usize> VMState<MEM_SIZE> {
 
     pub fn step(&mut self) -> Result<(), VMError> {
         for hart in &mut self.harts {
-            // Unwrap here is safe since u32 expects 4 bytes and we alyaws read 4 bytes (read_bytes
-            // will return an Err if it cannot).
-            let inst = decode(u32::from_le_bytes(
-                self.mem.read_bytes(hart.get_pc(), 4)?.try_into().unwrap(),
-            ));
-            // dbg!(inst);
-            execute(hart, &mut self.mem, inst);
+            hart.step(&mut self.mem)?;
         }
         // self.mem.update_devices();
 

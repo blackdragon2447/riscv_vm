@@ -300,6 +300,36 @@ pub fn decode(inst: u32) -> Instruction {
                             _ => unreachable!(),
                         }
                     }
+                    (0b1110011, 0b001) => Instruction::CSRRW {
+                        rd: rd.into(),
+                        rs1: rs1.into(),
+                        csr: (imm as u16).into(),
+                    },
+                    (0b1110011, 0b010) => Instruction::CSRRS {
+                        rd: rd.into(),
+                        rs1: rs1.into(),
+                        csr: (imm as u16).into(),
+                    },
+                    (0b1110011, 0b011) => Instruction::CSRRC {
+                        rd: rd.into(),
+                        rs1: rs1.into(),
+                        csr: (imm as u16).into(),
+                    },
+                    (0b1110011, 0b101) => Instruction::CSRRWI {
+                        rd: rd.into(),
+                        uimm: rs1,
+                        csr: (imm as u16).into(),
+                    },
+                    (0b1110011, 0b110) => Instruction::CSRRSI {
+                        rd: rd.into(),
+                        uimm: rs1,
+                        csr: (imm as u16).into(),
+                    },
+                    (0b1110011, 0b111) => Instruction::CSRRCI {
+                        rd: rd.into(),
+                        uimm: rs1,
+                        csr: (imm as u16).into(),
+                    },
                     (0b0001111, 0b000) => Instruction::FENCE {
                         rd: rd.into(),
                         rs1: rs1.into(),

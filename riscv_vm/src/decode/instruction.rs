@@ -1,4 +1,4 @@
-use crate::memory::registers::IntRegister;
+use crate::{hart::CsrAddress, memory::registers::IntRegister};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Instruction {
@@ -337,6 +337,38 @@ pub enum Instruction {
         rd: IntRegister,
         rs1: IntRegister,
         rs2: IntRegister,
+    },
+
+    // RV64 Zicsr
+    CSRRW {
+        rd: IntRegister,
+        rs1: IntRegister,
+        csr: CsrAddress,
+    },
+    CSRRS {
+        rd: IntRegister,
+        rs1: IntRegister,
+        csr: CsrAddress,
+    },
+    CSRRC {
+        rd: IntRegister,
+        rs1: IntRegister,
+        csr: CsrAddress,
+    },
+    CSRRWI {
+        rd: IntRegister,
+        uimm: u32,
+        csr: CsrAddress,
+    },
+    CSRRSI {
+        rd: IntRegister,
+        uimm: u32,
+        csr: CsrAddress,
+    },
+    CSRRCI {
+        rd: IntRegister,
+        uimm: u32,
+        csr: CsrAddress,
     },
 
     Undifined(u32),
