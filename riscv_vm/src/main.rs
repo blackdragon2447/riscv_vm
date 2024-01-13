@@ -1,4 +1,4 @@
-use std::{fs, io::stdin};
+use std::fs;
 
 use elf_load::Elf;
 use riscv_vm::{

@@ -55,63 +55,59 @@ impl CsrHolder {
             } else {
                 None
             }
-        } else {
-            if should_read {
-                match addr.into() {
-                    0x305u16 => {
-                        let mode = value & 0b11;
-                        if mode < 2 {
-                            self.mtvec = value;
-                        }
-                        Some(self.mtvec)
+        } else if should_read {
+            match addr.into() {
+                0x305u16 => {
+                    let mode = value & 0b11;
+                    if mode < 2 {
+                        self.mtvec = value;
                     }
-                    _ => {
-                        if let Some(csr) = self.csr.get_mut(&addr) {
-                            let ret = *csr;
-                            *csr = value;
-                            Some(ret)
-                        } else {
-                            self.csr.insert(addr, value);
-                            Some(0)
-                        }
+                    Some(self.mtvec)
+                }
+                _ => {
+                    if let Some(csr) = self.csr.get_mut(&addr) {
+                        let ret = *csr;
+                        *csr = value;
+                        Some(ret)
+                    } else {
+                        self.csr.insert(addr, value);
+                        Some(0)
                     }
                 }
-            } else {
-                self.csr.insert(addr, value);
-                None
             }
+        } else {
+            self.csr.insert(addr, value);
+            None
         }
     }
 
     pub fn set_csr(&mut self, addr: CsrAddress, mask: u64, should_write: bool) -> u64 {
         if addr.get_type() == CsrType::StandardRO || addr.get_type() == CsrType::CustomRO {
             self.get_csr(addr)
+        } else if should_write {
+            match addr.into() {
+                0x305u16 => {
+                    let mode = (self.mtvec | mask) & 0b11;
+                    if mode < 2 {
+                        self.mtvec |= mask;
+                    }
+                    self.mtvec
+                }
+                _ => {
+                    if let Some(csr) = self.csr.get_mut(&addr) {
+                        let ret = *csr;
+                        *csr = ret | mask;
+                        ret
+                    } else {
+                        self.csr.insert(addr, mask);
+                        0
+                    }
+                }
+            }
         } else {
-            if should_write {
-                match addr.into() {
-                    0x305u16 => {
-                        let mode = (self.mtvec | mask) & 0b11;
-                        if mode < 2 {
-                            self.mtvec |= mask;
-                        }
-                        self.mtvec
-                    }
-                    _ => {
-                        if let Some(csr) = self.csr.get_mut(&addr) {
-                            let ret = *csr;
-                            *csr = ret | mask;
-                            ret
-                        } else {
-                            self.csr.insert(addr, mask);
-                            0
-                        }
-                    }
-                }
-            } else {
-                match addr.into() {
-                    0x305u16 => self.mtvec,
-                    _ => self.csr.get(&addr).copied().unwrap_or_default(),
-                }
+            match addr.into() {
+                0x305u16 => self.mtvec,
+                _ => self.csr.get(&addr).copied().unwrap_or_default(),
             }
         }
     }
@@ -119,32 +115,30 @@ impl CsrHolder {
     pub fn clear_csr(&mut self, addr: CsrAddress, mask: u64, should_write: bool) -> u64 {
         if addr.get_type() == CsrType::StandardRO || addr.get_type() == CsrType::CustomRO {
             self.get_csr(addr)
+        } else if should_write {
+            match addr.into() {
+                0x305u16 => {
+                    let mode = (self.mtvec & !mask) & 0b11;
+                    if mode < 2 {
+                        self.mtvec &= !mask;
+                    }
+                    self.mtvec
+                }
+                _ => {
+                    if let Some(csr) = self.csr.get_mut(&addr) {
+                        let ret = *csr;
+                        *csr = ret & !mask;
+                        ret
+                    } else {
+                        self.csr.insert(addr, 0);
+                        0
+                    }
+                }
+            }
         } else {
-            if should_write {
-                match addr.into() {
-                    0x305u16 => {
-                        let mode = (self.mtvec & !mask) & 0b11;
-                        if mode < 2 {
-                            self.mtvec &= !mask;
-                        }
-                        self.mtvec
-                    }
-                    _ => {
-                        if let Some(csr) = self.csr.get_mut(&addr) {
-                            let ret = *csr;
-                            *csr = ret & !mask;
-                            ret
-                        } else {
-                            self.csr.insert(addr, 0);
-                            0
-                        }
-                    }
-                }
-            } else {
-                match addr.into() {
-                    0x305u16 => self.mtvec,
-                    _ => self.csr.get(&addr).copied().unwrap_or_default(),
-                }
+            match addr.into() {
+                0x305u16 => self.mtvec,
+                _ => self.csr.get(&addr).copied().unwrap_or_default(),
             }
         }
     }
