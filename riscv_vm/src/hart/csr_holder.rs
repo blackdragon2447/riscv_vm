@@ -102,7 +102,7 @@ impl CsrHolder {
                             *csr = ret | mask;
                             ret
                         } else {
-                            self.csr.insert(addr, 0 | mask);
+                            self.csr.insert(addr, mask);
                             0
                         }
                     }
@@ -110,7 +110,7 @@ impl CsrHolder {
             } else {
                 match addr.into() {
                     0x305u16 => self.mtvec,
-                    _ => self.csr.get(&addr).map(|i| *i).unwrap_or_default(),
+                    _ => self.csr.get(&addr).copied().unwrap_or_default(),
                 }
             }
         }
@@ -135,7 +135,7 @@ impl CsrHolder {
                             *csr = ret & !mask;
                             ret
                         } else {
-                            self.csr.insert(addr, 0 & !mask);
+                            self.csr.insert(addr, 0);
                             0
                         }
                     }
@@ -143,7 +143,7 @@ impl CsrHolder {
             } else {
                 match addr.into() {
                     0x305u16 => self.mtvec,
-                    _ => self.csr.get(&addr).map(|i| *i).unwrap_or_default(),
+                    _ => self.csr.get(&addr).copied().unwrap_or_default(),
                 }
             }
         }

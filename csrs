@@ -1,3 +1,10 @@
+WARL: Write Any, Read Legal
+WLRL: Write Legal, Read Legal
+WPRI: Ignore writes, read 0s
+
+CSR size is determined by ${MODE}XLEN (MXLEN, etc...)
+PMP = Physical memory protection
+
 User Registers:
 	+ cycle			RO	Number of cyles the cpu has gone through
 	+ time			RO	Time the hart as been running in ms
@@ -32,7 +39,70 @@ Machine
 	? mconfigptr	RO
 
 	+ mstatus		RW	Machine status => Layout...
+		[1]	SIE, enable interrupts for supervisor mode
+		[3] MIE, enable interrupts for machine mode
+			Lower privilege interrupts are always disabled,
+			higher always enabled, but can be individually 
+			toggled with the sie and mie CSRs.
+			automatically set to 0 when a trap is taken.
+
+		[5]	SPIE, previous value of SIE during an interrupt
+		[7]	MPIE, previous value of MIE during an interrupt
+			When taking a SRET/MRET SIE/MIE is set to 
+			SPIE/MPIE
+
+		[7] UBE, endianness of user mode, read only 0
+
+		[8] SPP, previous privilege level before taking a trap 
+		  into the supervisor trap handler.
+		[11..12] MPP, previous privilege level before taking a 
+		  trap into the machine trap handler.
+			When taking SRET/MRET the new privilege is set to 
+			SPP/MPP and SPP/MPP is set to U (or M if not U 
+			implemented), if SPP/MPP isn't M then MPRV is 
+			set to 0. SPP can only hold S or U as privilege,
+			mode and MPP can hold M, S or U.
+
+		[17] MPRV, Determines how memory translation and 
+		  protection is done in M mode, if 0 it is done as 
+		  normal, if 1 it is done as if the privilege is 
+		  MPP.
+
+		[18] SUM, Determines if S-mode is allows to access
+		  pages accessible U-mode. 
+
+		[19] MXR, Will determine if loads from pages which are
+		  marked as executable will succeed (in addition to 
+		  pages marked as readable).
+
+		[20] TVM, determines if writes to the satp CSR 
+		and SFANCE.VMA / SINVAL.VMA instructions will raise
+		an illegal instruction exception, used for 
+		virualization.
+
+		[21] TW, allows for raising an illegal instruction 
+		exception if a WFI is executed outside M-mode and it 
+		does not complete within a certain time.
+		
+		[22] TSR, will cause an illegal instruction exception 
+		on SRET if set.
+
+		[34..35] SXL, the bitness while in supervisor mode, 
+		  always 0b10 or 64bit
+		[32..33] UXL, the bitness while in user mode, 
+		  always 0b10 or 64bit
+
+		[36] SBE, endianness of supervisor mode, read only 0
+		[37] SBE, endianness of machine mode, read only 0
+
 	+ misa			RW	Bitness arch and extensions,
+		A WARL CSR for storing and manipulating 
+		the currently enabled extensions and bitness.
+		For us bitness is locked to 0b10 or 64bit
+		E and C are always 0, I is always 1, S and U are 1, 
+		others are toggleable if the corrosponding extension 
+		is implemented.
+		
 	+ medeleg		RW	Delegate exceptions to other modes
 	+ mideleg		RW	Delegate interrupt to other modes
 	+ mie			RW	En/Disable interrupts
@@ -48,9 +118,7 @@ Machine
 	+ mtval2		RW	Machine bad guest physical address
 
 	+ menvcfg	?	RW	Machine environment configuration
-	+ mseccfig	?	RW	Machine security configuration
-	
-	PMP = Physical memory protection
+	+ mseccfig	?	RW	Machine security configuration	
 
 	+ pmpcfg(0,2,..,14)	RW PMP configuration
 	+ pmpaddr(0..63)	RW PMP Address register

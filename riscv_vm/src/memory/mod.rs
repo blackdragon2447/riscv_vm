@@ -38,13 +38,13 @@ pub enum MemoryError {
     DeviceMemoryPoison,
 }
 
-impl<'a, const SIZE: usize> Default for Memory<SIZE> {
+impl<const SIZE: usize> Default for Memory<SIZE> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<'a, const SIZE: usize> Memory<SIZE> {
+impl<const SIZE: usize> Memory<SIZE> {
     pub fn new() -> Self {
         Self {
             mem: Box::new([0; SIZE]),
@@ -141,11 +141,7 @@ impl DeviceMemory {
     }
 
     pub fn new(size: u64, addr: Address) -> Self {
-        let mut mem = Vec::with_capacity(size as usize);
-        for _ in 0..size {
-            mem.push(0);
-        }
-        Self(addr..(addr + size), mem)
+        Self(addr..(addr + size), vec![0; size as usize])
     }
 
     pub fn write_bytes(&mut self, bytes: &[u8], addr: Address) -> Result<(), MemoryError> {

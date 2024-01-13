@@ -83,7 +83,7 @@ impl Hart {
         // will return an Err if it cannot).
         let inst = decode(u32::from_le_bytes(
             mem.read_bytes(self.get_pc(), 4)
-                .map_err(|e| VMError::FetchError(e))?
+                .map_err(VMError::FetchError)?
                 .try_into()
                 .unwrap(),
         ));

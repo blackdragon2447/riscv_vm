@@ -97,7 +97,7 @@ impl<const MEM_SIZE: usize> VMState<MEM_SIZE> {
         //     .insert(self.next_dev_id, Box::new(D::init(&mut memory)?));
         let mem = self.mem.add_device_memory(self.next_dev_id, memory)?;
         std::thread::spawn(move || -> Result<(), DeviceInitError> {
-            let device = D::init(&mut *mem.write().unwrap())?;
+            let device = D::init(&mut mem.write().unwrap())?;
             device.run(mem);
             Ok(())
         });

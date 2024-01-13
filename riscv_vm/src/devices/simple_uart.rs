@@ -14,7 +14,7 @@ impl Device for SimpleUart {
         Self: Sized,
     {
         if mem.size() < 8 {
-            return Err(DeviceInitError::InsufficientMemory);
+            Err(DeviceInitError::InsufficientMemory)
         } else {
             mem.get_mem_mut()[5] |= 0x40;
             Ok(Self)

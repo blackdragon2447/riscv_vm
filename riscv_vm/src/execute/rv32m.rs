@@ -21,7 +21,7 @@ pub(super) fn mulh(
     rs1: &i64,
     rs2: &i64,
 ) -> Result<ExecuteResult, ExecuteError> {
-    *rd = ((*rs1 as i128).overflowing_mul((*rs2 as i128)).0 >> 64) as i64;
+    *rd = ((*rs1 as i128).overflowing_mul(*rs2 as i128).0 >> 64) as i64;
     Ok(ExecuteResult::Continue)
 }
 
@@ -31,7 +31,7 @@ pub(super) fn mulhsu(
     rs1: &i64,
     rs2: &i64,
 ) -> Result<ExecuteResult, ExecuteError> {
-    *rd = ((*rs1 as i128).overflowing_mul((*rs2 as u128 as i128)).0 >> 64) as i64;
+    *rd = ((*rs1 as i128).overflowing_mul(*rs2 as u128 as i128).0 >> 64) as i64;
     Ok(ExecuteResult::Continue)
 }
 
@@ -41,7 +41,7 @@ pub(super) fn mulhu(
     rs1: &i64,
     rs2: &i64,
 ) -> Result<ExecuteResult, ExecuteError> {
-    *rd = ((*rs1 as u128).overflowing_mul((*rs2 as u128)).0 >> 64) as i64;
+    *rd = ((*rs1 as u128).overflowing_mul(*rs2 as u128).0 >> 64) as i64;
     Ok(ExecuteResult::Continue)
 }
 
