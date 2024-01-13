@@ -1,5 +1,6 @@
 mod csr_address;
 mod csr_holder;
+mod privilege;
 #[cfg(test)]
 mod tests;
 
@@ -7,7 +8,7 @@ use std::{collections::HashMap, time::Instant};
 
 use crate::{
     decode::decode,
-    execute::execute,
+    execute::{execute, ExecuteResult},
     memory::{
         address::Address,
         registers::{IntRegister, Registers},
@@ -81,10 +82,17 @@ impl Hart {
         // Unwrap here is safe since u32 expects 4 bytes and we alyaws read 4 bytes (read_bytes
         // will return an Err if it cannot).
         let inst = decode(u32::from_le_bytes(
-            mem.read_bytes(self.get_pc(), 4)?.try_into().unwrap(),
+            mem.read_bytes(self.get_pc(), 4)
+                .map_err(|e| VMError::FetchError(e))?
+                .try_into()
+                .unwrap(),
         ));
         dbg!(inst);
-        execute(self, mem, inst);
+        let result = execute(self, mem, inst)?;
+        match result {
+            ExecuteResult::Continue => self.inc_pc(),
+            ExecuteResult::Jump(pc) => self.set_pc(pc),
+        }
 
         self.csr.inc_cycle(1);
         self.csr

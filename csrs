@@ -1,0 +1,59 @@
+User Registers:
+	+ cycle			RO	Number of cyles the cpu has gone through
+	+ time			RO	Time the hart as been running in ms
+	+ instret		RO	The number of retired instructions
+	- hpmcounter3..	RO	Always 0?
+
+Supervisor Registers:
+	+ sstatus		RW	Supervisor status => Layout...
+	+ sie			RW	Supervisor interrupt enable
+	+ stvec			RW	Supervisor trap handler address
+
+	+ senvcfg		RW	Supervisor environment configuration 
+
+	+ sscratch		RW	Trap handler scratch register 
+	+ sepc			RW	Supervisor exception pc
+	+ scause		RW	Supervisor trap cause
+	+ stval			RW	Supervisor bad address or instruction
+	+ sip			RW	Supervisor interrupt pending
+	
+	+ satp			RW	Supervisor address protection
+
+	+ scontext		RW  Supervisor context register
+
+Hypervisor
+	-
+
+Machine
+	~ mvendorid		RO	Always 0
+	~ marchid		RO	Always 0
+	~ mimpid		RO	Always 0
+	+ mhartid		RO
+	? mconfigptr	RO
+
+	+ mstatus		RW	Machine status => Layout...
+	+ misa			RW	Bitness arch and extensions,
+	+ medeleg		RW	Delegate exceptions to other modes
+	+ mideleg		RW	Delegate interrupt to other modes
+	+ mie			RW	En/Disable interrupts
+	+ mtvec			RW	Machine mode trap vector
+	+ mcountern		RW	Machine counter enable 
+
+	+ mscratch		RW	Trap handler scratch registers
+	+ mepc			RW	Machine exception pc
+	+ mcause		RW	Machine trap cause
+	+ mtval			RW	Machine bad address or instruction
+	+ mip			RW	Machine interrupt pending
+	+ mtinst	?	RW	Machine trap instruction (transformed)
+	+ mtval2		RW	Machine bad guest physical address
+
+	+ menvcfg	?	RW	Machine environment configuration
+	+ mseccfig	?	RW	Machine security configuration
+	
+	PMP = Physical memory protection
+
+	+ pmpcfg(0,2,..,14)	RW PMP configuration
+	+ pmpaddr(0..63)	RW PMP Address register
+
+	~ mcycle		RW	Tied to cycle 
+	~ minstret		RW	Tied to instret

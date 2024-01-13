@@ -7,14 +7,31 @@ mod rv64zicsr;
 use crate::{
     decode::instruction::{Instruction, Instruction::*},
     hart::{CsrAddress, Hart},
-    memory::{registers::IntRegister, Memory},
+    memory::{address::Address, registers::IntRegister, Memory, MemoryError},
 };
+
+pub enum ExecuteResult {
+    Continue,
+    Jump(Address),
+}
+
+#[derive(Debug)]
+pub enum ExecuteError {
+    MemoryError(MemoryError),
+    IllegalInstruction,
+}
+
+impl From<MemoryError> for ExecuteError {
+    fn from(value: MemoryError) -> Self {
+        Self::MemoryError(value)
+    }
+}
 
 pub fn execute<const SIZE: usize>(
     hart: &mut Hart,
     mem: &mut Memory<SIZE>,
     instruction: Instruction,
-) {
+) -> Result<ExecuteResult, ExecuteError> {
     match instruction {
         // rv64i
         LUI { rd, imm } => u_type(hart, rd, imm, rv32i::lui),
@@ -118,42 +135,60 @@ pub fn execute<const SIZE: usize>(
         FENCE { rd, rs1, imm } => nop(),
         ECALL => nop(),
         EBREAK => nop(),
-        Undifined(i) => panic!("Undifined Operation: {:#X}", i),
+        Undifined(i) => Err(ExecuteError::IllegalInstruction),
     }
 }
 
-fn r_type<E>(hart: &mut Hart, rd: IntRegister, rs1: IntRegister, rs2: IntRegister, executor: E)
+fn r_type<E>(
+    hart: &mut Hart,
+    rd: IntRegister,
+    rs1: IntRegister,
+    rs2: IntRegister,
+    executor: E,
+) -> Result<ExecuteResult, ExecuteError>
 where
-    E: Fn(&Hart, &mut i64, &i64, &i64),
+    E: Fn(&Hart, &mut i64, &i64, &i64) -> Result<ExecuteResult, ExecuteError>,
 {
     let rs1 = hart.get_reg(rs1);
     let rs2 = hart.get_reg(rs2);
     let mut rdv = 0;
-    executor(hart, &mut rdv, &rs1, &rs2);
+    let result = executor(hart, &mut rdv, &rs1, &rs2)?;
     hart.set_reg(rd, rdv);
-    hart.inc_pc();
+    Ok(result)
 }
 
-fn i_type<E>(hart: &mut Hart, rd: IntRegister, rs1: IntRegister, imm: i32, executor: E)
+fn i_type<E>(
+    hart: &mut Hart,
+    rd: IntRegister,
+    rs1: IntRegister,
+    imm: i32,
+    executor: E,
+) -> Result<ExecuteResult, ExecuteError>
 where
-    E: Fn(&Hart, &mut i64, &i64, i32),
+    E: Fn(&Hart, &mut i64, &i64, i32) -> Result<ExecuteResult, ExecuteError>,
 {
     let rs1 = hart.get_reg(rs1);
     let mut rdv = 0;
-    executor(hart, &mut rdv, &rs1, imm);
+    let result = executor(hart, &mut rdv, &rs1, imm)?;
     hart.set_reg(rd, rdv);
-    hart.inc_pc();
+    Ok(result)
 }
 
-fn i_type_shift<E>(hart: &mut Hart, rd: IntRegister, rs1: IntRegister, shamt: i32, executor: E)
+fn i_type_shift<E>(
+    hart: &mut Hart,
+    rd: IntRegister,
+    rs1: IntRegister,
+    shamt: i32,
+    executor: E,
+) -> Result<ExecuteResult, ExecuteError>
 where
-    E: Fn(&Hart, &mut i64, &i64, i32),
+    E: Fn(&Hart, &mut i64, &i64, i32) -> Result<ExecuteResult, ExecuteError>,
 {
     let rs1 = hart.get_reg(rs1);
     let mut rdv = 0;
-    executor(hart, &mut rdv, &rs1, shamt);
+    let result = executor(hart, &mut rdv, &rs1, shamt)?;
     hart.set_reg(rd, rdv);
-    hart.inc_pc();
+    Ok(result)
 }
 
 fn i_type_mem_access<E, const SIZE: usize>(
@@ -163,34 +198,48 @@ fn i_type_mem_access<E, const SIZE: usize>(
     rs1: IntRegister,
     imm: i32,
     executor: E,
-) where
-    E: Fn(&Hart, &mut Memory<SIZE>, &mut i64, &i64, i32),
+) -> Result<ExecuteResult, ExecuteError>
+where
+    E: Fn(&Hart, &mut Memory<SIZE>, &mut i64, &i64, i32) -> Result<ExecuteResult, ExecuteError>,
 {
     let rs1 = hart.get_reg(rs1);
     let mut rdv = 0;
-    executor(hart, mem, &mut rdv, &rs1, imm);
+    let result = executor(hart, mem, &mut rdv, &rs1, imm)?;
     hart.set_reg(rd, rdv);
-    hart.inc_pc();
+    Ok(result)
 }
 
-fn i_type_mut_hart<E>(hart: &mut Hart, rd: IntRegister, rs1: IntRegister, imm: i32, executor: E)
+fn i_type_mut_hart<E>(
+    hart: &mut Hart,
+    rd: IntRegister,
+    rs1: IntRegister,
+    imm: i32,
+    executor: E,
+) -> Result<ExecuteResult, ExecuteError>
 where
-    E: Fn(&mut Hart, &mut i64, &i64, i32),
+    E: Fn(&mut Hart, &mut i64, &i64, i32) -> Result<ExecuteResult, ExecuteError>,
 {
     let rs1 = hart.get_reg(rs1);
     let mut rdv = 0;
-    executor(hart, &mut rdv, &rs1, imm);
+    let result = executor(hart, &mut rdv, &rs1, imm)?;
     hart.set_reg(rd, rdv);
+    Ok(result)
 }
 
-fn s_type<E>(hart: &mut Hart, imm: i32, rs1: IntRegister, rs2: IntRegister, executor: E)
+fn s_type<E>(
+    hart: &mut Hart,
+    imm: i32,
+    rs1: IntRegister,
+    rs2: IntRegister,
+    executor: E,
+) -> Result<ExecuteResult, ExecuteError>
 where
-    E: Fn(&Hart, &i64, &i64, i32),
+    E: Fn(&Hart, &i64, &i64, i32) -> Result<ExecuteResult, ExecuteError>,
 {
     let rs1 = hart.get_reg(rs1);
     let rs2 = hart.get_reg(rs2);
-    executor(hart, &rs1, &rs2, imm);
-    hart.inc_pc();
+    let result = executor(hart, &rs1, &rs2, imm)?;
+    Ok(result)
 }
 
 fn s_type_mem_access<E, const SIZE: usize>(
@@ -200,99 +249,149 @@ fn s_type_mem_access<E, const SIZE: usize>(
     rs1: IntRegister,
     rs2: IntRegister,
     executor: E,
-) where
-    E: Fn(&Hart, &mut Memory<SIZE>, &i64, &i64, i32),
+) -> Result<ExecuteResult, ExecuteError>
+where
+    E: Fn(&Hart, &mut Memory<SIZE>, &i64, &i64, i32) -> Result<ExecuteResult, ExecuteError>,
 {
     let rs1 = hart.get_reg(rs1);
     let rs2 = hart.get_reg(rs2);
-    executor(hart, mem, &rs1, &rs2, imm);
-    hart.inc_pc();
+    let result = executor(hart, mem, &rs1, &rs2, imm)?;
+    Ok(result)
 }
 
-fn s_type_mut_hart<E>(hart: &mut Hart, imm: i32, rs1: IntRegister, rs2: IntRegister, executor: E)
+fn s_type_mut_hart<E>(
+    hart: &mut Hart,
+    imm: i32,
+    rs1: IntRegister,
+    rs2: IntRegister,
+    executor: E,
+) -> Result<ExecuteResult, ExecuteError>
 where
-    E: Fn(&mut Hart, &i64, &i64, i32),
+    E: Fn(&mut Hart, &i64, &i64, i32) -> Result<ExecuteResult, ExecuteError>,
 {
     let rs1 = hart.get_reg(rs1);
     let rs2 = hart.get_reg(rs2);
-    executor(hart, &rs1, &rs2, imm);
+    executor(hart, &rs1, &rs2, imm)
 }
 
-fn u_type<E>(hart: &mut Hart, rd: IntRegister, imm: i32, executor: E)
+fn u_type<E>(
+    hart: &mut Hart,
+    rd: IntRegister,
+    imm: i32,
+    executor: E,
+) -> Result<ExecuteResult, ExecuteError>
 where
-    E: Fn(&Hart, &mut i64, i32),
+    E: Fn(&Hart, &mut i64, i32) -> Result<ExecuteResult, ExecuteError>,
 {
     let mut rdv = 0;
-    executor(hart, &mut rdv, imm);
+    let result = executor(hart, &mut rdv, imm)?;
     hart.set_reg(rd, rdv);
-    hart.inc_pc();
+    Ok(result)
 }
 
-fn u_type_mut_hart<E>(hart: &mut Hart, rd: IntRegister, imm: i32, executor: E)
+fn u_type_mut_hart<E>(
+    hart: &mut Hart,
+    rd: IntRegister,
+    imm: i32,
+    executor: E,
+) -> Result<ExecuteResult, ExecuteError>
 where
-    E: Fn(&mut Hart, &mut i64, i32),
+    E: Fn(&mut Hart, &mut i64, i32) -> Result<ExecuteResult, ExecuteError>,
 {
     let mut rdv = 0;
-    executor(hart, &mut rdv, imm);
+    let result = executor(hart, &mut rdv, imm)?;
     hart.set_reg(rd, rdv);
+    Ok(result)
 }
 
-fn inst_csr<E>(hart: &mut Hart, rd: IntRegister, rs1: IntRegister, csr: CsrAddress, executor: E)
+fn inst_csr<E>(
+    hart: &mut Hart,
+    rd: IntRegister,
+    rs1: IntRegister,
+    csr: CsrAddress,
+    executor: E,
+) -> Result<ExecuteResult, ExecuteError>
 where
-    E: Fn(&mut Hart, &mut i64, &i64, CsrAddress),
+    E: Fn(&mut Hart, &mut i64, &i64, CsrAddress) -> Result<ExecuteResult, ExecuteError>,
 {
     let mut rdv = 0;
     let rs1 = hart.get_reg(rs1);
-    executor(hart, &mut rdv, &rs1, csr);
+    let result = executor(hart, &mut rdv, &rs1, csr)?;
     hart.set_reg(rd, rdv);
-    hart.inc_pc();
+    Ok(result)
 }
 
-fn inst_csrwo<E>(hart: &mut Hart, rs1: IntRegister, csr: CsrAddress, executor: E)
+fn inst_csrwo<E>(
+    hart: &mut Hart,
+    rs1: IntRegister,
+    csr: CsrAddress,
+    executor: E,
+) -> Result<ExecuteResult, ExecuteError>
 where
-    E: Fn(&mut Hart, &i64, CsrAddress),
+    E: Fn(&mut Hart, &i64, CsrAddress) -> Result<ExecuteResult, ExecuteError>,
 {
     let rs1 = hart.get_reg(rs1);
-    executor(hart, &rs1, csr);
-    hart.inc_pc();
+    executor(hart, &rs1, csr)
 }
 
-fn inst_csrro<E>(hart: &mut Hart, rd: IntRegister, csr: CsrAddress, executor: E)
+fn inst_csrro<E>(
+    hart: &mut Hart,
+    rd: IntRegister,
+    csr: CsrAddress,
+    executor: E,
+) -> Result<ExecuteResult, ExecuteError>
 where
-    E: Fn(&mut Hart, &mut i64, CsrAddress),
+    E: Fn(&mut Hart, &mut i64, CsrAddress) -> Result<ExecuteResult, ExecuteError>,
 {
     let mut rdv = 0;
-    executor(hart, &mut rdv, csr);
+    let result = executor(hart, &mut rdv, csr)?;
     hart.set_reg(rd, rdv);
-    hart.inc_pc();
+    Ok(result)
 }
 
-fn inst_csri<E>(hart: &mut Hart, rd: IntRegister, uimm: u32, csr: CsrAddress, executor: E)
+fn inst_csri<E>(
+    hart: &mut Hart,
+    rd: IntRegister,
+    uimm: u32,
+    csr: CsrAddress,
+    executor: E,
+) -> Result<ExecuteResult, ExecuteError>
 where
-    E: Fn(&mut Hart, &mut i64, u32, CsrAddress),
+    E: Fn(&mut Hart, &mut i64, u32, CsrAddress) -> Result<ExecuteResult, ExecuteError>,
 {
     let mut rdv = 0;
-    executor(hart, &mut rdv, uimm, csr);
+    let result = executor(hart, &mut rdv, uimm, csr)?;
     hart.set_reg(rd, rdv);
-    hart.inc_pc();
+    Ok(result)
 }
 
-fn inst_csrwoi<E>(hart: &mut Hart, imm: u32, csr: CsrAddress, executor: E)
+fn inst_csrwoi<E>(
+    hart: &mut Hart,
+    imm: u32,
+    csr: CsrAddress,
+    executor: E,
+) -> Result<ExecuteResult, ExecuteError>
 where
-    E: Fn(&mut Hart, u32, CsrAddress),
+    E: Fn(&mut Hart, u32, CsrAddress) -> Result<ExecuteResult, ExecuteError>,
 {
-    executor(hart, imm, csr);
-    hart.inc_pc();
+    executor(hart, imm, csr)
 }
 
-fn inst_csrroi<E>(hart: &mut Hart, rd: IntRegister, csr: CsrAddress, executor: E)
+fn inst_csrroi<E>(
+    hart: &mut Hart,
+    rd: IntRegister,
+    csr: CsrAddress,
+    executor: E,
+) -> Result<ExecuteResult, ExecuteError>
 where
-    E: Fn(&mut Hart, &mut i64, CsrAddress),
+    E: Fn(&mut Hart, &mut i64, CsrAddress) -> Result<ExecuteResult, ExecuteError>,
 {
     let mut rdv = 0;
-    executor(hart, &mut rdv, csr);
+    let resut = executor(hart, &mut rdv, csr)?;
     hart.set_reg(rd, rdv);
-    hart.inc_pc();
+    Ok(resut)
 }
 
-fn nop() {}
+fn nop() -> Result<ExecuteResult, ExecuteError> {
+    Ok(ExecuteResult::Continue)
+}

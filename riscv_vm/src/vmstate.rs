@@ -8,7 +8,7 @@ use elf_load::{
 use crate::{
     decode::decode,
     devices::{AsyncDevice, Device, DeviceError, DeviceInitError, HandledDevice},
-    execute::execute,
+    execute::{execute, ExecuteError},
     hart::Hart,
     memory::{address::Address, DeviceMemory, Memory, MemoryError},
 };
@@ -31,9 +31,11 @@ pub enum KernelError {
 #[derive(Debug)]
 pub enum VMError {
     MemoryError(MemoryError),
+    FetchError(MemoryError),
     InvalidElfKernel(KernelError),
     NoDeviceMemory,
     DeviceError(DeviceError),
+    ExecureError(ExecuteError),
 }
 
 impl<const MEM_SIZE: usize> VMState<MEM_SIZE> {
@@ -142,6 +144,12 @@ impl From<MemoryError> for VMError {
 impl From<DeviceError> for VMError {
     fn from(value: DeviceError) -> Self {
         Self::DeviceError(value)
+    }
+}
+
+impl From<ExecuteError> for VMError {
+    fn from(value: ExecuteError) -> Self {
+        Self::ExecureError(value)
     }
 }
 
