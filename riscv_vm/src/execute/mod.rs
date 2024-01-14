@@ -4,9 +4,11 @@ mod rv64i;
 mod rv64m;
 mod rv64zicsr;
 
+use enumflags2::BitFlags;
+
 use crate::{
     decode::instruction::{Instruction, Instruction::*},
-    hart::{CsrAddress, Hart},
+    hart::{isa::Isa, CsrAddress, Hart},
     memory::{address::Address, registers::IntRegister, Memory, MemoryError},
 };
 
@@ -31,6 +33,7 @@ pub fn execute<const SIZE: usize>(
     hart: &mut Hart,
     mem: &mut Memory<SIZE>,
     instruction: Instruction,
+    isa: BitFlags<Isa>,
 ) -> Result<ExecuteResult, ExecuteError> {
     match instruction {
         // rv64i
@@ -87,19 +90,21 @@ pub fn execute<const SIZE: usize>(
         SRAW { rd, rs1, rs2 } => r_type(hart, rd, rs1, rs2, rv64i::sraw),
 
         // rv64m
-        MUL { rd, rs1, rs2 } => r_type(hart, rd, rs1, rs2, rv32m::mul),
-        MULH { rd, rs1, rs2 } => r_type(hart, rd, rs1, rs2, rv32m::mulh),
-        MULHSU { rd, rs1, rs2 } => r_type(hart, rd, rs1, rs2, rv32m::mulhsu),
-        MULHU { rd, rs1, rs2 } => r_type(hart, rd, rs1, rs2, rv32m::mulhu),
-        DIV { rd, rs1, rs2 } => r_type(hart, rd, rs1, rs2, rv32m::div),
-        DIVU { rd, rs1, rs2 } => r_type(hart, rd, rs1, rs2, rv32m::divu),
-        REM { rd, rs1, rs2 } => r_type(hart, rd, rs1, rs2, rv32m::rem),
-        REMU { rd, rs1, rs2 } => r_type(hart, rd, rs1, rs2, rv32m::remu),
-        MULW { rd, rs1, rs2 } => r_type(hart, rd, rs1, rs2, rv64m::mulw),
-        DIVW { rd, rs1, rs2 } => r_type(hart, rd, rs1, rs2, rv64m::divw),
-        DIVUW { rd, rs1, rs2 } => r_type(hart, rd, rs1, rs2, rv64m::divuw),
-        REMW { rd, rs1, rs2 } => r_type(hart, rd, rs1, rs2, rv64m::remw),
-        REMUW { rd, rs1, rs2 } => r_type(hart, rd, rs1, rs2, rv64m::remuw),
+        MUL { rd, rs1, rs2 } if isa.contains(Isa::M) => r_type(hart, rd, rs1, rs2, rv32m::mul),
+        MULH { rd, rs1, rs2 } if isa.contains(Isa::M) => r_type(hart, rd, rs1, rs2, rv32m::mulh),
+        MULHSU { rd, rs1, rs2 } if isa.contains(Isa::M) => {
+            r_type(hart, rd, rs1, rs2, rv32m::mulhsu)
+        }
+        MULHU { rd, rs1, rs2 } if isa.contains(Isa::M) => r_type(hart, rd, rs1, rs2, rv32m::mulhu),
+        DIV { rd, rs1, rs2 } if isa.contains(Isa::M) => r_type(hart, rd, rs1, rs2, rv32m::div),
+        DIVU { rd, rs1, rs2 } if isa.contains(Isa::M) => r_type(hart, rd, rs1, rs2, rv32m::divu),
+        REM { rd, rs1, rs2 } if isa.contains(Isa::M) => r_type(hart, rd, rs1, rs2, rv32m::rem),
+        REMU { rd, rs1, rs2 } if isa.contains(Isa::M) => r_type(hart, rd, rs1, rs2, rv32m::remu),
+        MULW { rd, rs1, rs2 } if isa.contains(Isa::M) => r_type(hart, rd, rs1, rs2, rv64m::mulw),
+        DIVW { rd, rs1, rs2 } if isa.contains(Isa::M) => r_type(hart, rd, rs1, rs2, rv64m::divw),
+        DIVUW { rd, rs1, rs2 } if isa.contains(Isa::M) => r_type(hart, rd, rs1, rs2, rv64m::divuw),
+        REMW { rd, rs1, rs2 } if isa.contains(Isa::M) => r_type(hart, rd, rs1, rs2, rv64m::remw),
+        REMUW { rd, rs1, rs2 } if isa.contains(Isa::M) => r_type(hart, rd, rs1, rs2, rv64m::remuw),
 
         // rv64 Zicsr
         CSRRW {
@@ -131,11 +136,34 @@ pub fn execute<const SIZE: usize>(
         CSRRCI { rd, uimm: 0, csr } => inst_csrroi(hart, rd, csr, rv64zicsr::csrr),
         CSRRCI { rd, uimm, csr } => inst_csri(hart, rd, uimm, csr, rv64zicsr::csrrci),
 
+        MRET => {
+            let status = hart.get_csr().status_mut();
+            let mpp = status.mpp;
+            status.mie = status.mpie;
+            status.mpie = false;
+            hart.set_privilege(mpp);
+
+            Ok(ExecuteResult::Jump(hart.get_csr().mepc()))
+        }
+
+        SRET => {
+            let status = hart.get_csr().status_mut();
+            let spp = status.spp;
+            status.sie = status.mpie;
+            status.spie = false;
+            hart.set_privilege(spp);
+
+            Ok(ExecuteResult::Jump(hart.get_csr().mepc()))
+        }
+
         // ???
         FENCE { rd, rs1, imm } => nop(),
-        ECALL => nop(),
+        ECALL => {
+            println!("ECALL");
+            nop()
+        }
         EBREAK => nop(),
-        Undifined(i) => Err(ExecuteError::IllegalInstruction),
+        _ => Err(ExecuteError::IllegalInstruction),
     }
 }
 

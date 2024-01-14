@@ -3,6 +3,8 @@ use std::{
     ops::{Add, AddAssign, Sub},
 };
 
+use super::privilege::PrivilegeMode;
+
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct CsrAddress(u16);
 
@@ -39,6 +41,20 @@ impl CsrAddress {
             }
             (0b11, 0b00, i) if (i & 0b1100) == 0b1100 => CsrType::CustomRO,
 
+            (0b00, 0b01, _) => CsrType::StandardRW,
+            (0b01, 0b01, i) if (i & 0b1000) == 0b000 || (i & 0b1100) == 0b1000 => {
+                CsrType::StandardRW
+            }
+            (0b01, 0b01, i) if (i & 0b1100) == 0b1100 => CsrType::CustomRO,
+            (0b10, 0b01, i) if (i & 0b1000) == 0b000 || (i & 0b1100) == 0b1000 => {
+                CsrType::StandardRW
+            }
+            (0b10, 0b01, i) if (i & 0b1100) == 0b1100 => CsrType::CustomRO,
+            (0b11, 0b01, i) if (i & 0b1000) == 0b000 || (i & 0b1100) == 0b1000 => {
+                CsrType::StandardRW
+            }
+            (0b11, 0b01, i) if (i & 0b1100) == 0b1100 => CsrType::CustomRO,
+
             (0b00, 0b11, _) => CsrType::StandardRW,
             (0b01, 0b11, i) if (i & 0b1000) == 0b0000 || (i & 0b1110) == 0b1000 => {
                 CsrType::StandardRW
@@ -55,6 +71,16 @@ impl CsrAddress {
                 CsrType::CustomRO
             }
             _ => CsrType::CustomRO,
+        }
+    }
+
+    pub fn get_privilege(&self) -> PrivilegeMode {
+        match (self.0 & 0b001100000000) >> 8 {
+            0b00 => PrivilegeMode::User,
+            0b01 => PrivilegeMode::Supervisor,
+            0b10 => PrivilegeMode::Machine,
+            0b11 => PrivilegeMode::Machine,
+            _ => unreachable!(),
         }
     }
 }

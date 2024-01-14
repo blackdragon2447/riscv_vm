@@ -1,8 +1,10 @@
 mod csr_address;
 mod csr_holder;
+pub mod isa;
 mod privilege;
 #[cfg(test)]
 mod tests;
+mod trap;
 
 use std::{collections::HashMap, time::Instant};
 
@@ -19,7 +21,7 @@ use crate::{
 
 pub use csr_address::CsrAddress;
 
-use self::csr_holder::CsrHolder;
+use self::{csr_holder::CsrHolder, privilege::PrivilegeMode};
 
 #[derive(Debug)]
 pub struct Hart {
@@ -28,7 +30,7 @@ pub struct Hart {
     pc: Address,
     registers: Registers,
     csr: CsrHolder,
-    started: Instant,
+    privilege: PrivilegeMode,
 }
 
 #[derive(Debug)]
@@ -46,7 +48,7 @@ impl Hart {
             pc: 0x80000000u64.into(),
             registers: Registers::new(),
             csr: CsrHolder::new(hart_id),
-            started: Instant::now(),
+            privilege: PrivilegeMode::Machine,
         }
     }
 
@@ -78,6 +80,14 @@ impl Hart {
         &mut self.csr
     }
 
+    pub fn privilege(&self) -> PrivilegeMode {
+        self.privilege
+    }
+
+    pub fn set_privilege(&mut self, privilege: PrivilegeMode) {
+        self.privilege = privilege;
+    }
+
     pub fn step<const SIZE: usize>(&mut self, mem: &mut Memory<SIZE>) -> Result<(), VMError> {
         // Unwrap here is safe since u32 expects 4 bytes and we alyaws read 4 bytes (read_bytes
         // will return an Err if it cannot).
@@ -87,17 +97,17 @@ impl Hart {
                 .try_into()
                 .unwrap(),
         ));
-        dbg!(inst);
-        let result = execute(self, mem, inst)?;
+        // dbg!(inst);
+        let result = execute(self, mem, inst, self.csr.isa())?;
         match result {
             ExecuteResult::Continue => self.inc_pc(),
             ExecuteResult::Jump(pc) => self.set_pc(pc),
         }
 
-        self.csr.inc_cycle(1);
-        self.csr
-            .write_time(self.started.elapsed().as_millis() as u64);
-        self.csr.inc_instret(1);
+        // self.csr.inc_cycle(1);
+        // self.csr
+        // .write_time(self.started.elapsed().as_millis() as u64);
+        // self.csr.inc_instret(1);
 
         Ok(())
     }

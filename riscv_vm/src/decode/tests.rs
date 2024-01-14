@@ -138,4 +138,9 @@ mod instructions {
             }
         )
     }
+
+    #[test]
+    fn mret() {
+        assert_eq!(decode(0x30200073), MRET)
+    }
 }

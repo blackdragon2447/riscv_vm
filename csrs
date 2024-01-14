@@ -5,6 +5,9 @@ WPRI: Ignore writes, read 0s
 CSR size is determined by ${MODE}XLEN (MXLEN, etc...)
 PMP = Physical memory protection
 
+mip/sip and mie/sie will be read only 0 for the time being as 
+interrupts aren't implemented yet.
+
 User Registers:
 	+ cycle			RO	Number of cyles the cpu has gone through
 	+ time			RO	Time the hart as been running in ms
@@ -13,18 +16,71 @@ User Registers:
 
 Supervisor Registers:
 	+ sstatus		RW	Supervisor status => Layout...
+		This is a subset of the mstatus register, any write 
+		to this register are equivalent to writes to the
+		corrosponding field in mstatus.
+		It can access 
+		[1] SIE
+		[5] SPIE
+		[6] UBE
+		[8] SPP
+		[9..10] FS
+		[13..14] FS 
+		[15..16] XS
+		[18] SUM
+		[19] MXR
+		[32..33] UXL
+		[63] SD
 	+ sie			RW	Supervisor interrupt enable
+		Allows for the en/disabling of interrupts, its bit 
+		positions corrospond to the value written to mcause.
+
 	+ stvec			RW	Supervisor trap handler address
+		Holds the address of the supervisor trap handler,
+		behaves the same as mtvec.
+
+	+ scounteren
+		Toggled access to performance counters form U mode 
+		bits 0..2 represent cycle, time and instret in that
+		order,  if these bits arent set and U mode attempts 
+		to read one of these registers, an illegal instruction 
+		exception is produced. Bits heigher than 2 are 
+		read only 0.
 
 	+ senvcfg		RW	Supervisor environment configuration 
+		Bit 0 determines if fencing device I/O also implies 
+		fencing main memory when not U-mode.
+		All other bits are currently read only 0.
 
 	+ sscratch		RW	Trap handler scratch register 
 	+ sepc			RW	Supervisor exception pc
+		When taking a trap, the address of the instruction 
+		from which the trap was take will be put in this CSR,
+		the borrom two bits of sepc must be 0.
+
 	+ scause		RW	Supervisor trap cause
+		Hold a value indicating the cause of the current trap,
+		the topmost bit indicates if this trap is an 
+		intterupt (1) or an exception (0).
 	+ stval			RW	Supervisor bad address or instruction
+		Contain exception specific information. If a 
+		breakpoint, address-misaligned, access-fault or 
+		page-fault exception happens on a fetch load or store,
+		stval wil hold the address of the faulting function.
+		On misaligned load or store, stval will contain the 
+		address of said access.
+		Otherwise stval is 0
 	+ sip			RW	Supervisor interrupt pending
-	
+		Bits being set in this CSR indicate interrupts 
+		which are pending but have not yet caused a trap,
+		the layout is the same as mie. Interrupts may 
+		be cleared by setting their bits in sip to 0.
+		Machine mode interrupts cannot be cleared through 
+		this CSR and instead have to be cleared through the 
+		interrupt controller or timer compare register.
+
 	+ satp			RW	Supervisor address protection
+		Memory protection config TODO
 
 	+ scontext		RW  Supervisor context register
 
@@ -36,7 +92,10 @@ Machine
 	~ marchid		RO	Always 0
 	~ mimpid		RO	Always 0
 	+ mhartid		RO
-	? mconfigptr	RO
+	+ mconfigptr	RO	Always 0
+		Hold the pointer to a in memory config structure,
+		since this structure isnt standardized yet this
+		will be 0 for now.
 
 	+ mstatus		RW	Machine status => Layout...
 		[1]	SIE, enable interrupts for supervisor mode
@@ -51,7 +110,7 @@ Machine
 			When taking a SRET/MRET SIE/MIE is set to 
 			SPIE/MPIE
 
-		[7] UBE, endianness of user mode, read only 0
+		[6] UBE, endianness of user mode, read only 0
 
 		[8] SPP, previous privilege level before taking a trap 
 		  into the supervisor trap handler.
@@ -62,6 +121,10 @@ Machine
 			implemented), if SPP/MPP isn't M then MPRV is 
 			set to 0. SPP can only hold S or U as privilege,
 			mode and MPP can hold M, S or U.
+
+		[9..10] VS, Vector register status, read only 0
+		[13..14] FS, Floating point register status, read only 0
+		[15..16] XS, Extra register status, read only 0
 
 		[17] MPRV, Determines how memory translation and 
 		  protection is done in M mode, if 0 it is done as 
@@ -95,6 +158,9 @@ Machine
 		[36] SBE, endianness of supervisor mode, read only 0
 		[37] SBE, endianness of machine mode, read only 0
 
+		[63] SD, tracks if either FS, VS or XS is dirty, 
+		  read only 0
+
 	+ misa			RW	Bitness arch and extensions,
 		A WARL CSR for storing and manipulating 
 		the currently enabled extensions and bitness.
@@ -105,23 +171,83 @@ Machine
 		
 	+ medeleg		RW	Delegate exceptions to other modes
 	+ mideleg		RW	Delegate interrupt to other modes
+		By setting bits inside of medeleg/mideleg exception and 
+		interrupts can be delegated to S-mode.
+		Delegated traps should not write to mcause, mepc, 
+		mtval and MPP and MPIE of mstatus.
+		Bits in these CSRs may not be read only 1.
+		If M-mode causes a trap, even if that trap is delegated 
+		to S-moe it is handled in M-mode. S-mode may handle 
+		traps caused in S-mode. Any interrupts delegated to 
+		S-mode will be masked in M-mode, this is not true 
+		for exceptions. Medeleg has its its bits positions 
+		equal to the value an exception would write to mcause,
+		mideleg is layed out like mip. Exceptions that cannot
+		happen below M-mode must be read only 0.
+
 	+ mie			RW	En/Disable interrupts
+		Allows for the en/disabling of interrupts, its bit 
+		positions corrospond to the value written to mcause.
 	+ mtvec			RW	Machine mode trap vector
-	+ mcountern		RW	Machine counter enable 
+		The address of the machine mode trap handler, the 
+		bottom two bits of the CSR encode the mode, in 
+		direct mode (0b00) all extensions jump to BASE, 
+		in vectored mode async interrupts jump to 
+		BASE + 4*cause
+
+	+ mcounteren		RW	Machine counter enable 
+		Toggled access to performance counters form S mode (or 
+		U mode if S mode isn't implemented),
+		bits 0..2 represent cycle, time and instret in that
+		order,  if these bits arent set and S mode attempts 
+		to read one of these registers, an illegal instruction 
+		exception is produced. Bits heigher than 2 are 
+		read only 0.
 
 	+ mscratch		RW	Trap handler scratch registers
 	+ mepc			RW	Machine exception pc
+		When taking a trap, the address of the instruction 
+		from which the trap was take will be put in this CSR,
+		the borrom two bits of mepc must be 0.
 	+ mcause		RW	Machine trap cause
+		Hold a value indicating the cause of the current trap,
+		the topmost bit indicates if this trap is an 
+		intterupt (1) or an exception (0).
 	+ mtval			RW	Machine bad address or instruction
+		Contain exception specific information. If a 
+		breakpoint, address-misaligned, access-fault or 
+		page-fault exception happens on a fetch load or store,
+		mtval wil hold the address of the faulting function.
+		On misaligned load or store, mtval will contain the 
+		address of said access.
+		Otherwise mtval is 0
 	+ mip			RW	Machine interrupt pending
-	+ mtinst	?	RW	Machine trap instruction (transformed)
-	+ mtval2		RW	Machine bad guest physical address
+		Bits being set in this CSR indicate interrupts 
+		which are pending but have not yet caused a trap,
+		the layout is the same as mie. Interrupts may 
+		be cleared by setting their bits in mip to 0.
+		Machine mode interrupts cannot be cleared through 
+		this CSR and instead have to be cleared through the 
+		interrupt controller or timer compare register.
 
 	+ menvcfg	?	RW	Machine environment configuration
+		Bit 0 determines if fencing device I/O also implies 
+		fencing main memory when not in M-mode.
+		Bit 62 determines if Svpbmt (extension) is available 
+		to S-mode.
+		All other bits are currently read only 0.
+		(Waiting on the ratification of extensions)
 	+ mseccfig	?	RW	Machine security configuration	
+		Currently Entirely read only 0. 
+		(Waiting on the ratification of extensions)
 
 	+ pmpcfg(0,2,..,14)	RW PMP configuration
 	+ pmpaddr(0..63)	RW PMP Address register
 
-	~ mcycle		RW	Tied to cycle 
-	~ minstret		RW	Tied to instret
+	+ mcycle		RW	Tied to cycle 
+	+ minstret		RW	Tied to instret
+
+	+ mcountinhibit	RW	Inhibit the counting of performance 
+	  counters
+		Bit 0 inhibits cycle and bit 2 inhibits instret,
+		all other bits are read only 0

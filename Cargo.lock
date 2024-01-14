@@ -1293,6 +1293,7 @@ name = "riscv_vm"
 version = "0.1.0"
 dependencies = [
  "elf_load",
+ "enumflags2",
  "pollster",
  "wgpu",
  "wgpu_text",

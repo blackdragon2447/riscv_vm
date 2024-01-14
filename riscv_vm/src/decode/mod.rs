@@ -335,17 +335,17 @@ pub fn decode(inst: u32) -> Instruction {
                         rs1: rs1.into(),
                         imm,
                     },
-                    (0b1110011, 0b000) => {
-                        if rd == 0 && rs1 == 0 {
-                            match imm {
-                                0 => Instruction::ECALL,
-                                1 => Instruction::EBREAK,
-                                _ => Instruction::Undifined(inst),
-                            }
-                        } else {
-                            Instruction::Undifined(inst)
-                        }
-                    }
+                    (0b1110011, 0b000) => match (rd, rs1) {
+                        (0b0, 0b0) => match imm {
+                            0 => Instruction::ECALL,
+                            1 => Instruction::EBREAK,
+                            0b000100000010 => Instruction::SRET,
+                            0b001100000010 => Instruction::MRET,
+                            _ => Instruction::Undifined(inst),
+                        },
+
+                        _ => Instruction::Undifined(inst),
+                    },
                     _ => Instruction::Undifined(inst),
                 }
             }

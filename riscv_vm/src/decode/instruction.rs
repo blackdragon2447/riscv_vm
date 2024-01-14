@@ -371,6 +371,10 @@ pub enum Instruction {
         csr: CsrAddress,
     },
 
+    // Privilege
+    MRET,
+    SRET,
+
     Undifined(u32),
 }
 
