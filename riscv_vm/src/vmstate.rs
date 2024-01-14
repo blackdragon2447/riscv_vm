@@ -122,6 +122,11 @@ impl<const MEM_SIZE: usize> VMState<MEM_SIZE> {
 
         Ok(())
     }
+
+    #[cfg(test)]
+    pub(crate) fn mem(&self) -> &Memory<MEM_SIZE> {
+        &self.mem
+    }
 }
 
 impl<const MEM_SIZE: usize> Debug for VMState<MEM_SIZE> {

@@ -3,7 +3,7 @@ use enumflags2::bitflags;
 #[repr(u64)]
 #[bitflags]
 #[derive(Clone, Copy, Debug)]
-pub(super) enum Exception {
+pub enum Exception {
     InstructionAddressMisaligned = 0b1 << 0,
     InstructionAccessFault = 0b1 << 1,
     IllegalInstruction = 0b1 << 2,
@@ -18,6 +18,27 @@ pub(super) enum Exception {
     InstructionPageFault = 0b1 << 12,
     LoadPageFault = 0b1 << 13,
     StorePageFault = 0b1 << 15,
+}
+
+impl Exception {
+    pub fn get_code(&self) -> u64 {
+        match self {
+            Exception::InstructionAddressMisaligned => 0,
+            Exception::InstructionAccessFault => 1,
+            Exception::IllegalInstruction => 2,
+            Exception::BreakPoint => 3,
+            Exception::LoadAddressMisaligned => 4,
+            Exception::LoadAccessFault => 5,
+            Exception::StoreAddressMisaligned => 6,
+            Exception::StoreAccessFault => 7,
+            Exception::EcallUMode => 8,
+            Exception::EcallSMode => 9,
+            Exception::EcallMMode => 11,
+            Exception::InstructionPageFault => 12,
+            Exception::LoadPageFault => 13,
+            Exception::StorePageFault => 15,
+        }
+    }
 }
 
 #[repr(u64)]

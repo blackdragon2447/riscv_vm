@@ -21,13 +21,13 @@ pub struct CsrHolder {
     // SupervisorMode
     // sstatus (tied to status)
     // sie: u64,
-    stvec: Address,
+    pub(in crate::hart) stvec: Address,
     scounteren: u64,
     senvcfg: u64,
     sscratch: u64,
-    sepc: Address,
-    scause: u64,
-    stval: u64,
+    pub(in crate::hart) sepc: Address,
+    pub(in crate::hart) scause: u64,
+    pub(in crate::hart) stval: u64,
     // sip: u64
     // satp
 
@@ -38,15 +38,15 @@ pub struct CsrHolder {
     mhartid: u64,
     mconfigptr: u64,
     misa: BitFlags<Isa>,
-    medeleg: BitFlags<Exception>,
+    pub(in crate::hart) medeleg: BitFlags<Exception>,
     mideleg: BitFlags<Interrupt>,
     // mie: u64,
-    mtvec: Address,
+    pub(in crate::hart) mtvec: Address,
     mcounteren: u64,
     mscratch: u64,
-    mepc: Address,
-    mcause: u64,
-    mtval: u64,
+    pub(in crate::hart) mepc: Address,
+    pub(in crate::hart) mcause: u64,
+    pub(in crate::hart) mtval: u64,
     // mip: u64
     menvcfg: u64,
     mseccfg: u64,
@@ -57,7 +57,7 @@ pub struct CsrHolder {
     csr: HashMap<CsrAddress, u64>,
 
     //Other
-    status: Status,
+    pub(in crate::hart) status: Status,
 }
 
 #[derive(Debug)]
@@ -156,15 +156,23 @@ impl CsrHolder {
         self.misa
     }
 
+    pub(in crate::hart) fn inc_instret(&mut self, value: u64) {
+        self.minstret += value;
+    }
+
+    pub(in crate::hart) fn inc_cycle(&mut self, value: u64) {
+        self.mcycle += value;
+    }
+
     pub(crate) fn status_mut(&mut self) -> &mut Status {
         &mut self.status
     }
 
-    pub(crate) fn sepc(&self) -> Address {
+    pub(crate) fn get_sepc(&self) -> Address {
         self.sepc
     }
 
-    pub(crate) fn mepc(&self) -> Address {
+    pub(crate) fn get_mepc(&self) -> Address {
         self.mepc
     }
 
@@ -228,7 +236,7 @@ impl CsrHolder {
                 privilege,
                 addr.get_type()
             );
-            Err(ExecuteError::IllegalInstruction)
+            Err(ExecuteError::Exception(Exception::IllegalInstruction))
         } else {
             match <CsrAddress as Into<u16>>::into(addr) {
                 0x100 => {
@@ -436,8 +444,14 @@ impl CsrHolder {
             || ((addr.get_type() == CsrType::StandardRO || addr.get_type() == CsrType::CustomRO)
                 && should_write)
         {
-            eprintln!("Illegal write to {:?}", addr);
-            return Err(ExecuteError::IllegalInstruction);
+            eprintln!(
+                "Illegal write to {:?}, with mode {:?} (self: {:?}), and type {:?}",
+                addr,
+                addr.get_privilege(),
+                privilege,
+                addr.get_type()
+            );
+            return Err(ExecuteError::Exception(Exception::IllegalInstruction));
         }
         if should_write {
             match <CsrAddress as Into<u16>>::into(addr) {
@@ -526,8 +540,14 @@ impl CsrHolder {
             || ((addr.get_type() == CsrType::StandardRO || addr.get_type() == CsrType::CustomRO)
                 && should_write)
         {
-            eprintln!("Illegal write to {:?}", addr);
-            return Err(ExecuteError::IllegalInstruction);
+            eprintln!(
+                "Illegal write to {:?}, with mode {:?} (self: {:?}), and type {:?}",
+                addr,
+                addr.get_privilege(),
+                privilege,
+                addr.get_type()
+            );
+            return Err(ExecuteError::Exception(Exception::IllegalInstruction));
         }
         if should_write {
             match <CsrAddress as Into<u16>>::into(addr) {

@@ -8,7 +8,7 @@ use enumflags2::BitFlags;
 
 use crate::{
     decode::instruction::{Instruction, Instruction::*},
-    hart::{isa::Isa, CsrAddress, Hart},
+    hart::{isa::Isa, privilege::PrivilegeMode, trap::Exception, CsrAddress, Hart},
     memory::{address::Address, registers::IntRegister, Memory, MemoryError},
 };
 
@@ -19,13 +19,18 @@ pub enum ExecuteResult {
 
 #[derive(Debug)]
 pub enum ExecuteError {
-    MemoryError(MemoryError),
-    IllegalInstruction,
+    Exception(Exception),
+    Fatal,
 }
 
 impl From<MemoryError> for ExecuteError {
     fn from(value: MemoryError) -> Self {
-        Self::MemoryError(value)
+        match value {
+            MemoryError::OutOfBoundsWrite(_, _) => Self::Exception(Exception::StoreAccessFault),
+            MemoryError::OutOfBoundsRead(_, _) => Self::Exception(Exception::LoadAccessFault),
+            MemoryError::OutOfMemory => Self::Exception(Exception::StoreAccessFault),
+            MemoryError::DeviceMemoryPoison => Self::Fatal,
+        }
     }
 }
 
@@ -143,7 +148,7 @@ pub fn execute<const SIZE: usize>(
             status.mpie = false;
             hart.set_privilege(mpp);
 
-            Ok(ExecuteResult::Jump(hart.get_csr().mepc()))
+            Ok(ExecuteResult::Jump(hart.get_csr().get_mepc()))
         }
 
         SRET => {
@@ -153,17 +158,21 @@ pub fn execute<const SIZE: usize>(
             status.spie = false;
             hart.set_privilege(spp);
 
-            Ok(ExecuteResult::Jump(hart.get_csr().mepc()))
+            Ok(ExecuteResult::Jump(hart.get_csr().get_mepc()))
         }
 
         // ???
         FENCE { rd, rs1, imm } => nop(),
         ECALL => {
             println!("ECALL");
-            nop()
+            match hart.privilege() {
+                PrivilegeMode::User => Err(ExecuteError::Exception(Exception::EcallUMode)),
+                PrivilegeMode::Supervisor => Err(ExecuteError::Exception(Exception::EcallSMode)),
+                PrivilegeMode::Machine => Err(ExecuteError::Exception(Exception::EcallMMode)),
+            }
         }
         EBREAK => nop(),
-        _ => Err(ExecuteError::IllegalInstruction),
+        _ => Err(ExecuteError::Exception(Exception::IllegalInstruction)),
     }
 }
 

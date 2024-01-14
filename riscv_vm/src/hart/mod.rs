@@ -1,16 +1,16 @@
 mod csr_address;
 mod csr_holder;
 pub mod isa;
-mod privilege;
+pub mod privilege;
 #[cfg(test)]
 mod tests;
-mod trap;
+pub mod trap;
 
 use std::{collections::HashMap, time::Instant};
 
 use crate::{
     decode::decode,
-    execute::{execute, ExecuteResult},
+    execute::{execute, ExecuteError, ExecuteResult},
     memory::{
         address::Address,
         registers::{IntRegister, Registers},
@@ -21,7 +21,7 @@ use crate::{
 
 pub use csr_address::CsrAddress;
 
-use self::{csr_holder::CsrHolder, privilege::PrivilegeMode};
+use self::{csr_holder::CsrHolder, privilege::PrivilegeMode, trap::Exception};
 
 #[derive(Debug)]
 pub struct Hart {
@@ -91,24 +91,61 @@ impl Hart {
     pub fn step<const SIZE: usize>(&mut self, mem: &mut Memory<SIZE>) -> Result<(), VMError> {
         // Unwrap here is safe since u32 expects 4 bytes and we alyaws read 4 bytes (read_bytes
         // will return an Err if it cannot).
-        let inst = decode(u32::from_le_bytes(
-            mem.read_bytes(self.get_pc(), 4)
-                .map_err(VMError::FetchError)?
-                .try_into()
-                .unwrap(),
-        ));
-        // dbg!(inst);
-        let result = execute(self, mem, inst, self.csr.isa())?;
+        let Ok(inst_bytes) = mem.read_bytes(self.get_pc(), 4) else {
+            return self.exception(Exception::InstructionAccessFault);
+        };
+        let inst = decode(u32::from_le_bytes(inst_bytes.try_into().unwrap()));
+        dbg!(inst);
+        let result = execute(self, mem, inst, self.csr.isa());
         match result {
-            ExecuteResult::Continue => self.inc_pc(),
-            ExecuteResult::Jump(pc) => self.set_pc(pc),
-        }
+            Ok(ExecuteResult::Continue) => self.inc_pc(),
+            Ok(ExecuteResult::Jump(pc)) => self.set_pc(pc),
+            Err(ExecuteError::Exception(e)) => return self.exception(e),
+            Err(ExecuteError::Fatal) => return Err(VMError::ExecureError(ExecuteError::Fatal)),
+        };
 
-        // self.csr.inc_cycle(1);
-        // self.csr
-        // .write_time(self.started.elapsed().as_millis() as u64);
-        // self.csr.inc_instret(1);
+        self.csr.inc_cycle(1);
+        self.csr.inc_instret(1);
 
         Ok(())
+    }
+
+    fn exception(&mut self, exception: Exception) -> Result<(), VMError> {
+        eprintln!("Exeption hit: {:?} ({:?})", exception, exception.get_code());
+        if self.csr.medeleg.contains(exception) {
+            eprintln!("Delegating exception to S mode");
+            self.csr.scause = exception.get_code();
+            self.csr.sepc = self.get_pc();
+            if 8 <= (exception.get_code()) && (exception.get_code()) <= 11 {
+                // ECALL
+                eprintln!("Exception was ECALL");
+            } else {
+                self.csr.inc_cycle(1);
+                self.csr.inc_instret(1);
+            }
+            self.csr.status.spie = self.csr.status.sie;
+            self.csr.status.sie = false;
+            self.csr.status.spp = self.privilege();
+            self.privilege = PrivilegeMode::Supervisor;
+            self.set_pc(self.csr.mtvec);
+            Ok(())
+        } else {
+            eprintln!("Delegating exception to M mode");
+            self.csr.mcause = exception.get_code();
+            self.csr.mepc = self.get_pc();
+            if 8 <= (exception.get_code()) && (exception.get_code()) <= 11 {
+                // ECALL
+                eprintln!("Exception was ECALL");
+            } else {
+                self.csr.inc_cycle(1);
+                self.csr.inc_instret(1);
+            }
+            self.csr.status.mpie = self.csr.status.mie;
+            self.csr.status.mie = false;
+            self.csr.status.mpp = self.privilege();
+            self.privilege = PrivilegeMode::Machine;
+            self.set_pc(self.csr.mtvec);
+            Ok(())
+        }
     }
 }
