@@ -95,7 +95,7 @@ impl Hart {
             return self.exception(Exception::InstructionAccessFault);
         };
         let inst = decode(u32::from_le_bytes(inst_bytes.try_into().unwrap()));
-        dbg!(inst);
+        // dbg!(inst);
         let result = execute(self, mem, inst, self.csr.isa());
         match result {
             Ok(ExecuteResult::Continue) => self.inc_pc(),
