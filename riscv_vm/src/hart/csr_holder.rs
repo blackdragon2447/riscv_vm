@@ -120,7 +120,7 @@ impl CsrHolder {
             mimpid: 0,
             mhartid: hart_id,
             mconfigptr: 0,
-            misa: Isa::empty(),
+            misa: Isa::maximal(),
             medeleg: Exception::empty(),
             mideleg: Interrupt::empty(),
             mtvec: 0u64.into(),

@@ -31,7 +31,10 @@ pub(super) fn mulhsu(
     rs1: &i64,
     rs2: &i64,
 ) -> Result<ExecuteResult, ExecuteError> {
-    *rd = ((*rs1 as i128).overflowing_mul(*rs2 as u128 as i128).0 >> 64) as i64;
+    *rd = ((*rs1 as i128)
+        .overflowing_mul(*rs2 as u64 as u128 as i128)
+        .0
+        >> 64) as i64;
     Ok(ExecuteResult::Continue)
 }
 
@@ -41,7 +44,7 @@ pub(super) fn mulhu(
     rs1: &i64,
     rs2: &i64,
 ) -> Result<ExecuteResult, ExecuteError> {
-    *rd = ((*rs1 as u128).overflowing_mul(*rs2 as u128).0 >> 64) as i64;
+    *rd = ((*rs1 as u64 as u128).overflowing_mul(*rs2 as u64 as u128).0 >> 64) as i64;
     Ok(ExecuteResult::Continue)
 }
 
@@ -51,7 +54,11 @@ pub(super) fn div(
     rs1: &i64,
     rs2: &i64,
 ) -> Result<ExecuteResult, ExecuteError> {
-    *rd = rs1 / rs2;
+    if (*rs2 == 0) {
+        *rd = -1;
+    } else {
+        *rd = (*rs1).overflowing_div(*rs2).0;
+    }
     Ok(ExecuteResult::Continue)
 }
 
@@ -61,7 +68,11 @@ pub(super) fn divu(
     rs1: &i64,
     rs2: &i64,
 ) -> Result<ExecuteResult, ExecuteError> {
-    *rd = ((*rs1 as u64) / (*rs2 as u64)) as i64;
+    if (*rs2 == 0) {
+        *rd = u64::MAX as i64;
+    } else {
+        *rd = ((*rs1 as u64) / (*rs2 as u64)) as i64;
+    }
     Ok(ExecuteResult::Continue)
 }
 
@@ -71,7 +82,11 @@ pub(super) fn rem(
     rs1: &i64,
     rs2: &i64,
 ) -> Result<ExecuteResult, ExecuteError> {
-    *rd = rs1 % rs2;
+    if (*rs2 == 0) {
+        *rd = *rs1;
+    } else {
+        *rd = (*rs1).overflowing_rem(*rs2).0;
+    }
     Ok(ExecuteResult::Continue)
 }
 
@@ -81,6 +96,10 @@ pub(super) fn remu(
     rs1: &i64,
     rs2: &i64,
 ) -> Result<ExecuteResult, ExecuteError> {
-    *rd = ((*rs1 as u64) % (*rs2 as u64)) as i64;
+    if (*rs2 == 0) {
+        *rd = *rs1;
+    } else {
+        *rd = ((*rs1 as u64) % (*rs2 as u64)) as i64;
+    }
     Ok(ExecuteResult::Continue)
 }

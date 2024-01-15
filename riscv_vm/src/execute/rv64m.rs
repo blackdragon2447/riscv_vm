@@ -21,7 +21,11 @@ pub(super) fn divw(
     rs1: &i64,
     rs2: &i64,
 ) -> Result<ExecuteResult, ExecuteError> {
-    *rd = ((*rs1 as i32) / (*rs2 as i32)) as i64;
+    if (*rs2 == 0) {
+        *rd = -1;
+    } else {
+        *rd = (*rs1 as i32).overflowing_div(*rs2 as i32).0 as i64;
+    }
     Ok(ExecuteResult::Continue)
 }
 
@@ -31,7 +35,11 @@ pub(super) fn divuw(
     rs1: &i64,
     rs2: &i64,
 ) -> Result<ExecuteResult, ExecuteError> {
-    *rd = ((*rs1 as u32) / (*rs2 as u32)) as i32 as i64;
+    if (*rs2 == 0) {
+        *rd = -1;
+    } else {
+        *rd = ((*rs1 as u32) / (*rs2 as u32)) as i32 as i64;
+    }
     Ok(ExecuteResult::Continue)
 }
 
@@ -41,7 +49,11 @@ pub(super) fn remw(
     rs1: &i64,
     rs2: &i64,
 ) -> Result<ExecuteResult, ExecuteError> {
-    *rd = ((*rs1 as i32) % (*rs2 as i32)) as i64;
+    if (*rs2 == 0) {
+        *rd = *rs1;
+    } else {
+        *rd = (*rs1 as i32).overflowing_rem(*rs2 as i32).0 as i64;
+    }
     Ok(ExecuteResult::Continue)
 }
 
@@ -51,6 +63,10 @@ pub(super) fn remuw(
     rs1: &i64,
     rs2: &i64,
 ) -> Result<ExecuteResult, ExecuteError> {
-    *rd = ((*rs1 as u32) % (*rs2 as u32)) as i32 as i64;
+    if (*rs2 == 0) {
+        *rd = *rs1;
+    } else {
+        *rd = ((*rs1 as u32) % (*rs2 as u32)) as i32 as i64;
+    }
     Ok(ExecuteResult::Continue)
 }

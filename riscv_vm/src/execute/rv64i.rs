@@ -79,7 +79,7 @@ pub(super) fn slliw(
     rs1: &i64,
     shamt: i32,
 ) -> Result<ExecuteResult, ExecuteError> {
-    *rd = ((*rs1 as u32) << shamt) as i64;
+    *rd = ((*rs1 as u32) << shamt) as i32 as i64;
     Ok(ExecuteResult::Continue)
 }
 
@@ -87,9 +87,9 @@ pub(super) fn srliw(
     _: &Hart,
     rd: &mut i64,
     rs1: &i64,
-    imm: i32,
+    shamt: i32,
 ) -> Result<ExecuteResult, ExecuteError> {
-    *rd = ((*rs1 as u32) >> imm) as i64;
+    *rd = ((*rs1 as u32) >> shamt) as i32 as i64;
     Ok(ExecuteResult::Continue)
 }
 
@@ -97,9 +97,9 @@ pub(super) fn sraiw(
     _: &Hart,
     rd: &mut i64,
     rs1: &i64,
-    imm: i32,
+    shamt: i32,
 ) -> Result<ExecuteResult, ExecuteError> {
-    *rd = ((*rs1 as i32) >> imm) as i64;
+    *rd = ((*rs1 as i32) >> shamt) as u64 as i64;
     Ok(ExecuteResult::Continue)
 }
 
@@ -119,7 +119,7 @@ pub(super) fn subw(
     rs1: &i64,
     rs2: &i64,
 ) -> Result<ExecuteResult, ExecuteError> {
-    *rd = (*rs1 as i32).saturating_sub(*rs2 as i32) as i64;
+    *rd = (*rs1 as i32).overflowing_sub(*rs2 as i32).0 as i64;
     Ok(ExecuteResult::Continue)
 }
 
@@ -163,6 +163,6 @@ pub(super) fn sraw(
     rs1: &i64,
     rs2: &i64,
 ) -> Result<ExecuteResult, ExecuteError> {
-    *rd = ((*rs1 as i32) >> (rs2 & 0b111111)) as i64;
+    *rd = (*rs1 as i32).overflowing_shr((rs2 & 0b111111) as u32).0 as i64;
     Ok(ExecuteResult::Continue)
 }

@@ -44,13 +44,13 @@ impl Add<i32> for Address {
     type Output = Self;
 
     fn add(self, rhs: i32) -> Self::Output {
-        Self(self.0.saturating_add_signed(rhs.into()))
+        Self(self.0.saturating_add_signed(rhs as i64))
     }
 }
 
 impl AddAssign<i32> for Address {
     fn add_assign(&mut self, rhs: i32) {
-        self.0 = self.0.saturating_add_signed(rhs.into());
+        self.0 = self.0.saturating_add_signed(rhs as i64);
     }
 }
 

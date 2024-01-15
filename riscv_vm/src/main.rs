@@ -8,8 +8,8 @@ use riscv_vm::{
 };
 
 fn main() {
-    // let bytes = fs::read("./test_os/os.elf").unwrap();
-    let bytes = fs::read("rv64ui-p-add").unwrap();
+    let args: Vec<String> = std::env::args().collect();
+    let bytes = fs::read(args.get(1).unwrap()).unwrap();
     let elf = Elf::from_bytes(bytes).unwrap();
 
     let mut vmstate = VMState::<{ 4 * MB }>::new(1);

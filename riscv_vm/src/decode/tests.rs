@@ -143,4 +143,16 @@ mod instructions {
     fn mret() {
         assert_eq!(decode(0x30200073), MRET)
     }
+
+    #[test]
+    fn srai() {
+        assert_eq!(
+            decode(0x4010d093),
+            SRAI {
+                rd: X1,
+                rs1: X1,
+                shamt: 1,
+            }
+        )
+    }
 }

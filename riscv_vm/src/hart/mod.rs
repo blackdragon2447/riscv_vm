@@ -118,7 +118,6 @@ impl Hart {
             self.csr.sepc = self.get_pc();
             if 8 <= (exception.get_code()) && (exception.get_code()) <= 11 {
                 // ECALL
-                eprintln!("Exception was ECALL");
             } else {
                 self.csr.inc_cycle(1);
                 self.csr.inc_instret(1);
@@ -135,7 +134,6 @@ impl Hart {
             self.csr.mepc = self.get_pc();
             if 8 <= (exception.get_code()) && (exception.get_code()) <= 11 {
                 // ECALL
-                eprintln!("Exception was ECALL");
             } else {
                 self.csr.inc_cycle(1);
                 self.csr.inc_instret(1);

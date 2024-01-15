@@ -6,7 +6,7 @@ use crate::{
 use super::{ExecuteError, ExecuteResult};
 
 pub(super) fn lui(_: &Hart, rd: &mut i64, imm: i32) -> Result<ExecuteResult, ExecuteError> {
-    *rd = imm.into();
+    *rd = imm as i64;
     Ok(ExecuteResult::Continue)
 }
 
@@ -360,7 +360,7 @@ pub(super) fn sub(
     rs1: &i64,
     rs2: &i64,
 ) -> Result<ExecuteResult, ExecuteError> {
-    *rd = rs1.overflowing_add(*rs2).0;
+    *rd = rs1.overflowing_sub(*rs2).0;
     Ok(ExecuteResult::Continue)
 }
 

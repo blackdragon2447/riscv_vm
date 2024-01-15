@@ -256,8 +256,8 @@ pub fn decode(inst: u32) -> Instruction {
                         }
                     }
                     (0b0010011, 0b101) => {
-                        let shamt = (imm & 0b11_1111);
-                        match imm & 0b1111_1100_0000 {
+                        let shamt = (imm & 0b01_1111);
+                        match (imm & 0b1111_1110_0000) >> 5 {
                             0b0000000 => Instruction::SRLI {
                                 rd: rd.into(),
                                 rs1: rs1.into(),
@@ -268,7 +268,7 @@ pub fn decode(inst: u32) -> Instruction {
                                 rs1: rs1.into(),
                                 shamt,
                             },
-                            _ => unreachable!(),
+                            _ => Instruction::Undifined(inst),
                         }
                     }
                     (0b0011011, 0b000) => Instruction::ADDIW {
@@ -286,7 +286,7 @@ pub fn decode(inst: u32) -> Instruction {
                     }
                     (0b0011011, 0b101) => {
                         let shamt = (imm & 0b11_1111);
-                        match imm & 0b1111_1100_0000 {
+                        match (imm & 0b1111_1100_0000) >> 5 {
                             0b0000000 => Instruction::SRLIW {
                                 rd: rd.into(),
                                 rs1: rs1.into(),
@@ -297,7 +297,7 @@ pub fn decode(inst: u32) -> Instruction {
                                 rs1: rs1.into(),
                                 shamt,
                             },
-                            _ => unreachable!(),
+                            _ => Instruction::Undifined(inst),
                         }
                     }
                     (0b1110011, 0b001) => Instruction::CSRRW {

@@ -70,8 +70,8 @@ pub fn execute<const SIZE: usize>(
         ORI { rd, rs1, imm } => i_type(hart, rd, rs1, imm, rv32i::ori),
         ANDI { rd, rs1, imm } => i_type(hart, rd, rs1, imm, rv32i::andi),
         SLLI { rd, rs1, shamt } => i_type_shift(hart, rd, rs1, shamt, rv32i::slli),
-        SRLI { rd, rs1, shamt } => i_type_shift(hart, rd, rs1, shamt, rv32i::slli),
-        SRAI { rd, rs1, shamt } => i_type_shift(hart, rd, rs1, shamt, rv32i::slli),
+        SRLI { rd, rs1, shamt } => i_type_shift(hart, rd, rs1, shamt, rv32i::srli),
+        SRAI { rd, rs1, shamt } => i_type_shift(hart, rd, rs1, shamt, rv32i::srai),
         ADD { rd, rs1, rs2 } => r_type(hart, rd, rs1, rs2, rv32i::add),
         SUB { rd, rs1, rs2 } => r_type(hart, rd, rs1, rs2, rv32i::sub),
         SLL { rd, rs1, rs2 } => r_type(hart, rd, rs1, rs2, rv32i::sll),
@@ -163,15 +163,17 @@ pub fn execute<const SIZE: usize>(
 
         // ???
         FENCE { rd, rs1, imm } => nop(),
-        ECALL => {
-            println!("ECALL");
-            match hart.privilege() {
-                PrivilegeMode::User => Err(ExecuteError::Exception(Exception::EcallUMode)),
-                PrivilegeMode::Supervisor => Err(ExecuteError::Exception(Exception::EcallSMode)),
-                PrivilegeMode::Machine => Err(ExecuteError::Exception(Exception::EcallMMode)),
-            }
-        }
+        ECALL => match hart.privilege() {
+            PrivilegeMode::User => Err(ExecuteError::Exception(Exception::EcallUMode)),
+            PrivilegeMode::Supervisor => Err(ExecuteError::Exception(Exception::EcallSMode)),
+            PrivilegeMode::Machine => Err(ExecuteError::Exception(Exception::EcallMMode)),
+        },
         EBREAK => nop(),
+
+        Undifined(i) => {
+            eprintln!("Trying to execute Undifined Instruction: {:#8x}", i);
+            Err(ExecuteError::Exception(Exception::IllegalInstruction))
+        }
         _ => Err(ExecuteError::Exception(Exception::IllegalInstruction)),
     }
 }
