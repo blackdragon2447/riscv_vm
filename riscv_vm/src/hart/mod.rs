@@ -26,25 +26,16 @@ use self::{csr_holder::CsrHolder, privilege::PrivilegeMode, trap::Exception};
 #[derive(Debug)]
 pub struct Hart {
     hart_id: u64,
-    mode: Mode,
     pc: Address,
     registers: Registers,
     csr: CsrHolder,
     privilege: PrivilegeMode,
 }
 
-#[derive(Debug)]
-pub enum Mode {
-    User,
-    SuperVisor,
-    Machine,
-}
-
 impl Hart {
     pub fn new(hart_id: u64) -> Self {
         Self {
             hart_id,
-            mode: Mode::Machine,
             pc: 0x80000000u64.into(),
             registers: Registers::new(),
             csr: CsrHolder::new(hart_id),
@@ -126,7 +117,7 @@ impl Hart {
             self.csr.status.sie = false;
             self.csr.status.spp = self.privilege();
             self.privilege = PrivilegeMode::Supervisor;
-            self.set_pc(self.csr.mtvec);
+            self.set_pc(self.csr.stvec);
             Ok(())
         } else {
             eprintln!("Delegating exception to M mode");

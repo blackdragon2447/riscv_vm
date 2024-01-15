@@ -154,11 +154,11 @@ pub fn execute<const SIZE: usize>(
         SRET => {
             let status = hart.get_csr().status_mut();
             let spp = status.spp;
-            status.sie = status.mpie;
+            status.sie = status.spie;
             status.spie = false;
             hart.set_privilege(spp);
 
-            Ok(ExecuteResult::Jump(hart.get_csr().get_mepc()))
+            Ok(ExecuteResult::Jump(hart.get_csr().get_sepc()))
         }
 
         // ???

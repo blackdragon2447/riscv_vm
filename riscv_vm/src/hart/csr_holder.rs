@@ -238,197 +238,79 @@ impl CsrHolder {
             );
             Err(ExecuteError::Exception(Exception::IllegalInstruction))
         } else {
+            let old = self.get_csr(addr);
             match <CsrAddress as Into<u16>>::into(addr) {
                 0x100 => {
                     self.status.update_from_s_bits(value);
-                    if should_read {
-                        Ok(Some(self.status.to_s_bits()))
-                    } else {
-                        Ok(None)
-                    }
                 }
-                0x104 | 0x144 | 0x304 | 0x344 => {
-                    if should_read {
-                        Ok(Some(0))
-                    } else {
-                        Ok(None)
-                    }
-                } // self.sie
                 0x105 => {
                     self.stvec = (value & !0b11).into();
-                    if should_read {
-                        Ok(Some(self.stvec.into()))
-                    } else {
-                        Ok(None)
-                    }
                 }
                 0x106 => {
                     self.scounteren = (value & 0b111);
-                    if should_read {
-                        Ok(Some(self.scounteren))
-                    } else {
-                        Ok(None)
-                    }
                 }
                 0x10A => {
                     self.senvcfg = (value & 0b1);
-                    if should_read {
-                        Ok(Some(self.senvcfg))
-                    } else {
-                        Ok(None)
-                    }
                 }
                 0x140 => {
                     self.sscratch = value;
-                    if should_read {
-                        Ok(Some(self.senvcfg))
-                    } else {
-                        Ok(None)
-                    }
                 }
                 0x141 => {
                     self.sepc = (value & !0b11).into();
-                    if should_read {
-                        Ok(Some(self.sepc.into()))
-                    } else {
-                        Ok(None)
-                    }
                 }
                 0x142 => {
                     self.scause = (value & (0xFF | (!0 >> 1)));
-                    if should_read {
-                        Ok(Some(self.scause))
-                    } else {
-                        Ok(None)
-                    }
                 }
                 0x143 => {
                     self.stval = value;
-                    if should_read {
-                        Ok(Some(self.stval))
-                    } else {
-                        Ok(None)
-                    }
                 }
                 // 0x180 => self.satp,
                 0x300 => {
                     self.status.update_from_m_bits(value);
-                    if should_read {
-                        Ok(Some(self.status.to_m_bits()))
-                    } else {
-                        Ok(None)
-                    }
                 }
                 0x301 => {
                     self.misa = BitFlags::<Isa>::from_bits_truncate(value);
-                    if should_read {
-                        Ok(Some(self.misa.bits() & 0b10 << 62))
-                    } else {
-                        Ok(None)
-                    }
                 }
                 0x302 => {
                     self.medeleg = BitFlags::<Exception>::from_bits_truncate(value);
-                    if should_read {
-                        Ok(Some(self.medeleg.bits()))
-                    } else {
-                        Ok(None)
-                    }
                 }
                 0x303 => {
                     self.mideleg = BitFlags::<Interrupt>::from_bits_truncate(value);
-                    if should_read {
-                        Ok(Some(self.mideleg.bits()))
-                    } else {
-                        Ok(None)
-                    }
                 }
                 0x305 => {
                     self.mtvec = (value & !0b11).into();
-                    if should_read {
-                        Ok(Some(self.mtvec.into()))
-                    } else {
-                        Ok(None)
-                    }
                 }
                 0x306 => {
                     self.mcounteren = (value & 0b111);
-                    if should_read {
-                        Ok(Some(self.mcounteren))
-                    } else {
-                        Ok(None)
-                    }
                 }
                 0x340 => {
                     self.mscratch = value;
-                    if should_read {
-                        Ok(Some(self.mscratch))
-                    } else {
-                        Ok(None)
-                    }
                 }
                 0x341 => {
                     self.mepc = (value & !0b11).into();
-                    if should_read {
-                        Ok(Some(self.mepc.into()))
-                    } else {
-                        Ok(None)
-                    }
                 }
                 0x342 => {
                     self.mcause = (value & (0xFF | (!0 >> 1)));
-                    if should_read {
-                        Ok(Some(self.mcause))
-                    } else {
-                        Ok(None)
-                    }
                 }
                 0x343 => {
                     self.mtval = value;
-                    if should_read {
-                        Ok(Some(self.mtval))
-                    } else {
-                        Ok(None)
-                    }
                 }
                 0x30A => {
                     self.menvcfg = (value & (0b1 | 0b1 << 62));
-                    if should_read {
-                        Ok(Some(self.menvcfg))
-                    } else {
-                        Ok(None)
-                    }
                 }
-                0x747 => {
-                    if should_read {
-                        Ok(Some(self.mseccfg))
-                    } else {
-                        Ok(None)
-                    }
-                }
+                0x747 => {}
                 0xB00 => {
                     self.mcycle = value;
-                    if should_read {
-                        Ok(Some(self.mcycle))
-                    } else {
-                        Ok(None)
-                    }
                 }
                 0xB02 => {
                     self.minstret = value;
-                    if should_read {
-                        Ok(Some(self.minstret))
-                    } else {
-                        Ok(None)
-                    }
                 }
-                _ => {
-                    if should_read {
-                        Ok(Some(*self.csr.get(&addr).unwrap_or(&0)))
-                    } else {
-                        Ok(None)
-                    }
-                }
+                _ => {}
+            }
+            if should_read {
+                Ok(Some(old))
+            } else {
+                Ok(None)
             }
         }
     }
@@ -453,6 +335,7 @@ impl CsrHolder {
             );
             return Err(ExecuteError::Exception(Exception::IllegalInstruction));
         }
+        let old = self.get_csr(addr);
         if should_write {
             match <CsrAddress as Into<u16>>::into(addr) {
                 0x100 => {
@@ -526,7 +409,7 @@ impl CsrHolder {
                 _ => {}
             }
         }
-        Ok(self.get_csr(addr))
+        Ok(old)
     }
 
     pub fn clear_csr(
@@ -549,6 +432,7 @@ impl CsrHolder {
             );
             return Err(ExecuteError::Exception(Exception::IllegalInstruction));
         }
+        let old = self.get_csr(addr);
         if should_write {
             match <CsrAddress as Into<u16>>::into(addr) {
                 0x100 => {
@@ -624,7 +508,7 @@ impl CsrHolder {
                 _ => {}
             }
         }
-        Ok(self.get_csr(addr))
+        Ok(old)
     }
 }
 
@@ -633,22 +517,24 @@ impl Status {
         let mut bits = 0;
 
         if self.sie {
-            bits &= (0b1 << 1);
+            bits |= (0b1 << 1);
         }
 
         if self.spie {
-            bits &= (0b1 << 5);
+            bits |= (0b1 << 5);
         }
 
-        bits &= ((self.spp as u64 & 0b1) << 8);
+        bits |= ((self.spp as u64 & 0b1) << 8);
 
         if self.sum {
-            bits &= (0b1 << 18);
+            bits |= (0b1 << 18);
         }
 
         if self.mxr {
-            bits &= (0b1 << 19);
+            bits |= (0b1 << 19);
         }
+
+        bits |= (0b10 << 32); // UXL Needs to be 10 for 64 bit
 
         bits
     }
@@ -673,47 +559,49 @@ impl Status {
         let mut bits = 0;
 
         if self.sie {
-            bits &= (0b1 << 1);
+            bits |= (0b1 << 1);
         }
 
         if self.mie {
-            bits &= (0b1 << 3);
+            bits |= (0b1 << 3);
         }
 
         if self.spie {
-            bits &= (0b1 << 5);
+            bits |= (0b1 << 5);
         }
 
         if self.mpie {
-            bits &= (0b1 << 7);
+            bits |= (0b1 << 7);
         }
 
-        bits &= ((self.spp as u64 & 0b1) << 8);
-        bits &= ((self.mpp as u64 & 0b11) << 11);
+        bits |= ((self.spp as u64 & 0b1) << 8);
+        bits |= ((self.mpp as u64 & 0b11) << 11);
 
         if self.mprv {
-            bits &= (0b1 << 17)
+            bits |= (0b1 << 17)
         }
 
         if self.sum {
-            bits &= (0b1 << 18);
+            bits |= (0b1 << 18);
         }
 
         if self.mxr {
-            bits &= (0b1 << 19);
+            bits |= (0b1 << 19);
         }
 
         if self.tvm {
-            bits &= (0b1 << 20);
+            bits |= (0b1 << 20);
         }
 
         if self.tw {
-            bits &= (0b1 << 21);
+            bits |= (0b1 << 21);
         }
 
         if self.tsr {
-            bits &= (0b1 << 22);
+            bits |= (0b1 << 22);
         }
+
+        bits |= (0b10 << 32); // UXL Needs to be 10 for 64 bit.
 
         bits
     }
