@@ -1,35 +1,32 @@
-use crate::{
-    hart::Hart,
-    memory::{address::Address, Memory},
-};
+use crate::memory::{address::Address, Memory};
 
 use super::{ExecuteError, ExecuteResult};
 
-pub(super) fn lui(_: &Hart, rd: &mut i64, imm: i32) -> Result<ExecuteResult, ExecuteError> {
+pub(super) fn lui(_: Address, rd: &mut i64, imm: i32) -> Result<ExecuteResult, ExecuteError> {
     *rd = imm as i64;
     Ok(ExecuteResult::Continue)
 }
 
-pub(super) fn auipc(hart: &Hart, rd: &mut i64, imm: i32) -> Result<ExecuteResult, ExecuteError> {
-    *rd = (hart.get_pc() + imm).into();
+pub(super) fn auipc(pc: Address, rd: &mut i64, imm: i32) -> Result<ExecuteResult, ExecuteError> {
+    *rd = (pc + imm).into();
     Ok(ExecuteResult::Continue)
 }
 
-pub(super) fn jal(hart: &mut Hart, rd: &mut i64, imm: i32) -> Result<ExecuteResult, ExecuteError> {
+pub(super) fn jal(pc: Address, rd: &mut i64, imm: i32) -> Result<ExecuteResult, ExecuteError> {
     let imm = (imm << 11) >> 11;
-    *rd = hart.get_pc().into();
+    *rd = pc.into();
     *rd += 4;
-    Ok(ExecuteResult::Jump(hart.get_pc() + imm))
+    Ok(ExecuteResult::Jump(pc + imm))
 }
 
 pub(super) fn jalr(
-    hart: &mut Hart,
+    pc: Address,
     rd: &mut i64,
     rs1: &i64,
     imm: i32,
 ) -> Result<ExecuteResult, ExecuteError> {
     let imm = (imm << 20) >> 20;
-    *rd = hart.get_pc().into();
+    *rd = pc.into();
     *rd += 4;
     Ok(ExecuteResult::Jump(
         (rs1.wrapping_add(imm.into()) & !1).into(),
@@ -37,91 +34,91 @@ pub(super) fn jalr(
 }
 
 pub(super) fn beq(
-    hart: &mut Hart,
+    pc: Address,
     rs1: &i64,
     rs2: &i64,
     imm: i32,
 ) -> Result<ExecuteResult, ExecuteError> {
     let imm = ((imm << 19) >> 19);
     if (rs1 == rs2) {
-        Ok(ExecuteResult::Jump(hart.get_pc() + imm))
+        Ok(ExecuteResult::Jump(pc + imm))
     } else {
         Ok(ExecuteResult::Continue)
     }
 }
 
 pub(super) fn bne(
-    hart: &mut Hart,
+    pc: Address,
     rs1: &i64,
     rs2: &i64,
     imm: i32,
 ) -> Result<ExecuteResult, ExecuteError> {
     let imm = ((imm << 19) >> 19);
     if (rs1 != rs2) {
-        Ok(ExecuteResult::Jump(hart.get_pc() + imm))
+        Ok(ExecuteResult::Jump(pc + imm))
     } else {
         Ok(ExecuteResult::Continue)
     }
 }
 
 pub(super) fn blt(
-    hart: &mut Hart,
+    pc: Address,
     rs1: &i64,
     rs2: &i64,
     imm: i32,
 ) -> Result<ExecuteResult, ExecuteError> {
     let imm = ((imm << 19) >> 19);
     if rs1 < rs2 {
-        Ok(ExecuteResult::Jump(hart.get_pc() + imm))
+        Ok(ExecuteResult::Jump(pc + imm))
     } else {
         Ok(ExecuteResult::Continue)
     }
 }
 
 pub(super) fn bge(
-    hart: &mut Hart,
+    pc: Address,
     rs1: &i64,
     rs2: &i64,
     imm: i32,
 ) -> Result<ExecuteResult, ExecuteError> {
     let imm = ((imm << 19) >> 19);
     if rs1 >= rs2 {
-        Ok(ExecuteResult::Jump(hart.get_pc() + imm))
+        Ok(ExecuteResult::Jump(pc + imm))
     } else {
         Ok(ExecuteResult::Continue)
     }
 }
 
 pub(super) fn bltu(
-    hart: &mut Hart,
+    pc: Address,
     rs1: &i64,
     rs2: &i64,
     imm: i32,
 ) -> Result<ExecuteResult, ExecuteError> {
     let imm = ((imm << 19) >> 19);
     if (*rs1 as u64) < (*rs2 as u64) {
-        Ok(ExecuteResult::Jump(hart.get_pc() + imm))
+        Ok(ExecuteResult::Jump(pc + imm))
     } else {
         Ok(ExecuteResult::Continue)
     }
 }
 
 pub(super) fn bgeu(
-    hart: &mut Hart,
+    pc: Address,
     rs1: &i64,
     rs2: &i64,
     imm: i32,
 ) -> Result<ExecuteResult, ExecuteError> {
     let imm = ((imm << 19) >> 19);
     if (*rs1 as u64) >= (*rs2 as u64) {
-        Ok(ExecuteResult::Jump(hart.get_pc() + imm))
+        Ok(ExecuteResult::Jump(pc + imm))
     } else {
         Ok(ExecuteResult::Continue)
     }
 }
 
 pub(super) fn lb<const SIZE: usize>(
-    _: &Hart,
+    _: Address,
     mem: &mut Memory<SIZE>,
     rd: &mut i64,
     rs1: &i64,
@@ -136,7 +133,7 @@ pub(super) fn lb<const SIZE: usize>(
 }
 
 pub(super) fn lh<const SIZE: usize>(
-    _: &Hart,
+    _: Address,
     mem: &mut Memory<SIZE>,
     rd: &mut i64,
     rs1: &i64,
@@ -151,7 +148,7 @@ pub(super) fn lh<const SIZE: usize>(
 }
 
 pub(super) fn lw<const SIZE: usize>(
-    _: &Hart,
+    _: Address,
     mem: &mut Memory<SIZE>,
     rd: &mut i64,
     rs1: &i64,
@@ -166,7 +163,7 @@ pub(super) fn lw<const SIZE: usize>(
 }
 
 pub(super) fn lbu<const SIZE: usize>(
-    _: &Hart,
+    _: Address,
     mem: &mut Memory<SIZE>,
     rd: &mut i64,
     rs1: &i64,
@@ -181,7 +178,7 @@ pub(super) fn lbu<const SIZE: usize>(
 }
 
 pub(super) fn lhu<const SIZE: usize>(
-    _: &Hart,
+    _: Address,
     mem: &mut Memory<SIZE>,
     rd: &mut i64,
     rs1: &i64,
@@ -196,7 +193,7 @@ pub(super) fn lhu<const SIZE: usize>(
 }
 
 pub(super) fn sb<const SIZE: usize>(
-    _: &Hart,
+    _: Address,
     mem: &mut Memory<SIZE>,
     rs1: &i64,
     rs2: &i64,
@@ -211,7 +208,7 @@ pub(super) fn sb<const SIZE: usize>(
 }
 
 pub(super) fn sh<const SIZE: usize>(
-    _: &Hart,
+    _: Address,
     mem: &mut Memory<SIZE>,
     rs1: &i64,
     rs2: &i64,
@@ -226,7 +223,7 @@ pub(super) fn sh<const SIZE: usize>(
 }
 
 pub(super) fn sw<const SIZE: usize>(
-    _: &Hart,
+    _: Address,
     mem: &mut Memory<SIZE>,
     rs1: &i64,
     rs2: &i64,
@@ -241,7 +238,7 @@ pub(super) fn sw<const SIZE: usize>(
 }
 
 pub(super) fn addi(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     imm: i32,
@@ -252,7 +249,7 @@ pub(super) fn addi(
 }
 
 pub(super) fn slti(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     imm: i32,
@@ -267,7 +264,7 @@ pub(super) fn slti(
 }
 
 pub(super) fn sltiu(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     imm: i32,
@@ -282,7 +279,7 @@ pub(super) fn sltiu(
 }
 
 pub(super) fn xori(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     imm: i32,
@@ -293,7 +290,7 @@ pub(super) fn xori(
 }
 
 pub(super) fn ori(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     imm: i32,
@@ -304,7 +301,7 @@ pub(super) fn ori(
 }
 
 pub(super) fn andi(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     imm: i32,
@@ -315,7 +312,7 @@ pub(super) fn andi(
 }
 
 pub(super) fn slli(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     shamt: i32,
@@ -325,7 +322,7 @@ pub(super) fn slli(
 }
 
 pub(super) fn srli(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     shamt: i32,
@@ -335,7 +332,7 @@ pub(super) fn srli(
 }
 
 pub(super) fn srai(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     imm: i32,
@@ -345,7 +342,7 @@ pub(super) fn srai(
 }
 
 pub(super) fn add(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     rs2: &i64,
@@ -355,7 +352,7 @@ pub(super) fn add(
 }
 
 pub(super) fn sub(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     rs2: &i64,
@@ -365,7 +362,7 @@ pub(super) fn sub(
 }
 
 pub(super) fn sll(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     rs2: &i64,
@@ -375,7 +372,7 @@ pub(super) fn sll(
 }
 
 pub(super) fn slt(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     rs2: &i64,
@@ -389,7 +386,7 @@ pub(super) fn slt(
 }
 
 pub(super) fn sltu(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     rs2: &i64,
@@ -403,7 +400,7 @@ pub(super) fn sltu(
 }
 
 pub(super) fn xor(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     rs2: &i64,
@@ -413,7 +410,7 @@ pub(super) fn xor(
 }
 
 pub(super) fn srl(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     rs2: &i64,
@@ -423,7 +420,7 @@ pub(super) fn srl(
 }
 
 pub(super) fn sra(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     rs2: &i64,
@@ -433,7 +430,7 @@ pub(super) fn sra(
 }
 
 pub(super) fn or(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     rs2: &i64,
@@ -443,7 +440,7 @@ pub(super) fn or(
 }
 
 pub(super) fn and(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     rs2: &i64,

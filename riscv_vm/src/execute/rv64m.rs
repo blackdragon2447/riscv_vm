@@ -1,12 +1,9 @@
-use crate::{
-    hart::Hart,
-    memory::{address::Address, Memory},
-};
+use crate::memory::{address::Address, Memory};
 
 use super::{ExecuteError, ExecuteResult};
 
 pub(super) fn mulw(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     rs2: &i64,
@@ -16,7 +13,7 @@ pub(super) fn mulw(
 }
 
 pub(super) fn divw(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     rs2: &i64,
@@ -30,7 +27,7 @@ pub(super) fn divw(
 }
 
 pub(super) fn divuw(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     rs2: &i64,
@@ -44,7 +41,7 @@ pub(super) fn divuw(
 }
 
 pub(super) fn remw(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     rs2: &i64,
@@ -58,7 +55,7 @@ pub(super) fn remw(
 }
 
 pub(super) fn remuw(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     rs2: &i64,

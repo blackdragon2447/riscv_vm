@@ -6,7 +6,7 @@ use crate::{
 use super::{ExecuteError, ExecuteResult};
 
 pub(super) fn mul(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     rs2: &i64,
@@ -16,7 +16,7 @@ pub(super) fn mul(
 }
 
 pub(super) fn mulh(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     rs2: &i64,
@@ -26,7 +26,7 @@ pub(super) fn mulh(
 }
 
 pub(super) fn mulhsu(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     rs2: &i64,
@@ -39,7 +39,7 @@ pub(super) fn mulhsu(
 }
 
 pub(super) fn mulhu(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     rs2: &i64,
@@ -49,7 +49,7 @@ pub(super) fn mulhu(
 }
 
 pub(super) fn div(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     rs2: &i64,
@@ -63,7 +63,7 @@ pub(super) fn div(
 }
 
 pub(super) fn divu(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     rs2: &i64,
@@ -77,7 +77,7 @@ pub(super) fn divu(
 }
 
 pub(super) fn rem(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     rs2: &i64,
@@ -91,7 +91,7 @@ pub(super) fn rem(
 }
 
 pub(super) fn remu(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     rs2: &i64,

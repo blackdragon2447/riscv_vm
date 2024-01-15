@@ -1,9 +1,9 @@
-use crate::{hart::Hart, memory::Memory};
+use crate::memory::{address::Address, Memory};
 
 use super::{ExecuteError, ExecuteResult};
 
 pub(super) fn ld<const SIZE: usize>(
-    _: &Hart,
+    _: Address,
     mem: &mut Memory<SIZE>,
     rd: &mut i64,
     rs1: &i64,
@@ -18,7 +18,7 @@ pub(super) fn ld<const SIZE: usize>(
 }
 
 pub(super) fn lwu<const SIZE: usize>(
-    _: &Hart,
+    _: Address,
     mem: &mut Memory<SIZE>,
     rd: &mut i64,
     rs1: &i64,
@@ -33,7 +33,7 @@ pub(super) fn lwu<const SIZE: usize>(
 }
 
 pub(super) fn sd<const SIZE: usize>(
-    _: &Hart,
+    _: Address,
     mem: &mut Memory<SIZE>,
     rs1: &i64,
     rs2: &i64,
@@ -48,7 +48,7 @@ pub(super) fn sd<const SIZE: usize>(
 }
 
 pub(super) fn addiw(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     imm: i32,
@@ -59,7 +59,7 @@ pub(super) fn addiw(
 }
 
 pub(super) fn sltiw(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     imm: i32,
@@ -74,7 +74,7 @@ pub(super) fn sltiw(
 }
 
 pub(super) fn slliw(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     shamt: i32,
@@ -84,7 +84,7 @@ pub(super) fn slliw(
 }
 
 pub(super) fn srliw(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     shamt: i32,
@@ -94,7 +94,7 @@ pub(super) fn srliw(
 }
 
 pub(super) fn sraiw(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     shamt: i32,
@@ -104,7 +104,7 @@ pub(super) fn sraiw(
 }
 
 pub(super) fn addw(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     rs2: &i64,
@@ -114,7 +114,7 @@ pub(super) fn addw(
 }
 
 pub(super) fn subw(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     rs2: &i64,
@@ -124,7 +124,7 @@ pub(super) fn subw(
 }
 
 pub(super) fn sllw(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     rs2: &i64,
@@ -134,7 +134,7 @@ pub(super) fn sllw(
 }
 
 pub(super) fn sltw(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     rs2: &i64,
@@ -148,7 +148,7 @@ pub(super) fn sltw(
 }
 
 pub(super) fn srlw(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     rs2: &i64,
@@ -158,7 +158,7 @@ pub(super) fn srlw(
 }
 
 pub(super) fn sraw(
-    _: &Hart,
+    _: Address,
     rd: &mut i64,
     rs1: &i64,
     rs2: &i64,
