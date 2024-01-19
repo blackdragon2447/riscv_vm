@@ -9,12 +9,12 @@ pub mod trap;
 use std::{collections::HashMap, time::Instant};
 
 use crate::{
-    decode::decode,
+    decode::{decode, instruction::Instruction},
     execute::{execute, ExecuteError, ExecuteResult},
     memory::{
         address::Address,
         registers::{IntRegister, Registers},
-        Memory,
+        Memory, MemoryError,
     },
     vmstate::VMError,
 };
@@ -82,11 +82,9 @@ impl Hart {
     pub fn step<const SIZE: usize>(&mut self, mem: &mut Memory<SIZE>) -> Result<(), VMError> {
         // Unwrap here is safe since u32 expects 4 bytes and we alyaws read 4 bytes (read_bytes
         // will return an Err if it cannot).
-        let Ok(inst_bytes) = mem.read_bytes(self.get_pc(), 4) else {
+        let Ok(inst) = self.fetch(mem) else {
             return self.exception(Exception::InstructionAccessFault);
         };
-        let inst = decode(u32::from_le_bytes(inst_bytes.try_into().unwrap()));
-        // dbg!(inst);
         let result = execute(self, mem, inst, self.csr.isa());
         match result {
             Ok(ExecuteResult::Continue) => self.inc_pc(),
@@ -99,6 +97,12 @@ impl Hart {
         self.csr.inc_instret(1);
 
         Ok(())
+    }
+
+    fn fetch<const SIZE: usize>(&self, mem: &Memory<SIZE>) -> Result<Instruction, MemoryError> {
+        let inst_bytes = mem.read_bytes(self.get_pc(), 4)?;
+        let inst = decode(u32::from_le_bytes(inst_bytes.try_into().unwrap()));
+        Ok(inst)
     }
 
     fn exception(&mut self, exception: Exception) -> Result<(), VMError> {

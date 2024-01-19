@@ -19,14 +19,14 @@ fn main() {
     //     .add_sync_device::<SimpleUart>(0x10000000u64.into())
     //     .unwrap();
 
-    // vmstate
-    //     .add_async_device::<VgaTextMode>(0xB8000u64.into())
-    //     .unwrap();
+    vmstate
+        .add_async_device::<VgaTextMode>(0xB8000u64.into())
+        .unwrap();
 
     loop {
-        dbg!(&vmstate);
+        // dbg!(&vmstate);
         vmstate.step().unwrap();
-        let mut buf = String::new();
-        stdin().read_line(&mut buf).unwrap();
+        // let mut buf = String::new();
+        // stdin().read_line(&mut buf).unwrap();
     }
 }
