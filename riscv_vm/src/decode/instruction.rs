@@ -374,6 +374,7 @@ pub enum Instruction {
     // Privilege
     MRET,
     SRET,
+    WFI,
 
     Undifined(u32),
 }

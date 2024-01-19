@@ -341,6 +341,7 @@ pub fn decode(inst: u32) -> Instruction {
                             1 => Instruction::EBREAK,
                             0b000100000010 => Instruction::SRET,
                             0b001100000010 => Instruction::MRET,
+                            0b000100000101 => Instruction::WFI,
                             _ => Instruction::Undifined(inst),
                         },
 

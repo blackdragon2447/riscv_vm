@@ -168,7 +168,7 @@ pub fn execute<const SIZE: usize>(
             PrivilegeMode::Supervisor => Err(ExecuteError::Exception(Exception::EcallSMode)),
             PrivilegeMode::Machine => Err(ExecuteError::Exception(Exception::EcallMMode)),
         },
-        EBREAK => nop(),
+        EBREAK => Err(ExecuteError::Exception(Exception::BreakPoint)),
 
         Undifined(i) => {
             eprintln!("Trying to execute Undifined Instruction: {:#8x}", i);
