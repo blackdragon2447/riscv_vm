@@ -10,7 +10,7 @@ use std::{collections::HashMap, time::Instant};
 
 use crate::{
     decode::{decode, instruction::Instruction},
-    execute::{execute, ExecuteError, ExecuteResult},
+    execute::{execute_rv64, ExecuteError, ExecuteResult},
     memory::{
         address::Address,
         registers::{IntRegister, Registers},
@@ -85,7 +85,7 @@ impl Hart {
         let Ok(inst) = self.fetch(mem) else {
             return self.exception(Exception::InstructionAccessFault);
         };
-        let result = execute(self, mem, inst, self.csr.isa());
+        let result = execute_rv64(self, mem, inst, self.csr.isa());
         match result {
             Ok(ExecuteResult::Continue) => self.inc_pc(),
             Ok(ExecuteResult::Jump(pc)) => self.set_pc(pc),

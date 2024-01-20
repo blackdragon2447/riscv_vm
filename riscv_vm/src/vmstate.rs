@@ -8,7 +8,7 @@ use elf_load::{
 use crate::{
     decode::decode,
     devices::{AsyncDevice, Device, DeviceError, DeviceInitError, HandledDevice},
-    execute::{execute, ExecuteError},
+    execute::{execute_rv64, ExecuteError},
     hart::Hart,
     memory::{address::Address, DeviceMemory, Memory, MemoryError},
 };
