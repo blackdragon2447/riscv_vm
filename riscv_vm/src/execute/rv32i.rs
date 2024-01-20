@@ -1,450 +1,275 @@
+use riscv_vm_macros::inst;
+
 use crate::memory::{address::Address, Memory};
 
 use super::{ExecuteError, ExecuteResult};
 
-pub(super) fn lui(_: Address, rd: &mut i64, imm: i32) -> Result<ExecuteResult, ExecuteError> {
-    *rd = imm as i64;
+inst!(lui(u) for [32, 64]: {
+    *rd = imm as ixlen;
     Ok(ExecuteResult::Continue)
-}
+});
 
-pub(super) fn auipc(pc: Address, rd: &mut i64, imm: i32) -> Result<ExecuteResult, ExecuteError> {
+inst!(auipc(u) for [32, 64]: {
     *rd = (pc + imm).into();
     Ok(ExecuteResult::Continue)
-}
+});
 
-pub(super) fn jal(pc: Address, rd: &mut i64, imm: i32) -> Result<ExecuteResult, ExecuteError> {
+inst!(jal(u) for [32, 64]: {
     let imm = (imm << 11) >> 11;
     *rd = pc.into();
     *rd += 4;
     Ok(ExecuteResult::Jump(pc + imm))
-}
+});
 
-pub(super) fn jalr(
-    pc: Address,
-    rd: &mut i64,
-    rs1: &i64,
-    imm: i32,
-) -> Result<ExecuteResult, ExecuteError> {
+inst!(jalr(i) for [32, 64]: {
     let imm = (imm << 20) >> 20;
     *rd = pc.into();
     *rd += 4;
     Ok(ExecuteResult::Jump(
         (rs1.wrapping_add(imm.into()) & !1).into(),
     ))
-}
+});
 
-pub(super) fn beq(
-    pc: Address,
-    rs1: &i64,
-    rs2: &i64,
-    imm: i32,
-) -> Result<ExecuteResult, ExecuteError> {
+inst!(beq(s) for [32, 64]: {
     let imm = ((imm << 19) >> 19);
     if (rs1 == rs2) {
         Ok(ExecuteResult::Jump(pc + imm))
     } else {
         Ok(ExecuteResult::Continue)
     }
-}
+});
 
-pub(super) fn bne(
-    pc: Address,
-    rs1: &i64,
-    rs2: &i64,
-    imm: i32,
-) -> Result<ExecuteResult, ExecuteError> {
+inst!(bne(s) for [32, 64]: {
     let imm = ((imm << 19) >> 19);
     if (rs1 != rs2) {
         Ok(ExecuteResult::Jump(pc + imm))
     } else {
         Ok(ExecuteResult::Continue)
     }
-}
+});
 
-pub(super) fn blt(
-    pc: Address,
-    rs1: &i64,
-    rs2: &i64,
-    imm: i32,
-) -> Result<ExecuteResult, ExecuteError> {
+inst!(blt(s) for  [32, 64]:{
     let imm = ((imm << 19) >> 19);
     if rs1 < rs2 {
         Ok(ExecuteResult::Jump(pc + imm))
     } else {
         Ok(ExecuteResult::Continue)
     }
-}
+});
 
-pub(super) fn bge(
-    pc: Address,
-    rs1: &i64,
-    rs2: &i64,
-    imm: i32,
-) -> Result<ExecuteResult, ExecuteError> {
+inst!(bge(s) for [32, 64]: {
     let imm = ((imm << 19) >> 19);
     if rs1 >= rs2 {
         Ok(ExecuteResult::Jump(pc + imm))
     } else {
         Ok(ExecuteResult::Continue)
     }
-}
 
-pub(super) fn bltu(
-    pc: Address,
-    rs1: &i64,
-    rs2: &i64,
-    imm: i32,
-) -> Result<ExecuteResult, ExecuteError> {
+});
+
+inst!(bltu(s) for [32, 64]: {
     let imm = ((imm << 19) >> 19);
-    if (*rs1 as u64) < (*rs2 as u64) {
+    if (*rs1 as uxlen) < (*rs2 as uxlen) {
         Ok(ExecuteResult::Jump(pc + imm))
     } else {
         Ok(ExecuteResult::Continue)
     }
-}
+});
 
-pub(super) fn bgeu(
-    pc: Address,
-    rs1: &i64,
-    rs2: &i64,
-    imm: i32,
-) -> Result<ExecuteResult, ExecuteError> {
+inst!(bgeu(s) for [32, 64]: {
     let imm = ((imm << 19) >> 19);
-    if (*rs1 as u64) >= (*rs2 as u64) {
+    if (*rs1 as uxlen) >= (*rs2 as uxlen) {
         Ok(ExecuteResult::Jump(pc + imm))
     } else {
         Ok(ExecuteResult::Continue)
     }
-}
+});
 
-pub(super) fn lb<const SIZE: usize>(
-    _: Address,
-    mem: &mut Memory<SIZE>,
-    rd: &mut i64,
-    rs1: &i64,
-    imm: i32,
-) -> Result<ExecuteResult, ExecuteError> {
+inst!(lb(i_mem) for [32, 64]: {
     let imm = (imm << 20) >> 20;
     let bytes = mem.read_bytes(rs1.overflowing_add(imm.into()).0.into(), 1)?;
     let mut buf = [0; 1];
     buf.copy_from_slice(&bytes);
-    *rd = i8::from_le_bytes(buf) as i64;
+    *rd = i8::from_le_bytes(buf) as ixlen;
     Ok(ExecuteResult::Continue)
-}
+});
 
-pub(super) fn lh<const SIZE: usize>(
-    _: Address,
-    mem: &mut Memory<SIZE>,
-    rd: &mut i64,
-    rs1: &i64,
-    imm: i32,
-) -> Result<ExecuteResult, ExecuteError> {
+inst!(lh(i_mem) for [32, 64]: {
     let imm = (imm << 20) >> 20;
     let bytes = mem.read_bytes(rs1.overflowing_add(imm.into()).0.into(), 2)?;
     let mut buf = [0; 2];
     buf.copy_from_slice(&bytes);
-    *rd = i16::from_le_bytes(buf) as i64;
+    *rd = i16::from_le_bytes(buf) as ixlen;
     Ok(ExecuteResult::Continue)
-}
+});
 
-pub(super) fn lw<const SIZE: usize>(
-    _: Address,
-    mem: &mut Memory<SIZE>,
-    rd: &mut i64,
-    rs1: &i64,
-    imm: i32,
-) -> Result<ExecuteResult, ExecuteError> {
+inst!(lw(i_mem) for [32, 64]: {
     let imm = (imm << 20) >> 20;
     let bytes = mem.read_bytes(rs1.overflowing_add(imm.into()).0.into(), 4)?;
     let mut buf = [0; 4];
     buf.copy_from_slice(&bytes);
-    *rd = i32::from_le_bytes(buf) as i64;
+    *rd = i32::from_le_bytes(buf) as ixlen;
     Ok(ExecuteResult::Continue)
-}
+});
 
-pub(super) fn lbu<const SIZE: usize>(
-    _: Address,
-    mem: &mut Memory<SIZE>,
-    rd: &mut i64,
-    rs1: &i64,
-    imm: i32,
-) -> Result<ExecuteResult, ExecuteError> {
+inst!(lbu(i_mem) for [32, 64]: {
     let imm = (imm << 20) >> 20;
     let bytes = mem.read_bytes(rs1.overflowing_add(imm.into()).0.into(), 1)?;
     let mut buf = [0; 1];
     buf.copy_from_slice(&bytes);
-    *rd = u8::from_le_bytes(buf) as i64;
+    *rd = u8::from_le_bytes(buf) as ixlen;
     Ok(ExecuteResult::Continue)
-}
+});
 
-pub(super) fn lhu<const SIZE: usize>(
-    _: Address,
-    mem: &mut Memory<SIZE>,
-    rd: &mut i64,
-    rs1: &i64,
-    imm: i32,
-) -> Result<ExecuteResult, ExecuteError> {
+inst!(lhu(i_mem) for [32, 64]: {
     let imm = (imm << 20) >> 20;
     let bytes = mem.read_bytes(rs1.overflowing_add(imm.into()).0.into(), 2)?;
     let mut buf = [0; 2];
     buf.copy_from_slice(&bytes);
-    *rd = u16::from_le_bytes(buf) as i64;
+    *rd = u16::from_le_bytes(buf) as ixlen;
     Ok(ExecuteResult::Continue)
-}
+});
 
-pub(super) fn sb<const SIZE: usize>(
-    _: Address,
-    mem: &mut Memory<SIZE>,
-    rs1: &i64,
-    rs2: &i64,
-    imm: i32,
-) -> Result<ExecuteResult, ExecuteError> {
+inst!(sb(s_mem) for [32, 64]: {
     let imm = (imm << 20) >> 20;
     mem.write_bytes(
         &rs2.to_le_bytes()[0..1],
         rs1.overflowing_add(imm.into()).0.into(),
     )?;
     Ok(ExecuteResult::Continue)
-}
+});
 
-pub(super) fn sh<const SIZE: usize>(
-    _: Address,
-    mem: &mut Memory<SIZE>,
-    rs1: &i64,
-    rs2: &i64,
-    imm: i32,
-) -> Result<ExecuteResult, ExecuteError> {
+inst!(sh(s_mem) for [32, 64]: {
     let imm = (imm << 20) >> 20;
     mem.write_bytes(
         &rs2.to_le_bytes()[0..2],
         rs1.overflowing_add(imm.into()).0.into(),
     )?;
     Ok(ExecuteResult::Continue)
-}
+});
 
-pub(super) fn sw<const SIZE: usize>(
-    _: Address,
-    mem: &mut Memory<SIZE>,
-    rs1: &i64,
-    rs2: &i64,
-    imm: i32,
-) -> Result<ExecuteResult, ExecuteError> {
+inst!(sw(s_mem) for [32, 64]: {
     let imm = (imm << 20) >> 20;
     mem.write_bytes(
         &rs2.to_le_bytes()[0..4],
         rs1.overflowing_add(imm.into()).0.into(),
     )?;
     Ok(ExecuteResult::Continue)
-}
+});
 
-pub(super) fn addi(
-    _: Address,
-    rd: &mut i64,
-    rs1: &i64,
-    imm: i32,
-) -> Result<ExecuteResult, ExecuteError> {
+inst!(addi(i) for [32, 64]: {
     let imm = (imm << 20) >> 20;
     *rd = rs1.overflowing_add(imm.into()).0;
     Ok(ExecuteResult::Continue)
-}
+});
 
-pub(super) fn slti(
-    _: Address,
-    rd: &mut i64,
-    rs1: &i64,
-    imm: i32,
-) -> Result<ExecuteResult, ExecuteError> {
+inst!(slti(i) for [32, 64]: {
     let imm = (imm << 20) >> 20;
-    if *rs1 < (imm as i64) {
+    if *rs1 < (imm as ixlen) {
         *rd = 1;
     } else {
         *rd = 0;
     }
     Ok(ExecuteResult::Continue)
-}
+});
 
-pub(super) fn sltiu(
-    _: Address,
-    rd: &mut i64,
-    rs1: &i64,
-    imm: i32,
-) -> Result<ExecuteResult, ExecuteError> {
+inst!(sltiu(i) for [32, 64]: {
     let imm = (imm << 20) >> 20;
-    if (*rs1 as u64) < (imm as i64 as u64) {
+    if (*rs1 as uxlen) < (imm as ixlen as uxlen) {
         *rd = 1;
     } else {
         *rd = 0;
     }
     Ok(ExecuteResult::Continue)
-}
+});
 
-pub(super) fn xori(
-    _: Address,
-    rd: &mut i64,
-    rs1: &i64,
-    imm: i32,
-) -> Result<ExecuteResult, ExecuteError> {
+inst!(xori(i) for [32, 64]: {
     let imm = (imm << 20) >> 20;
-    *rd = *rs1 ^ (imm as i64);
+    *rd = *rs1 ^ (imm as ixlen);
     Ok(ExecuteResult::Continue)
-}
+});
 
-pub(super) fn ori(
-    _: Address,
-    rd: &mut i64,
-    rs1: &i64,
-    imm: i32,
-) -> Result<ExecuteResult, ExecuteError> {
+inst!(ori(i) for [32, 64]: {
     let imm = (imm << 20) >> 20;
-    *rd = *rs1 | (imm as i64);
+    *rd = *rs1 | (imm as ixlen);
     Ok(ExecuteResult::Continue)
-}
+});
 
-pub(super) fn andi(
-    _: Address,
-    rd: &mut i64,
-    rs1: &i64,
-    imm: i32,
-) -> Result<ExecuteResult, ExecuteError> {
+inst!(andi(i) for [32, 64]: {
     let imm = (imm << 20) >> 20;
-    *rd = *rs1 & (imm as i64);
+    *rd = *rs1 & (imm as ixlen);
     Ok(ExecuteResult::Continue)
-}
+});
 
-pub(super) fn slli(
-    _: Address,
-    rd: &mut i64,
-    rs1: &i64,
-    shamt: i32,
-) -> Result<ExecuteResult, ExecuteError> {
-    *rd = *rs1 << shamt;
+inst!(slli(i) for [32, 64]: {
+    *rd = *rs1 << imm; //shamt
     Ok(ExecuteResult::Continue)
-}
+});
 
-pub(super) fn srli(
-    _: Address,
-    rd: &mut i64,
-    rs1: &i64,
-    shamt: i32,
-) -> Result<ExecuteResult, ExecuteError> {
-    *rd = ((*rs1 as u64) >> shamt) as i64;
+inst!(srli(i) for [32, 64]: {
+    *rd = ((*rs1 as uxlen) >> imm) as ixlen;
     Ok(ExecuteResult::Continue)
-}
+});
 
-pub(super) fn srai(
-    _: Address,
-    rd: &mut i64,
-    rs1: &i64,
-    imm: i32,
-) -> Result<ExecuteResult, ExecuteError> {
+inst!(srai(i) for [32, 64]: {
     *rd = *rs1 >> imm;
     Ok(ExecuteResult::Continue)
-}
+});
 
-pub(super) fn add(
-    _: Address,
-    rd: &mut i64,
-    rs1: &i64,
-    rs2: &i64,
-) -> Result<ExecuteResult, ExecuteError> {
+inst!(add(r) for [32, 64]: {
     *rd = rs1.overflowing_add(*rs2).0;
     Ok(ExecuteResult::Continue)
-}
+});
 
-pub(super) fn sub(
-    _: Address,
-    rd: &mut i64,
-    rs1: &i64,
-    rs2: &i64,
-) -> Result<ExecuteResult, ExecuteError> {
+inst!(sub(r) for [32, 64]: {
     *rd = rs1.overflowing_sub(*rs2).0;
     Ok(ExecuteResult::Continue)
-}
+});
 
-pub(super) fn sll(
-    _: Address,
-    rd: &mut i64,
-    rs1: &i64,
-    rs2: &i64,
-) -> Result<ExecuteResult, ExecuteError> {
+inst!(sll(r) for [32, 64]: {
     *rd = rs1 << (rs2 & 0b111111);
     Ok(ExecuteResult::Continue)
-}
+});
 
-pub(super) fn slt(
-    _: Address,
-    rd: &mut i64,
-    rs1: &i64,
-    rs2: &i64,
-) -> Result<ExecuteResult, ExecuteError> {
+inst!(slt(r) for [32, 64]: {
     if *rs1 < *rs2 {
         *rd = 1;
     } else {
         *rd = 0;
     }
     Ok(ExecuteResult::Continue)
-}
+});
 
-pub(super) fn sltu(
-    _: Address,
-    rd: &mut i64,
-    rs1: &i64,
-    rs2: &i64,
-) -> Result<ExecuteResult, ExecuteError> {
-    if (*rs1 as u64) < (*rs2 as u64) {
+inst!(sltu(r) for [32, 64]: {
+    if (*rs1 as uxlen) < (*rs2 as uxlen) {
         *rd = 1;
     } else {
         *rd = 0;
     }
     Ok(ExecuteResult::Continue)
-}
+});
 
-pub(super) fn xor(
-    _: Address,
-    rd: &mut i64,
-    rs1: &i64,
-    rs2: &i64,
-) -> Result<ExecuteResult, ExecuteError> {
+inst!(xor(r) for [32, 64]: {
     *rd = rs1 ^ rs2;
     Ok(ExecuteResult::Continue)
-}
+});
 
-pub(super) fn srl(
-    _: Address,
-    rd: &mut i64,
-    rs1: &i64,
-    rs2: &i64,
-) -> Result<ExecuteResult, ExecuteError> {
-    *rd = ((*rs1 as u64) >> (rs2 & 0b111111)) as i64;
+inst!(srl(r) for [32, 64]: {
+    *rd = ((*rs1 as uxlen) >> (rs2 & 0b111111)) as ixlen;
     Ok(ExecuteResult::Continue)
-}
+});
 
-pub(super) fn sra(
-    _: Address,
-    rd: &mut i64,
-    rs1: &i64,
-    rs2: &i64,
-) -> Result<ExecuteResult, ExecuteError> {
+inst!(sra(r) for [32, 64]: {
     *rd = *rs1 >> (rs2 & 0b111111);
     Ok(ExecuteResult::Continue)
-}
+});
 
-pub(super) fn or(
-    _: Address,
-    rd: &mut i64,
-    rs1: &i64,
-    rs2: &i64,
-) -> Result<ExecuteResult, ExecuteError> {
+inst!(or(r) for [32, 64]: {
     *rd = rs1 | rs2;
     Ok(ExecuteResult::Continue)
-}
+});
 
-pub(super) fn and(
-    _: Address,
-    rd: &mut i64,
-    rs1: &i64,
-    rs2: &i64,
-) -> Result<ExecuteResult, ExecuteError> {
+inst!(and(r) for [32, 64]: {
     *rd = rs1 & rs2;
     Ok(ExecuteResult::Continue)
-}
+});

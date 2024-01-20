@@ -69,9 +69,9 @@ pub fn execute<const SIZE: usize>(
         XORI { rd, rs1, imm } => i_type(hart, rd, rs1, imm, rv32i::xori),
         ORI { rd, rs1, imm } => i_type(hart, rd, rs1, imm, rv32i::ori),
         ANDI { rd, rs1, imm } => i_type(hart, rd, rs1, imm, rv32i::andi),
-        SLLI { rd, rs1, shamt } => i_type_shift(hart, rd, rs1, shamt, rv32i::slli),
-        SRLI { rd, rs1, shamt } => i_type_shift(hart, rd, rs1, shamt, rv32i::srli),
-        SRAI { rd, rs1, shamt } => i_type_shift(hart, rd, rs1, shamt, rv32i::srai),
+        SLLI { rd, rs1, shamt } => i_type(hart, rd, rs1, shamt, rv32i::slli),
+        SRLI { rd, rs1, shamt } => i_type(hart, rd, rs1, shamt, rv32i::srli),
+        SRAI { rd, rs1, shamt } => i_type(hart, rd, rs1, shamt, rv32i::srai),
         ADD { rd, rs1, rs2 } => r_type(hart, rd, rs1, rs2, rv32i::add),
         SUB { rd, rs1, rs2 } => r_type(hart, rd, rs1, rs2, rv32i::sub),
         SLL { rd, rs1, rs2 } => r_type(hart, rd, rs1, rs2, rv32i::sll),
@@ -84,9 +84,9 @@ pub fn execute<const SIZE: usize>(
         AND { rd, rs1, rs2 } => r_type(hart, rd, rs1, rs2, rv32i::and),
         ADDIW { rd, rs1, imm } => i_type(hart, rd, rs1, imm, rv64i::addiw),
         SLTIW { rd, rs1, imm } => i_type(hart, rd, rs1, imm, rv64i::sltiw),
-        SLLIW { rd, rs1, shamt } => i_type_shift(hart, rd, rs1, shamt, rv64i::slliw),
-        SRLIW { rd, rs1, shamt } => i_type_shift(hart, rd, rs1, shamt, rv64i::srliw),
-        SRAIW { rd, rs1, shamt } => i_type_shift(hart, rd, rs1, shamt, rv64i::sraiw),
+        SLLIW { rd, rs1, shamt } => i_type(hart, rd, rs1, shamt, rv64i::slliw),
+        SRLIW { rd, rs1, shamt } => i_type(hart, rd, rs1, shamt, rv64i::srliw),
+        SRAIW { rd, rs1, shamt } => i_type(hart, rd, rs1, shamt, rv64i::sraiw),
         ADDW { rd, rs1, rs2 } => r_type(hart, rd, rs1, rs2, rv64i::addw),
         SUBW { rd, rs1, rs2 } => r_type(hart, rd, rs1, rs2, rv64i::subw),
         SLLW { rd, rs1, rs2 } => r_type(hart, rd, rs1, rs2, rv64i::sllw),
@@ -209,23 +209,6 @@ where
     let rs1 = hart.get_reg(rs1);
     let mut rdv = 0;
     let result = executor(hart.get_pc(), &mut rdv, &rs1, imm)?;
-    hart.set_reg(rd, rdv);
-    Ok(result)
-}
-
-fn i_type_shift<E>(
-    hart: &mut Hart,
-    rd: IntRegister,
-    rs1: IntRegister,
-    shamt: i32,
-    executor: E,
-) -> Result<ExecuteResult, ExecuteError>
-where
-    E: Fn(Address, &mut i64, &i64, i32) -> Result<ExecuteResult, ExecuteError>,
-{
-    let rs1 = hart.get_reg(rs1);
-    let mut rdv = 0;
-    let result = executor(hart.get_pc(), &mut rdv, &rs1, shamt)?;
     hart.set_reg(rd, rdv);
     Ok(result)
 }

@@ -80,6 +80,12 @@ impl From<Address> for i64 {
     }
 }
 
+impl From<Address> for i32 {
+    fn from(val: Address) -> Self {
+        val.0 as i32
+    }
+}
+
 impl From<u64> for Address {
     fn from(value: u64) -> Self {
         Self(value)
@@ -88,6 +94,12 @@ impl From<u64> for Address {
 
 impl From<i64> for Address {
     fn from(value: i64) -> Self {
+        Self(value as u64)
+    }
+}
+
+impl From<i32> for Address {
+    fn from(value: i32) -> Self {
         Self(value as u64)
     }
 }

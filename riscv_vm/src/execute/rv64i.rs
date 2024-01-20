@@ -1,69 +1,43 @@
+use riscv_vm_macros::inst;
+
 use crate::memory::{address::Address, Memory};
 
 use super::{ExecuteError, ExecuteResult};
 
-pub(super) fn ld<const SIZE: usize>(
-    _: Address,
-    mem: &mut Memory<SIZE>,
-    rd: &mut i64,
-    rs1: &i64,
-    imm: i32,
-) -> Result<ExecuteResult, ExecuteError> {
+inst!(ld(i_mem) for [64]: {
     let imm = (imm << 20) >> 20;
     let bytes = mem.read_bytes(rs1.overflowing_add(imm.into()).0.into(), 8)?;
     let mut buf = [0; 8];
     buf.copy_from_slice(&bytes);
     *rd = i64::from_le_bytes(buf);
     Ok(ExecuteResult::Continue)
-}
+});
 
-pub(super) fn lwu<const SIZE: usize>(
-    _: Address,
-    mem: &mut Memory<SIZE>,
-    rd: &mut i64,
-    rs1: &i64,
-    imm: i32,
-) -> Result<ExecuteResult, ExecuteError> {
+inst!(lwu(i_mem) for [64]: {
     let imm = (imm << 20) >> 20;
     let bytes = mem.read_bytes(rs1.overflowing_add(imm.into()).0.into(), 4)?;
     let mut buf = [0; 4];
     buf.copy_from_slice(&bytes);
-    *rd = u32::from_le_bytes(buf) as i64;
+    *rd = u32::from_le_bytes(buf) as ixlen;
     Ok(ExecuteResult::Continue)
-}
+});
 
-pub(super) fn sd<const SIZE: usize>(
-    _: Address,
-    mem: &mut Memory<SIZE>,
-    rs1: &i64,
-    rs2: &i64,
-    imm: i32,
-) -> Result<ExecuteResult, ExecuteError> {
+inst!(sd(s_mem) for [64]: {
     let imm = (imm << 20) >> 20;
     mem.write_bytes(
         &rs2.to_le_bytes()[0..8],
         rs1.overflowing_add(imm.into()).0.into(),
     )?;
     Ok(ExecuteResult::Continue)
-}
+});
 
-pub(super) fn addiw(
-    _: Address,
-    rd: &mut i64,
-    rs1: &i64,
-    imm: i32,
-) -> Result<ExecuteResult, ExecuteError> {
+inst!(addiw(i) for [64]: {
     let imm = (imm << 20) >> 20;
-    *rd = (*rs1 as i32).overflowing_add(imm).0 as i64;
+    *rd = (*rs1 as i32).overflowing_add(imm).0 as ixlen;
     Ok(ExecuteResult::Continue)
-}
+});
 
-pub(super) fn sltiw(
-    _: Address,
-    rd: &mut i64,
-    rs1: &i64,
-    imm: i32,
-) -> Result<ExecuteResult, ExecuteError> {
+inst!(sltiw(i) for [64]: {
     let imm = (imm << 20) >> 20;
     if (*rs1 as i32) < imm {
         *rd = 1;
@@ -71,98 +45,53 @@ pub(super) fn sltiw(
         *rd = 0;
     }
     Ok(ExecuteResult::Continue)
-}
+});
 
-pub(super) fn slliw(
-    _: Address,
-    rd: &mut i64,
-    rs1: &i64,
-    shamt: i32,
-) -> Result<ExecuteResult, ExecuteError> {
-    *rd = ((*rs1 as u32) << shamt) as i32 as i64;
+inst!(slliw(i) for [64]: {
+    *rd = ((*rs1 as u32) << imm) as i32 as ixlen;
     Ok(ExecuteResult::Continue)
-}
+});
 
-pub(super) fn srliw(
-    _: Address,
-    rd: &mut i64,
-    rs1: &i64,
-    shamt: i32,
-) -> Result<ExecuteResult, ExecuteError> {
-    *rd = ((*rs1 as u32) >> shamt) as i32 as i64;
+inst!(srliw(i) for [64]: {
+    *rd = ((*rs1 as u32) >> imm) as i32 as ixlen;
     Ok(ExecuteResult::Continue)
-}
+});
 
-pub(super) fn sraiw(
-    _: Address,
-    rd: &mut i64,
-    rs1: &i64,
-    shamt: i32,
-) -> Result<ExecuteResult, ExecuteError> {
-    *rd = ((*rs1 as i32) >> shamt) as u64 as i64;
+inst!(sraiw(i) for [64]: {
+    *rd = ((*rs1 as i32) >> imm) as uxlen as ixlen;
     Ok(ExecuteResult::Continue)
-}
+});
 
-pub(super) fn addw(
-    _: Address,
-    rd: &mut i64,
-    rs1: &i64,
-    rs2: &i64,
-) -> Result<ExecuteResult, ExecuteError> {
-    *rd = (*rs1 as i32).overflowing_add(*rs2 as i32).0 as i64;
+inst!(addw(r) for [64]: {
+    *rd = (*rs1 as i32).overflowing_add(*rs2 as i32).0 as ixlen;
     Ok(ExecuteResult::Continue)
-}
+});
 
-pub(super) fn subw(
-    _: Address,
-    rd: &mut i64,
-    rs1: &i64,
-    rs2: &i64,
-) -> Result<ExecuteResult, ExecuteError> {
-    *rd = (*rs1 as i32).overflowing_sub(*rs2 as i32).0 as i64;
+inst!(subw(r) for [64]: {
+    *rd = (*rs1 as i32).overflowing_sub(*rs2 as i32).0 as ixlen;
     Ok(ExecuteResult::Continue)
-}
+});
 
-pub(super) fn sllw(
-    _: Address,
-    rd: &mut i64,
-    rs1: &i64,
-    rs2: &i64,
-) -> Result<ExecuteResult, ExecuteError> {
-    *rd = ((*rs1 as u32) << (rs2 & 0b11111)) as i32 as i64;
+inst!(sllw(r) for [64]: {
+    *rd = ((*rs1 as u32) << (rs2 & 0b11111)) as i32 as ixlen;
     Ok(ExecuteResult::Continue)
-}
+});
 
-pub(super) fn sltw(
-    _: Address,
-    rd: &mut i64,
-    rs1: &i64,
-    rs2: &i64,
-) -> Result<ExecuteResult, ExecuteError> {
+inst!(sltw(r) for [64]: {
     if (*rs1 as i32) < (*rs2 as i32) {
         *rd = 1;
     } else {
         *rd = 0;
     }
     Ok(ExecuteResult::Continue)
-}
+});
 
-pub(super) fn srlw(
-    _: Address,
-    rd: &mut i64,
-    rs1: &i64,
-    rs2: &i64,
-) -> Result<ExecuteResult, ExecuteError> {
-    *rd = ((*rs1 as u32) >> (rs2 & 0b11111)) as i32 as i64;
+inst!(srlw(r) for [64]: {
+    *rd = ((*rs1 as u32) >> (rs2 & 0b11111)) as i32 as ixlen;
     Ok(ExecuteResult::Continue)
-}
+});
 
-pub(super) fn sraw(
-    _: Address,
-    rd: &mut i64,
-    rs1: &i64,
-    rs2: &i64,
-) -> Result<ExecuteResult, ExecuteError> {
-    *rd = (*rs1 as i32).overflowing_shr((rs2 & 0b111111) as u32).0 as i64;
+inst!(sraw(r) for [64]: {
+    *rd = (*rs1 as i32).overflowing_shr((rs2 & 0b111111) as u32).0 as ixlen;
     Ok(ExecuteResult::Continue)
-}
+});
