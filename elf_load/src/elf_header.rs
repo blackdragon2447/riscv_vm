@@ -52,7 +52,7 @@ struct RawElfHeader {
 
 impl RawElfHeader {
     /// Bytes may be longer than the header, header is assumed to be at 0x00
-    fn from_bytes(bytes: &Vec<u8>) -> RawElfHeader {
+    fn from_bytes(bytes: &[u8]) -> RawElfHeader {
         Self {
             magic: bytes.get_bytes_copy(0x00),
             bitness: bytes.get_bytes_copy(0x04),
@@ -99,7 +99,7 @@ pub struct ElfHeader {
 
 impl ElfHeader {
     /// Bytes may be longer than the header, header is assumed to be at 0x00
-    pub fn from_bytes(bytes: &Vec<u8>) -> Result<ElfHeader, ElfHeaderParseError> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<ElfHeader, ElfHeaderParseError> {
         let raw = RawElfHeader::from_bytes(bytes);
 
         if raw.magic != [0x7F, 0x45, 0x4C, 0x46] {

@@ -55,7 +55,7 @@ pub struct ProgramHeader {
 
 impl ProgramHeader {
     pub fn from_bytes(
-        bytes: &Vec<u8>,
+        bytes: &[u8],
         offset: u64,
         size: u64,
     ) -> Result<ProgramHeader, ProgramHeaderParseError> {
