@@ -158,9 +158,9 @@ pub(super) fn inst_internal(input: TokenStream) -> TokenStream {
             }
             InstType::IMem => {
                 impls.push(quote!(
-                    pub(super) fn #name<const SIZE: usize>(
+                    pub(super) fn #name(
                         pc: Address,
-                        mem: &mut Memory<SIZE>,
+                        mem: &mut Memory,
                         rd: &mut #xlen,
                         rs1: &#xlen,
                         imm: i32
@@ -187,9 +187,9 @@ pub(super) fn inst_internal(input: TokenStream) -> TokenStream {
             }
             InstType::SMem => {
                 impls.push(quote!(
-                    pub(super) fn #name<const SIZE: usize>(
+                    pub(super) fn #name(
                         pc: Address,
-                        mem: &mut Memory<SIZE>,
+                        mem: &mut Memory,
                         rs1: &#xlen,
                         rs2: &#xlen,
                         imm: i32

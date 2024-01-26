@@ -10,12 +10,12 @@ fn main() {
     let bytes = fs::read(args.get(1).unwrap()).unwrap();
     let elf = Elf::from_bytes(bytes).unwrap();
 
-    let mut vmstate = VMState::<{ 4 * MB }>::new(1);
+    let mut vmstate = VMState::new::<{ 4 * MB }>(1);
     vmstate.load_elf_kernel(&elf).unwrap();
 
-    // vmstate
-    //     .add_sync_device::<SimpleUart>(0x10000000u64.into())
-    //     .unwrap();
+    vmstate
+        .add_sync_device::<SimpleUart>(0x10000000u64.into())
+        .unwrap();
 
     #[cfg(feature = "vga_text_buf")]
     vmstate

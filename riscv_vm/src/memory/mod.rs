@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     fmt::Debug,
-    ops::{Add, AddAssign, Range, Sub},
+    ops::{Add, AddAssign, Deref, Range, Sub},
     sync::{Arc, PoisonError, RwLock, RwLockWriteGuard},
     vec,
 };
@@ -15,18 +15,18 @@ use crate::devices::DeviceInitError;
 use self::address::Address;
 
 pub mod address;
+mod pmp;
 pub mod registers;
 #[cfg(test)]
 mod tests;
-mod pmp;
 
 pub const KB: usize = 1024;
 pub const MB: usize = 1024 * KB;
 
 pub struct DeviceMemory(Range<Address>, Vec<u8>);
 
-pub struct Memory<const SIZE: usize> {
-    mem: Box<[u8; SIZE]>,
+pub struct Memory {
+    mem: Box<[u8]>,
     mem_range: Range<Address>,
     device_regions: HashMap<usize, Arc<RwLock<DeviceMemory>>>,
 }
@@ -39,16 +39,17 @@ pub enum MemoryError {
     DeviceMemoryPoison,
 }
 
-impl<const SIZE: usize> Default for Memory<SIZE> {
+impl Default for Memory {
     fn default() -> Self {
-        Self::new()
+        Self::new::<{ 4 * KB }>()
     }
 }
 
-impl<const SIZE: usize> Memory<SIZE> {
-    pub fn new() -> Self {
+impl Memory {
+    pub fn new<const SIZE: usize>() -> Self {
+        let mem = vec![0u8; SIZE].into_boxed_slice();
         Self {
-            mem: Box::new([0; SIZE]),
+            mem,
             mem_range: 0x80000000u64.into()..(0x80000000u64 + SIZE as u64).into(),
             device_regions: HashMap::new(),
         }
@@ -81,7 +82,7 @@ impl<const SIZE: usize> Memory<SIZE> {
         if (self.mem_range.contains(&addr)) {
             let idx = addr - self.mem_range.start;
             if <Address as Into<usize>>::into(idx) + size < self.mem.len() {
-                Ok(self.mem.get_bytes(idx.into(), size as u64).to_vec())
+                Ok(self.mem.deref().get_bytes(idx.into(), size as u64).to_vec())
             } else {
                 Err(MemoryError::OutOfBoundsRead(addr, self.mem_range.clone()))
             }

@@ -13,9 +13,9 @@ use crate::{
     memory::{address::Address, DeviceMemory, Memory, MemoryError},
 };
 
-pub struct VMState<const MEM_SIZE: usize> {
+pub struct VMState {
     harts: Vec<Hart>,
-    mem: Memory<MEM_SIZE>,
+    mem: Memory,
     sync_devices: HashMap<usize, Box<dyn HandledDevice>>,
     // async_devices: HashMap<usize, Box<dyn AsyncDevice>>,
     next_dev_id: usize,
@@ -38,8 +38,8 @@ pub enum VMError {
     ExecureError(ExecuteError),
 }
 
-impl<const MEM_SIZE: usize> VMState<MEM_SIZE> {
-    pub fn new(hart_count: u64) -> Self {
+impl VMState {
+    pub fn new<const MEM_SIZE: usize>(hart_count: u64) -> Self {
         let mut harts = Vec::new();
         for i in 0..hart_count {
             harts.push(Hart::new(i));
@@ -47,7 +47,7 @@ impl<const MEM_SIZE: usize> VMState<MEM_SIZE> {
 
         Self {
             harts,
-            mem: Memory::new(),
+            mem: Memory::new::<MEM_SIZE>(),
             sync_devices: HashMap::new(),
             // async_devices: HashMap::new(),
             next_dev_id: 0,
@@ -124,12 +124,12 @@ impl<const MEM_SIZE: usize> VMState<MEM_SIZE> {
     }
 
     #[cfg(test)]
-    pub(crate) fn mem(&self) -> &Memory<MEM_SIZE> {
+    pub(crate) fn mem(&self) -> &Memory {
         &self.mem
     }
 }
 
-impl<const MEM_SIZE: usize> Debug for VMState<MEM_SIZE> {
+impl Debug for VMState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut f = f.debug_struct("VMState");
         for h in &self.harts {
@@ -158,10 +158,7 @@ impl From<ExecuteError> for VMError {
     }
 }
 
-fn load_elf_phys<const SIZE: usize>(
-    elf: &Elf,
-    mem: &mut Memory<SIZE>,
-) -> Result<Address, MemoryError> {
+fn load_elf_phys(elf: &Elf, mem: &mut Memory) -> Result<Address, MemoryError> {
     for h in &elf.program_headers {
         if h.program_type == ProgramType::Load && h.seg_m_size.0 != 0 {
             let bytes = elf.bytes.get_bytes(h.seg_offset, h.seg_f_size.0);

@@ -34,9 +34,9 @@ impl From<MemoryError> for ExecuteError {
     }
 }
 
-pub fn execute_rv64<const SIZE: usize>(
+pub fn execute_rv64(
     hart: &mut Hart,
-    mem: &mut Memory<SIZE>,
+    mem: &mut Memory,
     instruction: Instruction,
     isa: BitFlags<Isa>,
 ) -> Result<ExecuteResult, ExecuteError> {
@@ -219,16 +219,16 @@ where
     Ok(result)
 }
 
-fn i_type_mem_access<E, const SIZE: usize>(
+fn i_type_mem_access<E>(
     hart: &mut Hart,
-    mem: &mut Memory<SIZE>,
+    mem: &mut Memory,
     rd: IntRegister,
     rs1: IntRegister,
     imm: i32,
     executor: E,
 ) -> Result<ExecuteResult, ExecuteError>
 where
-    E: Fn(Address, &mut Memory<SIZE>, &mut i64, &i64, i32) -> Result<ExecuteResult, ExecuteError>,
+    E: Fn(Address, &mut Memory, &mut i64, &i64, i32) -> Result<ExecuteResult, ExecuteError>,
 {
     let rs1 = hart.get_reg(rs1);
     let mut rdv = 0;
@@ -253,16 +253,16 @@ where
     Ok(result)
 }
 
-fn s_type_mem_access<E, const SIZE: usize>(
+fn s_type_mem_access<E>(
     hart: &mut Hart,
-    mem: &mut Memory<SIZE>,
+    mem: &mut Memory,
     imm: i32,
     rs1: IntRegister,
     rs2: IntRegister,
     executor: E,
 ) -> Result<ExecuteResult, ExecuteError>
 where
-    E: Fn(Address, &mut Memory<SIZE>, &i64, &i64, i32) -> Result<ExecuteResult, ExecuteError>,
+    E: Fn(Address, &mut Memory, &i64, &i64, i32) -> Result<ExecuteResult, ExecuteError>,
 {
     let rs1 = hart.get_reg(rs1);
     let rs2 = hart.get_reg(rs2);

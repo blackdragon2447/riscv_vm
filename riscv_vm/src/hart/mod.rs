@@ -79,12 +79,13 @@ impl Hart {
         self.privilege = privilege;
     }
 
-    pub fn step<const SIZE: usize>(&mut self, mem: &mut Memory<SIZE>) -> Result<(), VMError> {
+    pub fn step(&mut self, mem: &mut Memory) -> Result<(), VMError> {
         // Unwrap here is safe since u32 expects 4 bytes and we alyaws read 4 bytes (read_bytes
         // will return an Err if it cannot).
         let Ok(inst) = self.fetch(mem) else {
             return self.exception(Exception::InstructionAccessFault);
         };
+        // dbg!(&inst);
         let result = execute_rv64(self, mem, inst, self.csr.isa());
         match result {
             Ok(ExecuteResult::Continue) => self.inc_pc(),
@@ -99,7 +100,7 @@ impl Hart {
         Ok(())
     }
 
-    fn fetch<const SIZE: usize>(&self, mem: &Memory<SIZE>) -> Result<Instruction, MemoryError> {
+    fn fetch(&self, mem: &Memory) -> Result<Instruction, MemoryError> {
         let inst_bytes = mem.read_bytes(self.get_pc(), 4)?;
         let inst = decode(u32::from_le_bytes(inst_bytes.try_into().unwrap()));
         Ok(inst)

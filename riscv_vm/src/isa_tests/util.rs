@@ -9,7 +9,7 @@ macro_rules! isa_test {
             .unwrap();
             let elf = Elf::from_bytes(bytes).unwrap();
 
-            let mut vmstate = VMState::<{ 6 * KB }>::new(1);
+            let mut vmstate = VMState::new::<{ 6 * KB }>(1);
             vmstate.load_elf_kernel(&elf).unwrap();
 
             loop {
@@ -42,7 +42,7 @@ macro_rules! isa_test {
             .unwrap();
             let elf = Elf::from_bytes(bytes).unwrap();
 
-            let mut vmstate = VMState::<$mem>::new(1);
+            let mut vmstate = VMState::new::<$mem>(1);
             vmstate.load_elf_kernel(&elf).unwrap();
 
             loop {
@@ -72,7 +72,7 @@ macro_rules! isa_test {
             let bytes = fs::read(format!("../riscv-tests/isa/{}", $file)).unwrap();
             let elf = Elf::from_bytes(bytes).unwrap();
 
-            let mut vmstate = VMState::<{ 6 * KB }>::new(1);
+            let mut vmstate = VMState::new::<{ 6 * KB }>(1);
             vmstate.load_elf_kernel(&elf).unwrap();
 
             loop {
@@ -101,7 +101,7 @@ macro_rules! isa_test {
             let bytes = fs::read(format!("../riscv-tests/isa/{}", $file)).unwrap();
             let elf = Elf::from_bytes(bytes).unwrap();
 
-            let mut vmstate = VMState::<$mem>::new(1);
+            let mut vmstate = VMState::new::<$mem>(1);
             vmstate.load_elf_kernel(&elf).unwrap();
 
             loop {

@@ -28,7 +28,7 @@ use winit::error::OsError;
 
 use crate::memory::{address::Address, DeviceMemory};
 
-use super::{AsyncDevice, Device};
+use super::{AsyncDevice, Device, DeviceInitError};
 
 pub struct VgaTextMode {
     surface: Surface,
