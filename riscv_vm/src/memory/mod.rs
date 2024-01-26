@@ -18,6 +18,7 @@ pub mod address;
 pub mod registers;
 #[cfg(test)]
 mod tests;
+mod pmp;
 
 pub const KB: usize = 1024;
 pub const MB: usize = 1024 * KB;
