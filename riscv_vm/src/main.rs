@@ -1,11 +1,9 @@
 use std::{fs, io::stdin};
 
 use elf_load::Elf;
-use riscv_vm::{
-    devices::{simple_uart::SimpleUart, vga_text_mode::VgaTextMode},
-    memory::MB,
-    vmstate::VMState,
-};
+#[cfg(feature = "vga_text_buf")]
+use riscv_vm::devices::vga_text_mode::VgaTextMode;
+use riscv_vm::{devices::simple_uart::SimpleUart, memory::MB, vmstate::VMState};
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -19,6 +17,7 @@ fn main() {
     //     .add_sync_device::<SimpleUart>(0x10000000u64.into())
     //     .unwrap();
 
+    #[cfg(feature = "vga_text_buf")]
     vmstate
         .add_async_device::<VgaTextMode>(0xB8000u64.into())
         .unwrap();

@@ -5,12 +5,11 @@ use std::{
 };
 
 use elf_load::Address;
-use wgpu::CreateSurfaceError;
-use winit::error::OsError;
 
 use crate::memory::DeviceMemory;
 
 pub mod simple_uart;
+#[cfg(feature = "vga_text_buf")]
 pub mod vga_text_mode;
 
 #[derive(Debug)]
@@ -52,17 +51,5 @@ impl<T: Error + 'static> From<T> for DeviceError {
 impl<T> From<PoisonError<T>> for DeviceInitError {
     fn from(value: PoisonError<T>) -> Self {
         Self::MemoryPoison
-    }
-}
-
-impl From<OsError> for DeviceInitError {
-    fn from(value: OsError) -> Self {
-        Self::Other(Box::new(value))
-    }
-}
-
-impl From<CreateSurfaceError> for DeviceInitError {
-    fn from(value: CreateSurfaceError) -> Self {
-        Self::Other(Box::new(value))
     }
 }

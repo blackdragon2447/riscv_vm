@@ -23,6 +23,9 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 
+use wgpu::CreateSurfaceError;
+use winit::error::OsError;
+
 use crate::memory::{address::Address, DeviceMemory};
 
 use super::{AsyncDevice, Device};
@@ -372,5 +375,17 @@ impl VgaTextMode {
             self.config.height = new_size.height;
             self.surface.configure(&self.device, &self.config);
         }
+    }
+}
+
+impl From<OsError> for DeviceInitError {
+    fn from(value: OsError) -> Self {
+        Self::Other(Box::new(value))
+    }
+}
+
+impl From<CreateSurfaceError> for DeviceInitError {
+    fn from(value: CreateSurfaceError) -> Self {
+        Self::Other(Box::new(value))
     }
 }
