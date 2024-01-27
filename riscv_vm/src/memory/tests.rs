@@ -14,7 +14,7 @@ mod pmp {
 
     #[test]
     fn rv32_pmp_read() {
-        let pmp = PMP::new();
+        let pmp = PMP::default();
         assert_eq!(pmp.read_cfg_rv32(0), 0);
         assert_eq!(pmp.read_cfg_rv32(1), 0);
         assert_eq!(pmp.read_cfg_rv32(2), 0);
@@ -36,13 +36,13 @@ mod pmp {
     #[test]
     #[should_panic(expected = "range end index 68 out of range for slice of length 64")]
     fn rv32_pmp_read_oob() {
-        let pmp = PMP::new();
+        let pmp = PMP::default();
         assert_eq!(pmp.read_cfg_rv32(16), 0);
     }
 
     #[test]
     fn rv64_pmp_read() {
-        let pmp = PMP::new();
+        let pmp = PMP::default();
         assert_eq!(pmp.read_cfg_rv64(0), 0);
         assert_eq!(pmp.read_cfg_rv64(2), 0);
         assert_eq!(pmp.read_cfg_rv64(4), 0);
@@ -56,20 +56,20 @@ mod pmp {
     #[test]
     #[should_panic(expected = "range end index 72 out of range for slice of length 64")]
     fn rv64_pmp_read_oob() {
-        let pmp = PMP::new();
+        let pmp = PMP::default();
         assert_eq!(pmp.read_cfg_rv64(16), 0);
     }
 
     #[test]
     #[should_panic(expected = "Index of 64bit pmpcfg must be even")]
     fn rv64_pmp_read_uneven() {
-        let pmp = PMP::new();
+        let pmp = PMP::default();
         assert_eq!(pmp.read_cfg_rv64(1), 0);
     }
 
     #[test]
     fn rv32_write() {
-        let mut pmp = PMP::new();
+        let mut pmp = PMP::default();
         pmp.write_cfg_rv32(0, 0b00001111_10001101_00001011_10001001);
         let cfgs = pmp.get_cfgs();
         assert_eq!(
@@ -92,7 +92,7 @@ mod pmp {
 
     #[test]
     fn rv64_write() {
-        let mut pmp = PMP::new();
+        let mut pmp = PMP::default();
         pmp.write_cfg_rv64(
             0,
             0b00001111_10001101_00001011_10001001_00011111_10011101_00011011_10011001,
@@ -134,7 +134,7 @@ mod pmp {
 
     #[test]
     fn rv64_ranges() {
-        let mut pmp = PMP::new();
+        let mut pmp = PMP::default();
         pmp.write_cfg_rv64(
             0,
             0b00001111_10001101_00001011_10001001_00011111_10011101_00001011_10001001,
@@ -177,7 +177,7 @@ fn read() {
 
 #[test]
 fn read_pmp() {
-    let mut pmp = PMP::new();
+    let mut pmp = PMP::default();
     pmp.write_cfg_rv64(
         0,
         PmpCfg::new_configured(true, false, false, AddressMatch::TOR, false).to_bits() as u64,
@@ -190,7 +190,7 @@ fn read_pmp() {
 
 #[test]
 fn read_pmp_denied() {
-    let mut pmp = PMP::new();
+    let mut pmp = PMP::default();
     pmp.write_cfg_rv64(
         0,
         PmpCfg::new_configured(false, false, false, AddressMatch::TOR, false).to_bits() as u64,
@@ -228,7 +228,7 @@ fn write() {
 
 #[test]
 fn write_pmp_denied() {
-    let mut pmp = PMP::new();
+    let mut pmp = PMP::default();
     pmp.write_cfg_rv64(
         0,
         PmpCfg::new_configured(true, false, true, AddressMatch::TOR, false).to_bits() as u64,
@@ -247,7 +247,7 @@ fn write_pmp_denied() {
 
 #[test]
 fn write_pmp() {
-    let mut pmp = PMP::new();
+    let mut pmp = PMP::default();
     pmp.write_cfg_rv64(
         0,
         PmpCfg::new_configured(true, true, false, AddressMatch::TOR, false).to_bits() as u64,

@@ -110,11 +110,7 @@ impl Hart {
         let inst = mem.fetch(
             self.get_pc(),
             self.privilege(),
-            if self.vm_settings.pmp_enable {
-                Some(&self.csr.pmp)
-            } else {
-                None
-            },
+            self.vm_settings.pmp_enable.then_some(&self.csr.pmp),
         )?;
         Ok(decode(inst))
     }

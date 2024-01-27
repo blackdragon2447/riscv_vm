@@ -1,3 +1,5 @@
+#![allow(clippy::useless_conversion)]
+
 use riscv_vm_macros::inst;
 
 use crate::memory::{address::Address, Memory, MemoryWindow};

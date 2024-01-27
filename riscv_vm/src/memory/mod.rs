@@ -199,11 +199,7 @@ impl Memory {
             } else {
                 hart.privilege()
             },
-            pmp: if hart.pmp_enable() {
-                Some(&hart.get_csr().pmp)
-            } else {
-                None
-            },
+            pmp: hart.pmp_enable().then(|| &hart.get_csr().pmp),
         }
     }
 
@@ -235,11 +231,11 @@ impl DeviceMemory {
     }
 
     pub fn get_mem(&self) -> &[u8] {
-        &self.1[..]
+        &self.1
     }
 
     pub fn get_mem_mut(&mut self) -> &mut [u8] {
-        &mut self.1[..]
+        &mut self.1
     }
 
     pub fn new(size: u64, addr: Address) -> Self {

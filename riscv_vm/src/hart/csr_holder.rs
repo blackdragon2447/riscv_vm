@@ -140,7 +140,7 @@ impl CsrHolder {
             mcycle: 0,
             minstret: 0,
             mcounterinhibit: 0,
-            pmp: PMP::new(),
+            pmp: PMP::default(),
             csr: HashMap::new(),
             status: Status {
                 sie: false,

@@ -7,7 +7,7 @@ use riscv_vm::{devices::simple_uart::SimpleUart, memory::KB, vmstate::VMStateBui
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    let bytes = fs::read(args.get(1).unwrap()).unwrap();
+    let bytes = fs::read(&args[1]).unwrap();
     let elf = Elf::from_bytes(bytes).unwrap();
 
     let mut vmstate = VMStateBuilder::<{ 4 * KB }>::default().build();

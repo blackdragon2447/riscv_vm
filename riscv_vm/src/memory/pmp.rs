@@ -1,4 +1,4 @@
-use std::ops::Range;
+use std::{default, ops::Range};
 
 use enumflags2::{bitflags, BitFlags};
 
@@ -11,7 +11,7 @@ pub struct PMP {
     pmpaddr: [u64; 64],
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub struct PmpCfg {
     rwx: BitFlags<AccessMode>,
     addr_match: AddressMatch,
@@ -28,8 +28,9 @@ pub enum AccessMode {
 }
 
 #[repr(u8)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum AddressMatch {
+    #[default]
     OFF = 0,
     TOR = 1,
     NA4 = 2,
@@ -48,19 +49,21 @@ impl From<u8> for AddressMatch {
     }
 }
 
-impl PMP {
-    pub fn new() -> Self {
+impl Default for PMP {
+    fn default() -> Self {
         Self {
-            pmpcfg: [PmpCfg::from_bits(0); 64],
+            pmpcfg: [PmpCfg::default(); 64],
             pmpaddr: [0; 64],
         }
     }
+}
 
+impl PMP {
     pub fn read_cfg_rv32(&self, idx: usize) -> u32 {
         u32::from_le_bytes(
             self.pmpcfg[(idx * 4)..((idx + 1) * 4)]
                 .iter()
-                .map(|p| p.to_bits())
+                .map(PmpCfg::to_bits)
                 .collect::<Vec<u8>>()
                 .try_into()
                 .unwrap(),
@@ -69,8 +72,8 @@ impl PMP {
 
     pub fn write_cfg_rv32(&mut self, idx: usize, value: u32) {
         let low = idx * 4;
-        let values = value.to_le_bytes().map(|b| PmpCfg::from_bits(b));
-        for (cfg, new) in (&mut self.pmpcfg[low..(low + 4)]).iter_mut().zip(values) {
+        let values = value.to_le_bytes().map(PmpCfg::from_bits);
+        for (cfg, new) in (self.pmpcfg[low..(low + 4)]).iter_mut().zip(values) {
             if !(cfg.locked
                 || (new.rwx.contains(AccessMode::Write) && !new.rwx.contains(AccessMode::Read)))
             {
@@ -98,8 +101,8 @@ impl PMP {
             panic!("Index of 64bit pmpcfg must be even");
         }
         let low = idx * 4;
-        let values = value.to_le_bytes().map(|b| PmpCfg::from_bits(b));
-        for (cfg, new) in (&mut self.pmpcfg[low..(low + 8)]).iter_mut().zip(values) {
+        let values = value.to_le_bytes().map(PmpCfg::from_bits);
+        for (cfg, new) in (self.pmpcfg[low..(low + 8)]).iter_mut().zip(values) {
             if !(cfg.locked
                 || (new.rwx.contains(AccessMode::Write) && !new.rwx.contains(AccessMode::Read)))
             {
@@ -153,16 +156,14 @@ impl PMP {
                     return p.rwx.contains(mode);
                 }
             }
-            return false;
+            false
         } else {
             for (p, r) in self.ranges() {
-                if p.locked {
-                    if r.contains(&addr) {
-                        return p.rwx.contains(mode);
-                    }
+                if p.locked && r.contains(&addr) {
+                    return p.rwx.contains(mode);
                 }
             }
-            return true;
+            true
         }
     }
 
@@ -175,7 +176,7 @@ impl PMP {
     }
 
     pub fn read_addr_rv64(&self, idx: usize) -> u64 {
-        self.pmpaddr[idx] as u64
+        self.pmpaddr[idx]
     }
 
     pub fn write_addr_rv64(&mut self, idx: usize, addr: u64) {
