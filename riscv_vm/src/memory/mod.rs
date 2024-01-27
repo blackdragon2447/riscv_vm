@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     fmt::Debug,
-    ops::{Add, AddAssign, Deref, Range, Sub},
+    ops::{Add, AddAssign, Deref, Range, RangeBounds, Sub},
     sync::{Arc, PoisonError, RwLock, RwLockWriteGuard},
     vec,
 };
@@ -10,12 +10,21 @@ use elf_load::ByteRanges;
 
 use registers::IntRegister;
 
-use crate::devices::DeviceInitError;
+use crate::{
+    devices::DeviceInitError,
+    hart::{
+        privilege::{self, PrivilegeMode},
+        Hart,
+    },
+};
 
-use self::address::Address;
+use self::{
+    address::Address,
+    pmp::{AccessMode, PmpCfg, PMP},
+};
 
 pub mod address;
-mod pmp;
+pub mod pmp;
 pub mod registers;
 #[cfg(test)]
 mod tests;
@@ -31,11 +40,20 @@ pub struct Memory {
     device_regions: HashMap<usize, Arc<RwLock<DeviceMemory>>>,
 }
 
+pub struct MemoryWindow<'a> {
+    mem: &'a mut Memory,
+    privilege: PrivilegeMode,
+    pmp: Option<&'a PMP>,
+}
+
 #[derive(Debug)]
 pub enum MemoryError {
     OutOfBoundsWrite(Address, Range<Address>),
     OutOfBoundsRead(Address, Range<Address>),
     OutOfMemory,
+    FetchError,
+    PmpDeniedRead,
+    PmpDeniedWrite,
     DeviceMemoryPoison,
 }
 
@@ -55,7 +73,16 @@ impl Memory {
         }
     }
 
-    pub fn write_bytes(&mut self, bytes: &[u8], addr: Address) -> Result<(), MemoryError> {
+    pub fn write_bytes(
+        &mut self,
+        bytes: &[u8],
+        addr: Address,
+        privilege: PrivilegeMode,
+        pmp: Option<&PMP>,
+    ) -> Result<(), MemoryError> {
+        if !pmp.map_or_else(|| true, |pmp| pmp.check(addr, privilege, AccessMode::Write)) {
+            return Err(MemoryError::PmpDeniedWrite);
+        }
         if (self.mem_range.contains(&addr)) {
             let idx = addr - self.mem_range.start;
             if <Address as Into<usize>>::into(idx) > self.mem.len() {
@@ -78,7 +105,16 @@ impl Memory {
         }
     }
 
-    pub fn read_bytes(&self, addr: Address, size: usize) -> Result<Vec<u8>, MemoryError> {
+    pub fn read_bytes(
+        &self,
+        addr: Address,
+        size: usize,
+        privilege: PrivilegeMode,
+        pmp: Option<&PMP>,
+    ) -> Result<Vec<u8>, MemoryError> {
+        if !pmp.map_or_else(|| true, |pmp| pmp.check(addr, privilege, AccessMode::Read)) {
+            return Err(MemoryError::PmpDeniedRead);
+        }
         if (self.mem_range.contains(&addr)) {
             let idx = addr - self.mem_range.start;
             if <Address as Into<usize>>::into(idx) + size < self.mem.len() {
@@ -94,6 +130,44 @@ impl Memory {
                 }
             }
             Err(MemoryError::OutOfBoundsRead(addr, self.mem_range.clone()))
+        }
+    }
+
+    pub fn fetch(
+        &self,
+        addr: Address,
+        privilege: PrivilegeMode,
+        pmp: Option<&PMP>,
+    ) -> Result<u32, MemoryError> {
+        if !pmp.map_or_else(|| true, |pmp| pmp.check(addr, privilege, AccessMode::Exec)) {
+            return Err(MemoryError::FetchError);
+        }
+        if (self.mem_range.contains(&addr)) {
+            let idx = addr - self.mem_range.start;
+            if <Address as Into<usize>>::into(idx) + 4 < self.mem.len() {
+                Ok(u32::from_le_bytes(
+                    self.mem
+                        .deref()
+                        .get_bytes(idx.into(), 4)
+                        .try_into()
+                        .unwrap(),
+                ))
+            } else {
+                Err(MemoryError::FetchError)
+            }
+        } else {
+            for dev in self.device_regions.values() {
+                let dev = dev.read()?;
+                if dev.0.contains(&addr) {
+                    return Ok(u32::from_le_bytes(
+                        dev.read_bytes(addr, 4)
+                            .map_err(|_| MemoryError::FetchError)?
+                            .try_into()
+                            .unwrap(),
+                    ));
+                }
+            }
+            Err(MemoryError::FetchError)
         }
     }
 
@@ -117,6 +191,22 @@ impl Memory {
         Ok(mem)
     }
 
+    pub fn window<'a>(&'a mut self, hart: &'a Hart) -> MemoryWindow {
+        MemoryWindow {
+            mem: self,
+            privilege: if hart.get_csr().get_status().mprv {
+                hart.get_csr().get_status().mpp
+            } else {
+                hart.privilege()
+            },
+            pmp: if hart.pmp_enable() {
+                Some(&hart.get_csr().pmp)
+            } else {
+                None
+            },
+        }
+    }
+
     pub fn get_device_memory(
         &mut self,
         id: &usize,
@@ -126,6 +216,16 @@ impl Memory {
         } else {
             Ok(None)
         }
+    }
+}
+
+impl MemoryWindow<'_> {
+    pub fn write_bytes(&mut self, bytes: &[u8], addr: Address) -> Result<(), MemoryError> {
+        self.mem.write_bytes(bytes, addr, self.privilege, self.pmp)
+    }
+
+    pub fn read_bytes(&mut self, addr: Address, size: usize) -> Result<Vec<u8>, MemoryError> {
+        self.mem.read_bytes(addr, size, self.privilege, self.pmp)
     }
 }
 

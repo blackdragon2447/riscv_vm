@@ -1,6 +1,9 @@
 use enumflags2::{BitFlag, BitFlags};
 
-use crate::{execute::ExecuteError, memory::address::Address};
+use crate::{
+    execute::ExecuteError,
+    memory::{address::Address, pmp::PMP},
+};
 
 use super::{
     csr_address::CsrType,
@@ -54,6 +57,9 @@ pub struct CsrHolder {
     mcycle: u64,
     minstret: u64,
     mcounterinhibit: u64,
+
+    pub(crate) pmp: PMP,
+
     csr: HashMap<CsrAddress, u64>,
 
     //Other
@@ -134,6 +140,7 @@ impl CsrHolder {
             mcycle: 0,
             minstret: 0,
             mcounterinhibit: 0,
+            pmp: PMP::new(),
             csr: HashMap::new(),
             status: Status {
                 sie: false,
@@ -164,8 +171,12 @@ impl CsrHolder {
         self.mcycle += value;
     }
 
-    pub(crate) fn status_mut(&mut self) -> &mut Status {
+    pub(crate) fn get_status_mut(&mut self) -> &mut Status {
         &mut self.status
+    }
+
+    pub(crate) fn get_status(&self) -> &Status {
+        &self.status
     }
 
     pub(crate) fn get_sepc(&self) -> Address {
@@ -211,6 +222,8 @@ impl CsrHolder {
             0x343 => self.mtval,
             0x344 => 0, // self.mip
             0x30A => self.menvcfg,
+            i @ 0x3A0..=0x3AF if i % 2 == 0 => self.pmp.read_cfg_rv64((i - 0x3A0) as usize),
+            i @ 0x3B0..=0x3EF => self.pmp.read_addr_rv64((i - 0x3B0) as usize),
             0x747 => self.mseccfg,
             0xB00 => self.mcycle,
             0xB02 => self.minstret,
@@ -297,6 +310,12 @@ impl CsrHolder {
                 }
                 0x30A => {
                     self.menvcfg = (value & (0b1 | 0b1 << 62));
+                }
+                i @ 0x3A0..=0x3AF if i % 2 == 0 => {
+                    self.pmp.write_cfg_rv64((i - 0x3A0) as usize, value)
+                }
+                i @ 0x3B0..=0x3EF => {
+                    self.pmp.write_addr_rv64((i - 0x3B0) as usize, value);
                 }
                 0x747 => {}
                 0xB00 => {
@@ -400,6 +419,18 @@ impl CsrHolder {
                 0x30A => {
                     self.menvcfg = ((self.menvcfg | mask) & (0b1 | 0b1 << 62));
                 }
+                i @ 0x3A0..=0x3AF if i % 2 == 0 => {
+                    self.pmp.write_cfg_rv64(
+                        (i - 0x3A0) as usize,
+                        self.pmp.read_cfg_rv64((i - 0x3A0) as usize) | mask,
+                    );
+                }
+                i @ 0x3B0..=0x3EF => {
+                    self.pmp.write_addr_rv64(
+                        (i - 0x3B0) as usize,
+                        self.pmp.read_addr_rv64((i - 0x3B0) as usize) | mask,
+                    );
+                }
                 0xB00 => {
                     self.mcycle |= mask;
                 }
@@ -498,6 +529,18 @@ impl CsrHolder {
                 }
                 0x30A => {
                     self.menvcfg = ((self.menvcfg & !mask) & (0b1 | 0b1 << 62));
+                }
+                i @ 0x3A0..=0x3AF if i % 2 == 0 => {
+                    self.pmp.write_cfg_rv64(
+                        (i - 0x3A0) as usize,
+                        self.pmp.read_cfg_rv64((i - 0x3A0) as usize) & !mask,
+                    );
+                }
+                i @ 0x3B0..=0x3EF => {
+                    self.pmp.write_addr_rv64(
+                        (i - 0x3B0) as usize,
+                        self.pmp.read_addr_rv64((i - 0x3B0) as usize) & !mask,
+                    );
                 }
                 0xB00 => {
                     self.mcycle &= !mask;

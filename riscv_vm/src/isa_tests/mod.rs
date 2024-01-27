@@ -2,7 +2,10 @@ use std::{fs, process::exit};
 
 use elf_load::Elf;
 
-use crate::{memory::KB, vmstate::VMState};
+use crate::{
+    hart::privilege::PrivilegeMode, memory::pmp::PMP, memory::KB, vmstate::VMState,
+    vmstate::VMStateBuilder,
+};
 
 #[macro_use]
 mod util;

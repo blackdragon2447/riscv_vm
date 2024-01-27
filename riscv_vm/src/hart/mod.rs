@@ -16,7 +16,7 @@ use crate::{
         registers::{IntRegister, Registers},
         Memory, MemoryError,
     },
-    vmstate::VMError,
+    vmstate::{VMError, VMSettings},
 };
 
 pub use csr_address::CsrAddress;
@@ -30,16 +30,18 @@ pub struct Hart {
     registers: Registers,
     csr: CsrHolder,
     privilege: PrivilegeMode,
+    vm_settings: VMSettings,
 }
 
 impl Hart {
-    pub fn new(hart_id: u64) -> Self {
+    pub fn new(hart_id: u64, vm_settings: VMSettings) -> Self {
         Self {
             hart_id,
             pc: 0x80000000u64.into(),
             registers: Registers::new(),
             csr: CsrHolder::new(hart_id),
             privilege: PrivilegeMode::Machine,
+            vm_settings,
         }
     }
 
@@ -67,8 +69,12 @@ impl Hart {
         self.registers.set(register, value)
     }
 
-    pub fn get_csr(&mut self) -> &mut CsrHolder {
+    pub fn get_csr_mut(&mut self) -> &mut CsrHolder {
         &mut self.csr
+    }
+
+    pub fn get_csr(&self) -> &CsrHolder {
+        &self.csr
     }
 
     pub fn privilege(&self) -> PrivilegeMode {
@@ -101,9 +107,20 @@ impl Hart {
     }
 
     fn fetch(&self, mem: &Memory) -> Result<Instruction, MemoryError> {
-        let inst_bytes = mem.read_bytes(self.get_pc(), 4)?;
-        let inst = decode(u32::from_le_bytes(inst_bytes.try_into().unwrap()));
-        Ok(inst)
+        let inst = mem.fetch(
+            self.get_pc(),
+            self.privilege(),
+            if self.vm_settings.pmp_enable {
+                Some(&self.csr.pmp)
+            } else {
+                None
+            },
+        )?;
+        Ok(decode(inst))
+    }
+
+    pub fn pmp_enable(&self) -> bool {
+        self.vm_settings.pmp_enable
     }
 
     fn exception(&mut self, exception: Exception) -> Result<(), VMError> {

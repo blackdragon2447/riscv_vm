@@ -13,7 +13,7 @@ pub(super) fn csrrw(
 ) -> Result<ExecuteResult, ExecuteError> {
     let privilege = hart.privilege();
     *rd = hart
-        .get_csr()
+        .get_csr_mut()
         .write_csr(csr, *rs1 as u64, privilege, true)?
         .unwrap() as i64;
     Ok(ExecuteResult::Continue)
@@ -25,7 +25,8 @@ pub(super) fn csrw(
     csr: CsrAddress,
 ) -> Result<ExecuteResult, ExecuteError> {
     let privilege = hart.privilege();
-    hart.get_csr().write_csr(csr, *rs1 as u64, privilege, false);
+    hart.get_csr_mut()
+        .write_csr(csr, *rs1 as u64, privilege, false);
     Ok(ExecuteResult::Continue)
 }
 
@@ -35,7 +36,7 @@ pub(super) fn csrr(
     csr: CsrAddress,
 ) -> Result<ExecuteResult, ExecuteError> {
     let privilege = hart.privilege();
-    *rd = hart.get_csr().set_csr(csr, 0, privilege, false)? as i64;
+    *rd = hart.get_csr_mut().set_csr(csr, 0, privilege, false)? as i64;
     Ok(ExecuteResult::Continue)
 }
 
@@ -46,7 +47,9 @@ pub(super) fn csrrs(
     csr: CsrAddress,
 ) -> Result<ExecuteResult, ExecuteError> {
     let privilege = hart.privilege();
-    *rd = hart.get_csr().set_csr(csr, *rs1 as u64, privilege, true)? as i64;
+    *rd = hart
+        .get_csr_mut()
+        .set_csr(csr, *rs1 as u64, privilege, true)? as i64;
     Ok(ExecuteResult::Continue)
 }
 
@@ -58,7 +61,7 @@ pub(super) fn csrrc(
 ) -> Result<ExecuteResult, ExecuteError> {
     let privilege = hart.privilege();
     *rd = hart
-        .get_csr()
+        .get_csr_mut()
         .clear_csr(csr, *rs1 as u64, privilege, true)? as i64;
     Ok(ExecuteResult::Continue)
 }
@@ -71,7 +74,7 @@ pub(super) fn csrrwi(
 ) -> Result<ExecuteResult, ExecuteError> {
     let privilege = hart.privilege();
     *rd = hart
-        .get_csr()
+        .get_csr_mut()
         .write_csr(csr, imm as u64, privilege, true)?
         .unwrap() as i64;
     Ok(ExecuteResult::Continue)
@@ -83,7 +86,7 @@ pub(super) fn csrwi(
     csr: CsrAddress,
 ) -> Result<ExecuteResult, ExecuteError> {
     let privilege = hart.privilege();
-    hart.get_csr()
+    hart.get_csr_mut()
         .write_csr(csr, imm as u64, privilege, false)?;
     Ok(ExecuteResult::Continue)
 }
@@ -94,7 +97,7 @@ pub(super) fn csrri(
     csr: CsrAddress,
 ) -> Result<ExecuteResult, ExecuteError> {
     let privilege = hart.privilege();
-    *rd = hart.get_csr().set_csr(csr, 0, privilege, false)? as i64;
+    *rd = hart.get_csr_mut().set_csr(csr, 0, privilege, false)? as i64;
     Ok(ExecuteResult::Continue)
 }
 
@@ -105,7 +108,9 @@ pub(super) fn csrrsi(
     csr: CsrAddress,
 ) -> Result<ExecuteResult, ExecuteError> {
     let privilege = hart.privilege();
-    *rd = hart.get_csr().set_csr(csr, imm as u64, privilege, true)? as i64;
+    *rd = hart
+        .get_csr_mut()
+        .set_csr(csr, imm as u64, privilege, true)? as i64;
     Ok(ExecuteResult::Continue)
 }
 
@@ -116,6 +121,8 @@ pub(super) fn csrrci(
     csr: CsrAddress,
 ) -> Result<ExecuteResult, ExecuteError> {
     let privilege = hart.privilege();
-    *rd = hart.get_csr().clear_csr(csr, imm as u64, privilege, true)? as i64;
+    *rd = hart
+        .get_csr_mut()
+        .clear_csr(csr, imm as u64, privilege, true)? as i64;
     Ok(ExecuteResult::Continue)
 }

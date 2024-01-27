@@ -1,3 +1,11 @@
+use std::ops::Range;
+
+use enumflags2::{bitflags, BitFlags};
+
+use super::address::Address;
+use crate::hart::privilege::{self, PrivilegeMode};
+
+#[derive(Debug)]
 pub struct PMP {
     pmpcfg: [PmpCfg; 64],
     pmpaddr: [u64; 64],
@@ -5,11 +13,18 @@ pub struct PMP {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PmpCfg {
-    read: bool,
-    write: bool,
-    exec: bool,
+    rwx: BitFlags<AccessMode>,
     addr_match: AddressMatch,
-    locked: bool,
+    pub locked: bool,
+}
+
+#[repr(u8)]
+#[bitflags]
+#[derive(Clone, Copy, Debug)]
+pub enum AccessMode {
+    Read = 0b1 << 0,
+    Write = 0b1 << 1,
+    Exec = 0b1 << 2,
 }
 
 #[repr(u8)]
@@ -56,7 +71,9 @@ impl PMP {
         let low = idx * 4;
         let values = value.to_le_bytes().map(|b| PmpCfg::from_bits(b));
         for (cfg, new) in (&mut self.pmpcfg[low..(low + 4)]).iter_mut().zip(values) {
-            if !cfg.locked {
+            if !(cfg.locked
+                || (new.rwx.contains(AccessMode::Write) && !new.rwx.contains(AccessMode::Read)))
+            {
                 *cfg = new;
             }
         }
@@ -83,10 +100,86 @@ impl PMP {
         let low = idx * 4;
         let values = value.to_le_bytes().map(|b| PmpCfg::from_bits(b));
         for (cfg, new) in (&mut self.pmpcfg[low..(low + 8)]).iter_mut().zip(values) {
-            if !cfg.locked {
+            if !(cfg.locked
+                || (new.rwx.contains(AccessMode::Write) && !new.rwx.contains(AccessMode::Read)))
+            {
                 *cfg = new;
             }
         }
+    }
+
+    pub fn ranges(&self) -> Vec<(&PmpCfg, Range<Address>)> {
+        let mut result = Vec::with_capacity(64);
+        for (i, cfg) in self.pmpcfg.iter().enumerate() {
+            match cfg.addr_match {
+                AddressMatch::OFF => (),
+                AddressMatch::TOR if i == 0 => {
+                    result.push((cfg, ((0u64.into())..(self.pmpaddr[i] << 2).into())))
+                }
+                AddressMatch::TOR if i > 0 => result.push((
+                    cfg,
+                    ((self.pmpaddr[i - 1] << 2).into()..(self.pmpaddr[i] << 2).into()),
+                )),
+                AddressMatch::NA4 => result.push((
+                    cfg,
+                    ((self.pmpaddr[i] << 2).into()..((self.pmpaddr[i] << 2) + 4).into()),
+                )),
+
+                AddressMatch::NAPOT => {
+                    let mut addr = self.pmpaddr[i];
+                    let mut size = 3;
+                    while addr % 2 != 0 {
+                        size += 1;
+                        addr >>= 1;
+                    }
+                    let mask = -1i64 as u64; // All bits set
+                    let low_mask = mask << size; // clean bottom size bits
+                    let high_mask = !low_mask; // set bottom size bits;
+                    let low = ((self.pmpaddr[i] << 2) & low_mask).into();
+                    let high = ((self.pmpaddr[i] << 2) | high_mask).into();
+                    result.push((cfg, (low..high)));
+                }
+                _ => unreachable!(),
+            }
+        }
+
+        result
+    }
+
+    pub fn check(&self, addr: Address, privilege: PrivilegeMode, mode: AccessMode) -> bool {
+        if privilege < PrivilegeMode::Machine {
+            for (p, r) in self.ranges() {
+                if r.contains(&addr) {
+                    return p.rwx.contains(mode);
+                }
+            }
+            return false;
+        } else {
+            for (p, r) in self.ranges() {
+                if p.locked {
+                    if r.contains(&addr) {
+                        return p.rwx.contains(mode);
+                    }
+                }
+            }
+            return true;
+        }
+    }
+
+    pub fn read_addr_rv32(&self, idx: usize) -> u32 {
+        self.pmpaddr[idx] as u32
+    }
+
+    pub fn write_addr_rv32(&mut self, idx: usize, addr: u32) {
+        self.pmpaddr[idx] = addr as u64;
+    }
+
+    pub fn read_addr_rv64(&self, idx: usize) -> u64 {
+        self.pmpaddr[idx] as u64
+    }
+
+    pub fn write_addr_rv64(&mut self, idx: usize, addr: u64) {
+        self.pmpaddr[idx] = addr & 0x3FFFFFFFFFFFFF; // top 10 bits are WARL 0
     }
 
     pub fn get_cfgs(&self) -> &[PmpCfg; 64] {
@@ -103,10 +196,20 @@ impl PmpCfg {
         addr_match: AddressMatch,
         locked: bool,
     ) -> Self {
+        use enumflags2::BitFlag;
+
+        let mut rwx = AccessMode::empty();
+        if read {
+            rwx |= AccessMode::Read
+        }
+        if write {
+            rwx |= AccessMode::Write
+        }
+        if exec {
+            rwx |= AccessMode::Exec
+        }
         Self {
-            read,
-            write,
-            exec,
+            rwx,
             addr_match,
             locked,
         }
@@ -114,21 +217,17 @@ impl PmpCfg {
 
     fn from_bits(bits: u8) -> Self {
         Self {
-            read: (bits & 0b1) > 0,
-            write: (bits & (0b1 << 1)) > 0,
-            exec: (bits & (0b1 << 2)) > 0,
+            rwx: BitFlags::from_bits(bits & 0b111).unwrap(),
             addr_match: ((bits & (0b11 << 3)) >> 3).into(),
             locked: (bits & (0b1 << 7)) > 0,
         }
     }
 
-    fn to_bits(&self) -> u8 {
+    pub fn to_bits(&self) -> u8 {
         let mut bits = 0;
 
-        bits |= self.read as u8;
-        bits |= (self.write as u8) << 1;
-        bits |= (self.exec as u8) << 2;
-        bits |= (self.addr_match as u8) << 4;
+        bits |= self.rwx.bits();
+        bits |= (self.addr_match as u8) << 3;
         bits |= (self.locked as u8) << 7;
 
         bits

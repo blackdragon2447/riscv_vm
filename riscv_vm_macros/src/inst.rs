@@ -160,7 +160,7 @@ pub(super) fn inst_internal(input: TokenStream) -> TokenStream {
                 impls.push(quote!(
                     pub(super) fn #name(
                         pc: Address,
-                        mem: &mut Memory,
+                        mut mem: MemoryWindow,
                         rd: &mut #xlen,
                         rs1: &#xlen,
                         imm: i32
@@ -189,7 +189,7 @@ pub(super) fn inst_internal(input: TokenStream) -> TokenStream {
                 impls.push(quote!(
                     pub(super) fn #name(
                         pc: Address,
-                        mem: &mut Memory,
+                        mut mem: MemoryWindow,
                         rs1: &#xlen,
                         rs2: &#xlen,
                         imm: i32

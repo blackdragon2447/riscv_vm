@@ -9,9 +9,21 @@ use crate::{
     decode::decode,
     devices::{AsyncDevice, Device, DeviceError, DeviceInitError, HandledDevice},
     execute::{execute_rv64, ExecuteError},
-    hart::Hart,
-    memory::{address::Address, DeviceMemory, Memory, MemoryError},
+    hart::{privilege::PrivilegeMode, Hart},
+    memory::{address::Address, pmp::PMP, DeviceMemory, Memory, MemoryError},
 };
+
+#[derive(Default, Debug, Clone, Copy)]
+pub struct VMSettings {
+    pub pmp_enable: bool,
+    pub virt_mem_enable: bool,
+}
+
+#[derive(Default)]
+pub struct VMStateBuilder<const MEM_SIZE: usize> {
+    hart_count: u64, //TODO: Change to vec HartSettings at some point
+    settings: VMSettings,
+}
 
 pub struct VMState {
     harts: Vec<Hart>,
@@ -19,6 +31,7 @@ pub struct VMState {
     sync_devices: HashMap<usize, Box<dyn HandledDevice>>,
     // async_devices: HashMap<usize, Box<dyn AsyncDevice>>,
     next_dev_id: usize,
+    settings: VMSettings,
 }
 
 #[derive(Debug)]
@@ -38,11 +51,32 @@ pub enum VMError {
     ExecureError(ExecuteError),
 }
 
+impl<const MEM_SIZE: usize> VMStateBuilder<MEM_SIZE> {
+    pub fn enable_pmp(mut self) -> Self {
+        self.settings.pmp_enable = true;
+        self
+    }
+
+    pub fn enable_virt_mem(mut self) -> Self {
+        self.settings.pmp_enable = true;
+        self
+    }
+
+    pub fn set_hart_count(mut self, harts: u64) -> Self {
+        self.hart_count = harts;
+        self
+    }
+
+    pub fn build(self) -> VMState {
+        VMState::new::<MEM_SIZE>(self.hart_count, self.settings)
+    }
+}
+
 impl VMState {
-    pub fn new<const MEM_SIZE: usize>(hart_count: u64) -> Self {
+    fn new<const MEM_SIZE: usize>(hart_count: u64, settings: VMSettings) -> Self {
         let mut harts = Vec::new();
         for i in 0..hart_count {
-            harts.push(Hart::new(i));
+            harts.push(Hart::new(i, settings));
         }
 
         Self {
@@ -51,6 +85,7 @@ impl VMState {
             sync_devices: HashMap::new(),
             // async_devices: HashMap::new(),
             next_dev_id: 0,
+            settings,
         }
     }
 
@@ -162,7 +197,7 @@ fn load_elf_phys(elf: &Elf, mem: &mut Memory) -> Result<Address, MemoryError> {
     for h in &elf.program_headers {
         if h.program_type == ProgramType::Load && h.seg_m_size.0 != 0 {
             let bytes = elf.bytes.get_bytes(h.seg_offset, h.seg_f_size.0);
-            mem.write_bytes(bytes, h.seg_p_addr.into())?;
+            mem.write_bytes(bytes, h.seg_p_addr.into(), PrivilegeMode::Machine, None)?;
         }
     }
 

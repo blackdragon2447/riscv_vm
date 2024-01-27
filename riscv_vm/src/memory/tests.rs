@@ -1,4 +1,10 @@
-use crate::memory::MemoryError;
+use crate::{
+    hart::privilege::PrivilegeMode,
+    memory::{
+        pmp::{AddressMatch, PmpCfg, PMP},
+        MemoryError,
+    },
+};
 
 use super::Memory;
 
@@ -125,20 +131,80 @@ mod pmp {
             PmpCfg::new_configured(true, false, false, AddressMatch::NAPOT, true)
         );
     }
+
+    #[test]
+    fn rv64_ranges() {
+        let mut pmp = PMP::new();
+        pmp.write_cfg_rv64(
+            0,
+            0b00001111_10001101_00001011_10001001_00011111_10011101_00001011_10001001,
+        );
+        pmp.write_addr_rv64(2, (0x80000000 >> 2) | 0b011);
+        pmp.write_addr_rv64(1, (0xB1FA0 >> 2));
+        pmp.write_addr_rv64(0, (0xB1000 >> 2));
+        let ranges = &pmp.ranges()[0..8];
+        assert_eq!(
+            ranges[2],
+            (
+                &PmpCfg::new_configured(true, false, true, AddressMatch::NAPOT, true),
+                (0x80000000u64.into()..0x8000001fu64.into())
+            )
+        );
+        assert_eq!(
+            ranges[1],
+            (
+                &PmpCfg::new_configured(true, true, false, AddressMatch::TOR, false),
+                (0xB1000u64.into()..0xB1FA0u64.into())
+            )
+        );
+        assert_eq!(
+            ranges[0],
+            (
+                &PmpCfg::new_configured(true, false, false, AddressMatch::TOR, true),
+                (0x0u64.into()..0xB1000u64.into())
+            )
+        );
+    }
 }
 
 #[test]
 fn read() {
     let mem = Memory::new::<256>();
-    let result = mem.read_bytes(0x8000000Fu64.into(), 4);
+    let result = mem.read_bytes(0x8000000Fu64.into(), 4, PrivilegeMode::Machine, None);
     let expected_read = vec![0; 4];
     assert!(matches!(result, Ok(expected_read)));
 }
 
 #[test]
+fn read_pmp() {
+    let mut pmp = PMP::new();
+    pmp.write_cfg_rv64(
+        0,
+        PmpCfg::new_configured(true, false, false, AddressMatch::TOR, false).to_bits() as u64,
+    );
+    pmp.write_addr_rv64(0, (0x90000000u64 >> 2));
+    let mem = Memory::new::<256>();
+    let result = mem.read_bytes(0x8000000Fu64.into(), 4, PrivilegeMode::User, Some(&pmp));
+    assert!(matches!(result, Ok(expected_read)));
+}
+
+#[test]
+fn read_pmp_denied() {
+    let mut pmp = PMP::new();
+    pmp.write_cfg_rv64(
+        0,
+        PmpCfg::new_configured(false, false, false, AddressMatch::TOR, false).to_bits() as u64,
+    );
+    pmp.write_addr_rv64(0, (0x90000000u64 >> 2));
+    let mem = Memory::new::<256>();
+    let result = mem.read_bytes(0x8000000Fu64.into(), 4, PrivilegeMode::User, Some(&pmp));
+    assert!(matches!(result, Err(MemoryError::PmpDeniedRead)));
+}
+
+#[test]
 fn read_oob() {
     let mem = Memory::new::<256>();
-    let result = mem.read_bytes(0x800000FFu64.into(), 4);
+    let result = mem.read_bytes(0x800000FFu64.into(), 4, PrivilegeMode::Machine, None);
     assert!(matches!(result, Err(MemoryError::OutOfBoundsRead(_, _))));
 }
 
@@ -146,10 +212,59 @@ fn read_oob() {
 fn write() {
     let mut mem = Memory::new::<256>();
     let to_write = [37; 4];
-    let result = mem.write_bytes(&to_write, 0x8000000Fu64.into());
+    let result = mem.write_bytes(
+        &to_write,
+        0x8000000Fu64.into(),
+        PrivilegeMode::Machine,
+        None,
+    );
     assert!(matches!(result, Ok(())));
     assert_eq!(
-        mem.read_bytes(0x8000000Fu64.into(), 4).unwrap(),
+        mem.read_bytes(0x8000000Fu64.into(), 4, PrivilegeMode::Machine, None)
+            .unwrap(),
+        vec![37; 4]
+    )
+}
+
+#[test]
+fn write_pmp_denied() {
+    let mut pmp = PMP::new();
+    pmp.write_cfg_rv64(
+        0,
+        PmpCfg::new_configured(true, false, true, AddressMatch::TOR, false).to_bits() as u64,
+    );
+    pmp.write_addr_rv64(0, (0x90000000u64 >> 2));
+    let mut mem = Memory::new::<256>();
+    let to_write = [37; 4];
+    let result = mem.write_bytes(
+        &to_write,
+        0x8000000Fu64.into(),
+        PrivilegeMode::User,
+        Some(&pmp),
+    );
+    assert!(matches!(result, Err(MemoryError::PmpDeniedWrite)));
+}
+
+#[test]
+fn write_pmp() {
+    let mut pmp = PMP::new();
+    pmp.write_cfg_rv64(
+        0,
+        PmpCfg::new_configured(true, true, false, AddressMatch::TOR, false).to_bits() as u64,
+    );
+    pmp.write_addr_rv64(0, (0x90000000u64 >> 2));
+    let mut mem = Memory::new::<256>();
+    let to_write = [37; 4];
+    let result = mem.write_bytes(
+        &to_write,
+        0x8000000Fu64.into(),
+        PrivilegeMode::User,
+        Some(&pmp),
+    );
+    assert!(matches!(result, Ok(())));
+    assert_eq!(
+        mem.read_bytes(0x8000000Fu64.into(), 4, PrivilegeMode::User, Some(&pmp))
+            .unwrap(),
         vec![37; 4]
     )
 }
@@ -158,7 +273,12 @@ fn write() {
 fn write_oom() {
     let mut mem = Memory::new::<256>();
     let to_write = [37; 4];
-    let result = mem.write_bytes(&to_write, 0x800000FFu64.into());
+    let result = mem.write_bytes(
+        &to_write,
+        0x800000FFu64.into(),
+        PrivilegeMode::Machine,
+        None,
+    );
     assert!(matches!(result, Err(MemoryError::OutOfMemory)));
 }
 
@@ -166,6 +286,11 @@ fn write_oom() {
 fn write_oob() {
     let mut mem = Memory::new::<256>();
     let to_write = [37; 4];
-    let result = mem.write_bytes(&to_write, 0x800001FFu64.into());
+    let result = mem.write_bytes(
+        &to_write,
+        0x800001FFu64.into(),
+        PrivilegeMode::Machine,
+        None,
+    );
     assert!(matches!(result, Err(MemoryError::OutOfBoundsWrite(_, _))));
 }

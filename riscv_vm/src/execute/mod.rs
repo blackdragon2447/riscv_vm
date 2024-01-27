@@ -9,7 +9,7 @@ use enumflags2::BitFlags;
 use crate::{
     decode::instruction::{Instruction, Instruction::*},
     hart::{isa::Isa, privilege::PrivilegeMode, trap::Exception, CsrAddress, Hart},
-    memory::{address::Address, registers::IntRegister, Memory, MemoryError},
+    memory::{address::Address, registers::IntRegister, Memory, MemoryError, MemoryWindow},
 };
 
 pub enum ExecuteResult {
@@ -29,6 +29,9 @@ impl From<MemoryError> for ExecuteError {
             MemoryError::OutOfBoundsWrite(_, _) => Self::Exception(Exception::StoreAccessFault),
             MemoryError::OutOfBoundsRead(_, _) => Self::Exception(Exception::LoadAccessFault),
             MemoryError::OutOfMemory => Self::Exception(Exception::StoreAccessFault),
+            MemoryError::FetchError => Self::Exception(Exception::InstructionAccessFault),
+            MemoryError::PmpDeniedWrite => Self::Exception(Exception::StoreAccessFault),
+            MemoryError::PmpDeniedRead => Self::Exception(Exception::LoadAccessFault),
             MemoryError::DeviceMemoryPoison => Self::Fatal,
         }
     }
@@ -148,20 +151,22 @@ pub fn execute_rv64(
         CSRRCI { rd, uimm, csr } => inst_csri(hart, rd, uimm, csr, rv64zicsr::csrrci),
 
         MRET => {
-            let status = hart.get_csr().status_mut();
+            let status = hart.get_csr_mut().get_status_mut();
             let mpp = status.mpp;
             status.mie = status.mpie;
             status.mpie = false;
+            status.mprv = false;
             hart.set_privilege(mpp);
 
             Ok(ExecuteResult::Jump(hart.get_csr().get_mepc()))
         }
 
         SRET => {
-            let status = hart.get_csr().status_mut();
+            let status = hart.get_csr_mut().get_status_mut();
             let spp = status.spp;
             status.sie = status.spie;
             status.spie = false;
+            status.mprv = false;
             hart.set_privilege(spp);
 
             Ok(ExecuteResult::Jump(hart.get_csr().get_sepc()))
@@ -228,11 +233,11 @@ fn i_type_mem_access<E>(
     executor: E,
 ) -> Result<ExecuteResult, ExecuteError>
 where
-    E: Fn(Address, &mut Memory, &mut i64, &i64, i32) -> Result<ExecuteResult, ExecuteError>,
+    E: Fn(Address, MemoryWindow, &mut i64, &i64, i32) -> Result<ExecuteResult, ExecuteError>,
 {
     let rs1 = hart.get_reg(rs1);
     let mut rdv = 0;
-    let result = executor(hart.get_pc(), mem, &mut rdv, &rs1, imm)?;
+    let result = executor(hart.get_pc(), mem.window(hart), &mut rdv, &rs1, imm)?;
     hart.set_reg(rd, rdv);
     Ok(result)
 }
@@ -262,11 +267,11 @@ fn s_type_mem_access<E>(
     executor: E,
 ) -> Result<ExecuteResult, ExecuteError>
 where
-    E: Fn(Address, &mut Memory, &i64, &i64, i32) -> Result<ExecuteResult, ExecuteError>,
+    E: Fn(Address, MemoryWindow, &i64, &i64, i32) -> Result<ExecuteResult, ExecuteError>,
 {
     let rs1 = hart.get_reg(rs1);
     let rs2 = hart.get_reg(rs2);
-    let result = executor(hart.get_pc(), mem, &rs1, &rs2, imm)?;
+    let result = executor(hart.get_pc(), mem.window(hart), &rs1, &rs2, imm)?;
     Ok(result)
 }
 

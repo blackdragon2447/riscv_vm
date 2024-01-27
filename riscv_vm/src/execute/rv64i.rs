@@ -1,6 +1,6 @@
 use riscv_vm_macros::inst;
 
-use crate::memory::{address::Address, Memory};
+use crate::memory::{address::Address, MemoryWindow};
 
 use super::{ExecuteError, ExecuteResult};
 
