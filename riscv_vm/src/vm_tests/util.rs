@@ -1,9 +1,9 @@
 macro_rules! isa_test {
-    ($name:ident) => {
+    (off: $name:ident) => {
         #[test]
         fn $name() -> Result<(), u32> {
             let bytes = fs::read(format!(
-                "../riscv-tests/isa/{}",
+                "../vm_tests/official_tests/isa/{}",
                 stringify!($name).replace("_", "-")
             ))
             .unwrap();
@@ -34,11 +34,11 @@ macro_rules! isa_test {
             }
         }
     };
-    ($name:ident, $mem:block) => {
+    (off: $name:ident, $mem:block) => {
         #[test]
         fn $name() -> Result<(), u32> {
             let bytes = fs::read(format!(
-                "../riscv-tests/isa/{}",
+                "../vm_tests/official_tests/isa/{}",
                 stringify!($name).replace("_", "-")
             ))
             .unwrap();
@@ -68,10 +68,10 @@ macro_rules! isa_test {
         }
     };
 
-    ($name:ident, $file:expr) => {
+    (off: $name:ident, $file:expr) => {
         #[test]
         fn $name() -> Result<(), u32> {
-            let bytes = fs::read(format!("../riscv-tests/isa/{}", $file)).unwrap();
+            let bytes = fs::read(format!("../vm_tests/official_tests/isa/{}", $file)).unwrap();
             let elf = Elf::from_bytes(bytes).unwrap();
 
             let mut vmstate = VMStateBuilder::<{ (4 * KB) + 128 }>::default()
@@ -99,10 +99,10 @@ macro_rules! isa_test {
             }
         }
     };
-    ($name:ident, $file:expr, $mem:block) => {
+    (off: $name:ident, $file:expr, $mem:block) => {
         #[test]
         fn $name() -> Result<(), u32> {
-            let bytes = fs::read(format!("../riscv-tests/isa/{}", $file)).unwrap();
+            let bytes = fs::read(format!("../vm_tests/official_tests/isa/{}", $file)).unwrap();
             let elf = Elf::from_bytes(bytes).unwrap();
 
             let mut vmstate = VMStateBuilder::<$mem>::default().set_hart_count(1).build();
