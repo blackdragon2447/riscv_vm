@@ -5,7 +5,6 @@ use crate::memory::{address::Address, MemoryWindow};
 use super::{ExecuteError, ExecuteResult};
 
 inst!(ld(i_mem) for [64]: {
-    let imm = (imm << 20) >> 20;
     let bytes = mem.read_bytes(rs1.overflowing_add(imm.into()).0.into(), 8)?;
     let mut buf = [0; 8];
     buf.copy_from_slice(&bytes);
@@ -14,7 +13,6 @@ inst!(ld(i_mem) for [64]: {
 });
 
 inst!(lwu(i_mem) for [64]: {
-    let imm = (imm << 20) >> 20;
     let bytes = mem.read_bytes(rs1.overflowing_add(imm.into()).0.into(), 4)?;
     let mut buf = [0; 4];
     buf.copy_from_slice(&bytes);
@@ -23,22 +21,19 @@ inst!(lwu(i_mem) for [64]: {
 });
 
 inst!(sd(s_mem) for [64]: {
-    let imm = (imm << 20) >> 20;
     mem.write_bytes(
         &rs2.to_le_bytes()[0..8],
-        rs1.overflowing_add(imm.into()).0.into(),
+        rs1.overflowing_add(imm as i64).0.into(),
     )?;
     Ok(ExecuteResult::Continue)
 });
 
 inst!(addiw(i) for [64]: {
-    let imm = (imm << 20) >> 20;
     *rd = (*rs1 as i32).overflowing_add(imm).0 as ixlen;
     Ok(ExecuteResult::Continue)
 });
 
 inst!(sltiw(i) for [64]: {
-    let imm = (imm << 20) >> 20;
     if (*rs1 as i32) < imm {
         *rd = 1;
     } else {

@@ -17,14 +17,12 @@ inst!(auipc(u) for [32, 64]: {
 });
 
 inst!(jal(u) for [32, 64]: {
-    let imm = (imm << 11) >> 11;
     *rd = pc.into();
     *rd += 4;
     Ok(ExecuteResult::Jump(pc + imm))
 });
 
 inst!(jalr(i) for [32, 64]: {
-    let imm = (imm << 20) >> 20;
     *rd = pc.into();
     *rd += 4;
     Ok(ExecuteResult::Jump(
@@ -33,7 +31,6 @@ inst!(jalr(i) for [32, 64]: {
 });
 
 inst!(beq(s) for [32, 64]: {
-    let imm = ((imm << 19) >> 19);
     if (rs1 == rs2) {
         Ok(ExecuteResult::Jump(pc + imm))
     } else {
@@ -42,7 +39,6 @@ inst!(beq(s) for [32, 64]: {
 });
 
 inst!(bne(s) for [32, 64]: {
-    let imm = ((imm << 19) >> 19);
     if (rs1 != rs2) {
         Ok(ExecuteResult::Jump(pc + imm))
     } else {
@@ -51,7 +47,6 @@ inst!(bne(s) for [32, 64]: {
 });
 
 inst!(blt(s) for  [32, 64]:{
-    let imm = ((imm << 19) >> 19);
     if rs1 < rs2 {
         Ok(ExecuteResult::Jump(pc + imm))
     } else {
@@ -60,7 +55,6 @@ inst!(blt(s) for  [32, 64]:{
 });
 
 inst!(bge(s) for [32, 64]: {
-    let imm = ((imm << 19) >> 19);
     if rs1 >= rs2 {
         Ok(ExecuteResult::Jump(pc + imm))
     } else {
@@ -70,7 +64,6 @@ inst!(bge(s) for [32, 64]: {
 });
 
 inst!(bltu(s) for [32, 64]: {
-    let imm = ((imm << 19) >> 19);
     if (*rs1 as uxlen) < (*rs2 as uxlen) {
         Ok(ExecuteResult::Jump(pc + imm))
     } else {
@@ -79,7 +72,6 @@ inst!(bltu(s) for [32, 64]: {
 });
 
 inst!(bgeu(s) for [32, 64]: {
-    let imm = ((imm << 19) >> 19);
     if (*rs1 as uxlen) >= (*rs2 as uxlen) {
         Ok(ExecuteResult::Jump(pc + imm))
     } else {
@@ -88,7 +80,6 @@ inst!(bgeu(s) for [32, 64]: {
 });
 
 inst!(lb(i_mem) for [32, 64]: {
-    let imm = (imm << 20) >> 20;
     let bytes = mem.read_bytes(rs1.overflowing_add(imm.into()).0.into(), 1)?;
     let mut buf = [0; 1];
     buf.copy_from_slice(&bytes);
@@ -97,7 +88,6 @@ inst!(lb(i_mem) for [32, 64]: {
 });
 
 inst!(lh(i_mem) for [32, 64]: {
-    let imm = (imm << 20) >> 20;
     let bytes = mem.read_bytes(rs1.overflowing_add(imm.into()).0.into(), 2)?;
     let mut buf = [0; 2];
     buf.copy_from_slice(&bytes);
@@ -106,7 +96,6 @@ inst!(lh(i_mem) for [32, 64]: {
 });
 
 inst!(lw(i_mem) for [32, 64]: {
-    let imm = (imm << 20) >> 20;
     let bytes = mem.read_bytes(rs1.overflowing_add(imm.into()).0.into(), 4)?;
     let mut buf = [0; 4];
     buf.copy_from_slice(&bytes);
@@ -115,7 +104,6 @@ inst!(lw(i_mem) for [32, 64]: {
 });
 
 inst!(lbu(i_mem) for [32, 64]: {
-    let imm = (imm << 20) >> 20;
     let bytes = mem.read_bytes(rs1.overflowing_add(imm.into()).0.into(), 1)?;
     let mut buf = [0; 1];
     buf.copy_from_slice(&bytes);
@@ -124,7 +112,6 @@ inst!(lbu(i_mem) for [32, 64]: {
 });
 
 inst!(lhu(i_mem) for [32, 64]: {
-    let imm = (imm << 20) >> 20;
     let bytes = mem.read_bytes(rs1.overflowing_add(imm.into()).0.into(), 2)?;
     let mut buf = [0; 2];
     buf.copy_from_slice(&bytes);
@@ -133,7 +120,6 @@ inst!(lhu(i_mem) for [32, 64]: {
 });
 
 inst!(sb(s_mem) for [32, 64]: {
-    let imm = (imm << 20) >> 20;
     mem.write_bytes(
         &rs2.to_le_bytes()[0..1],
         rs1.overflowing_add(imm.into()).0.into(),
@@ -142,7 +128,6 @@ inst!(sb(s_mem) for [32, 64]: {
 });
 
 inst!(sh(s_mem) for [32, 64]: {
-    let imm = (imm << 20) >> 20;
     mem.write_bytes(
         &rs2.to_le_bytes()[0..2],
         rs1.overflowing_add(imm.into()).0.into(),
@@ -151,7 +136,6 @@ inst!(sh(s_mem) for [32, 64]: {
 });
 
 inst!(sw(s_mem) for [32, 64]: {
-    let imm = (imm << 20) >> 20;
     mem.write_bytes(
         &rs2.to_le_bytes()[0..4],
         rs1.overflowing_add(imm.into()).0.into(),
@@ -160,13 +144,11 @@ inst!(sw(s_mem) for [32, 64]: {
 });
 
 inst!(addi(i) for [32, 64]: {
-    let imm = (imm << 20) >> 20;
     *rd = rs1.overflowing_add(imm.into()).0;
     Ok(ExecuteResult::Continue)
 });
 
 inst!(slti(i) for [32, 64]: {
-    let imm = (imm << 20) >> 20;
     if *rs1 < (imm as ixlen) {
         *rd = 1;
     } else {
@@ -176,7 +158,6 @@ inst!(slti(i) for [32, 64]: {
 });
 
 inst!(sltiu(i) for [32, 64]: {
-    let imm = (imm << 20) >> 20;
     if (*rs1 as uxlen) < (imm as ixlen as uxlen) {
         *rd = 1;
     } else {
@@ -186,19 +167,16 @@ inst!(sltiu(i) for [32, 64]: {
 });
 
 inst!(xori(i) for [32, 64]: {
-    let imm = (imm << 20) >> 20;
     *rd = *rs1 ^ (imm as ixlen);
     Ok(ExecuteResult::Continue)
 });
 
 inst!(ori(i) for [32, 64]: {
-    let imm = (imm << 20) >> 20;
     *rd = *rs1 | (imm as ixlen);
     Ok(ExecuteResult::Continue)
 });
 
 inst!(andi(i) for [32, 64]: {
-    let imm = (imm << 20) >> 20;
     *rd = *rs1 & (imm as ixlen);
     Ok(ExecuteResult::Continue)
 });

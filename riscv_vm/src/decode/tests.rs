@@ -122,7 +122,7 @@ mod instructions {
             ADDIW {
                 rd: X11,
                 rs1: X11,
-                imm: 3757
+                imm: -339
             }
         )
     }
@@ -152,6 +152,18 @@ mod instructions {
                 rd: X1,
                 rs1: X1,
                 shamt: 1,
+            }
+        )
+    }
+
+    #[test]
+    fn sd() {
+        assert_eq!(
+            decode(0xfef83c23),
+            SD {
+                rs1: X16,
+                rs2: X15,
+                imm: -8,
             }
         )
     }

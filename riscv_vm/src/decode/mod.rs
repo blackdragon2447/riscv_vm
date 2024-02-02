@@ -1,3 +1,5 @@
+use core::panic;
+
 use self::instruction::Instruction;
 
 pub mod instruction;
@@ -175,6 +177,7 @@ pub fn decode(inst: u32) -> Instruction {
                 let imm11_0 = (inst & masks::IMM11_0_MASK) >> 20;
 
                 let imm = imm11_0 as i32;
+                let imm = (imm << 20) >> 20;
 
                 match (opcode, funct3) {
                     (0b1100111, 0b000) => Instruction::JALR {
@@ -351,13 +354,14 @@ pub fn decode(inst: u32) -> Instruction {
                 }
             }
             InstructionType::S => {
-                let imm4_0 = (inst & masks::RD_MASK) >> 7;
+                let imm4_0 = (inst & masks::IMM4_0_MASK) >> 7;
                 let funct3 = (inst & masks::FUNCT3_MASK) >> 12;
                 let rs1 = (inst & masks::RS1_MASK) >> 15;
                 let rs2 = (inst & masks::RS2_MASK) >> 20;
                 let imm11_5 = (inst & masks::FUNCT7_MASK) >> 25;
 
                 let imm = (imm4_0 | (imm11_5 << 5)) as i32;
+                let imm = (imm << 20) >> 20;
 
                 match (opcode, funct3) {
                     (0b0100011, 0b000) => Instruction::SB {
@@ -455,6 +459,7 @@ pub fn decode(inst: u32) -> Instruction {
                 let imm12_19 = (imm20_10_1_11_19_12 & 0b0000_0000_0000_1111_1111) << 12;
 
                 let imm = (imm10_1 | imm11 | imm12_19 | imm20) as i32;
+                let imm = (imm << 11) >> 11;
 
                 match opcode {
                     0b1101111 => Instruction::JAL { rd: rd.into(), imm },

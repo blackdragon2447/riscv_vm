@@ -378,23 +378,3 @@ pub enum Instruction {
 
     Undifined(u32),
 }
-
-macro_rules! r_type {
-    ($name:ident) => {
-        $name {
-            rd: Register,
-            rs1: Register,
-            rs2: Register,
-        }
-    };
-}
-
-macro_rules! I_type {
-    ($name:ident) => {
-        $name {
-            rd: Register,
-            rs1: Register,
-            imm: u32,
-        }
-    };
-}
