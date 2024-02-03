@@ -1,14 +1,24 @@
-use std::{default, ops::Range};
+use std::{
+    default,
+    fmt::Debug,
+    ops::{Range, RangeInclusive},
+};
 
 use enumflags2::{bitflags, BitFlags};
 
 use super::address::Address;
 use crate::hart::privilege::{self, PrivilegeMode};
 
-#[derive(Debug)]
+// #[derive(Debug)]
 pub struct PMP {
     pmpcfg: [PmpCfg; 64],
     pmpaddr: [u64; 64],
+}
+
+impl Debug for PMP {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "-- ommitted --")
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
@@ -111,21 +121,21 @@ impl PMP {
         }
     }
 
-    pub fn ranges(&self) -> Vec<(&PmpCfg, Range<Address>)> {
+    pub fn ranges(&self) -> Vec<(&PmpCfg, RangeInclusive<Address>)> {
         let mut result = Vec::with_capacity(64);
         for (i, cfg) in self.pmpcfg.iter().enumerate() {
             match cfg.addr_match {
                 AddressMatch::OFF => (),
                 AddressMatch::TOR if i == 0 => {
-                    result.push((cfg, ((0u64.into())..(self.pmpaddr[i] << 2).into())))
+                    result.push((cfg, ((0u64.into())..=(self.pmpaddr[i] << 2).into())))
                 }
                 AddressMatch::TOR if i > 0 => result.push((
                     cfg,
-                    ((self.pmpaddr[i - 1] << 2).into()..(self.pmpaddr[i] << 2).into()),
+                    ((self.pmpaddr[i - 1] << 2).into()..=(self.pmpaddr[i] << 2).into()),
                 )),
                 AddressMatch::NA4 => result.push((
                     cfg,
-                    ((self.pmpaddr[i] << 2).into()..((self.pmpaddr[i] << 2) + 4).into()),
+                    ((self.pmpaddr[i] << 2).into()..=((self.pmpaddr[i] << 2) + 4).into()),
                 )),
 
                 AddressMatch::NAPOT => {
@@ -140,7 +150,7 @@ impl PMP {
                     let high_mask = !low_mask; // set bottom size bits;
                     let low = ((self.pmpaddr[i] << 2) & low_mask).into();
                     let high = ((self.pmpaddr[i] << 2) | high_mask).into();
-                    result.push((cfg, (low..high)));
+                    result.push((cfg, (low..=high)));
                 }
                 _ => unreachable!(),
             }

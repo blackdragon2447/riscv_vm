@@ -3,8 +3,66 @@ use std::{
     ops::{Add, AddAssign, Sub},
 };
 
+use super::paging::AddressTranslationMode;
+
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Address(u64);
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
+pub struct VirtAddress {
+    /// 3 and 4 may be 0 if not in use
+    pub raw: u64,
+    pub vpn: [u16; 5],
+    pub page_offset: u16,
+}
+
+impl VirtAddress {
+    pub fn from_address(addr: Address, mode: AddressTranslationMode) -> Self {
+        let page_offset = (addr.0 & 0xFFF) as u16;
+        let raw = addr.0;
+        match mode {
+            AddressTranslationMode::Bare => {
+                unreachable!("We should never have virt addrs in bare mode")
+            }
+            AddressTranslationMode::Sv39 => {
+                let mut vpn = [0; 5];
+                vpn[0] = ((addr.0 >> 12) & 0x1FF) as u16;
+                vpn[1] = ((addr.0 >> 21) & 0x1FF) as u16;
+                vpn[2] = ((addr.0 >> 30) & 0x1FF) as u16;
+                Self {
+                    raw,
+                    vpn,
+                    page_offset,
+                }
+            }
+            AddressTranslationMode::Sv48 => {
+                let mut vpn = [0; 5];
+                vpn[0] = ((addr.0 >> 12) & 0x1FF) as u16;
+                vpn[1] = ((addr.0 >> 21) & 0x1FF) as u16;
+                vpn[2] = ((addr.0 >> 30) & 0x1FF) as u16;
+                vpn[3] = ((addr.0 >> 39) & 0x1FF) as u16;
+                Self {
+                    raw,
+                    vpn,
+                    page_offset,
+                }
+            }
+            AddressTranslationMode::Sv57 => {
+                let mut vpn = [0; 5];
+                vpn[0] = ((addr.0 >> 12) & 0x1FF) as u16;
+                vpn[1] = ((addr.0 >> 21) & 0x1FF) as u16;
+                vpn[2] = ((addr.0 >> 30) & 0x1FF) as u16;
+                vpn[3] = ((addr.0 >> 39) & 0x1FF) as u16;
+                vpn[4] = ((addr.0 >> 48) & 0x1FF) as u16;
+                Self {
+                    raw,
+                    vpn,
+                    page_offset,
+                }
+            }
+        }
+    }
+}
 
 impl Debug for Address {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

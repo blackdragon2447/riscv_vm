@@ -1,5 +1,3 @@
-use core::panic;
-
 use self::instruction::Instruction;
 
 pub mod instruction;

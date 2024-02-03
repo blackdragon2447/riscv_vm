@@ -19,7 +19,7 @@ pub struct VMSettings {
     pub virt_mem_enable: bool,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct VMStateBuilder<const MEM_SIZE: usize> {
     hart_count: u64, //TODO: Change to vec HartSettings at some point
     settings: VMSettings,
@@ -158,9 +158,17 @@ impl VMState {
         Ok(())
     }
 
+    pub fn step_hart_until(&mut self, hart: usize, target: Address) -> Result<(), VMError> {
+        self.harts[hart].step_until(&mut self.mem, target)
+    }
+
     #[cfg(test)]
-    pub(crate) fn mem(&self) -> &Memory {
+    pub fn mem(&self) -> &Memory {
         &self.mem
+    }
+
+    pub fn dump_mem(&self) {
+        self.mem.dump();
     }
 }
 
@@ -197,7 +205,7 @@ fn load_elf_phys(elf: &Elf, mem: &mut Memory) -> Result<Address, MemoryError> {
     for h in &elf.program_headers {
         if h.program_type == ProgramType::Load && h.seg_m_size.0 != 0 {
             let bytes = elf.bytes.get_bytes(h.seg_offset, h.seg_f_size.0);
-            mem.write_bytes(bytes, h.seg_p_addr.into(), PrivilegeMode::Machine, None)?;
+            mem.write_bytes(bytes, h.seg_v_addr.into(), PrivilegeMode::Machine, None)?;
         }
     }
 

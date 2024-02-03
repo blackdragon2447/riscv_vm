@@ -15,8 +15,8 @@ need nore, in `riscv_vm/src/main.rs` change the `{ 4 * KB }`
 to something else (leave the curly braces there). If you want
 to specify memory in MB inport `riscv_vm::memory::MB`. If you
 want to step instruction by instruction, uncomment the code in
-the loop in `main()` (in `main.rs`) and `//dbg!(&inst);` at
-`riscv_vm/src/hart/mod.rs:94`. That way It'll print the state
+the loop in `main()` (in `main.rs`) and `//println!("{:#?}", &inst);`
+at `riscv_vm/src/hart/mod.rs:94`. That way It'll print the state
 of the vm before running the printed instruction and runs the
 instruction.
 
@@ -32,4 +32,4 @@ to do so, make sure that all submodules are initialized, then run
 `just setup-tests`. If your riscv toolchain has a prefix diffirent than
 `riscv64-unknown-elf-` (it is installed as `riscv64-elf-` or isn't in
 $PATH and needs a path in front), make sure that the `RISCV_PREFIX` env
-variable is set to the desired preix.
+variable is set to the desired prefix.

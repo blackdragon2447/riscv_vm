@@ -86,16 +86,32 @@ impl Hart {
     }
 
     pub fn step(&mut self, mem: &mut Memory) -> Result<(), VMError> {
-        // Unwrap here is safe since u32 expects 4 bytes and we alyaws read 4 bytes (read_bytes
-        // will return an Err if it cannot).
-        let Ok(inst) = self.fetch(mem) else {
-            return self.exception(Exception::InstructionAccessFault);
+        let inst = match self.fetch(mem) {
+            Ok(inst) => inst,
+            Err(err) => match err {
+                MemoryError::PmpDeniedFetch => {
+                    return self.exception(Exception::InstructionAccessFault);
+                }
+                MemoryError::PageFaultFetch => {
+                    return self.exception(Exception::InstructionPageFault);
+                }
+                MemoryError::OutOfBoundsRead(_, _) => {
+                    return self.exception(Exception::InstructionAccessFault);
+                }
+                _ => unreachable!("fetch may not return non fetch errors"),
+            },
         };
-        // dbg!(&inst);
+        // println!("{:#?}", &inst);
         let result = execute_rv64(self, mem, inst, self.csr.isa());
         match result {
             Ok(ExecuteResult::Continue) => self.inc_pc(),
             Ok(ExecuteResult::Jump(pc)) => self.set_pc(pc),
+            Ok(ExecuteResult::CsrUpdate(addr)) => {
+                if addr == 0x180u16.into() {
+                    println!("satp Set");
+                }
+                self.inc_pc();
+            }
             Err(ExecuteError::Exception(e)) => return self.exception(e),
             Err(ExecuteError::Fatal) => return Err(VMError::ExecureError(ExecuteError::Fatal)),
         };
@@ -106,12 +122,16 @@ impl Hart {
         Ok(())
     }
 
-    fn fetch(&self, mem: &Memory) -> Result<Instruction, MemoryError> {
-        let inst = mem.fetch(
-            self.get_pc(),
-            self.privilege(),
-            self.vm_settings.pmp_enable.then_some(&self.csr.pmp),
-        )?;
+    pub fn step_until(&mut self, mem: &mut Memory, target: Address) -> Result<(), VMError> {
+        while self.pc != target {
+            self.step(mem)?
+        }
+        Ok(())
+    }
+
+    fn fetch(&self, mem: &mut Memory) -> Result<Instruction, MemoryError> {
+        let window = mem.window(self);
+        let inst = window.fetch(self.get_pc())?;
         Ok(decode(inst))
     }
 

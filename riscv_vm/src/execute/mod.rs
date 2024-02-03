@@ -15,6 +15,7 @@ use crate::{
 pub enum ExecuteResult {
     Continue,
     Jump(Address),
+    CsrUpdate(CsrAddress),
 }
 
 #[derive(Debug)]
@@ -29,10 +30,13 @@ impl From<MemoryError> for ExecuteError {
             MemoryError::OutOfBoundsWrite(_, _) => Self::Exception(Exception::StoreAccessFault),
             MemoryError::OutOfBoundsRead(_, _) => Self::Exception(Exception::LoadAccessFault),
             MemoryError::OutOfMemory => Self::Exception(Exception::StoreAccessFault),
-            MemoryError::FetchError => Self::Exception(Exception::InstructionAccessFault),
             MemoryError::PmpDeniedWrite => Self::Exception(Exception::StoreAccessFault),
             MemoryError::PmpDeniedRead => Self::Exception(Exception::LoadAccessFault),
+            MemoryError::PageFaultRead => Self::Exception(Exception::LoadPageFault),
+            MemoryError::PageFaultWrite => Self::Exception(Exception::StorePageFault),
             MemoryError::DeviceMemoryPoison => Self::Fatal,
+            MemoryError::PmpDeniedFetch => Self::Exception(Exception::InstructionAccessFault),
+            MemoryError::PageFaultFetch => Self::Exception(Exception::InstructionPageFault),
         }
     }
 }

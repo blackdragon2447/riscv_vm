@@ -2,7 +2,7 @@ use enumflags2::{BitFlag, BitFlags};
 
 use crate::{
     execute::ExecuteError,
-    memory::{address::Address, pmp::PMP},
+    memory::{address::Address, paging::Satp, pmp::PMP},
 };
 
 use super::{
@@ -32,7 +32,7 @@ pub struct CsrHolder {
     pub(in crate::hart) scause: u64,
     pub(in crate::hart) stval: u64,
     // sip: u64
-    // satp
+    pub(in crate::hart) satp: Satp,
 
     // MachineMode
     mvendorid: u64,
@@ -119,6 +119,8 @@ impl CsrHolder {
             sepc: 0u64.into(),
             scause: 0,
             stval: 0,
+            // We may unwrap because 0 is a know valid value for satp
+            satp: Satp::from_bits(0).unwrap(),
 
             // MachineMode
             mvendorid: 0,
@@ -187,6 +189,14 @@ impl CsrHolder {
         self.mepc
     }
 
+    pub(crate) fn get_satp(&self) -> Satp {
+        self.satp
+    }
+
+    pub(crate) fn get_mxr_sum(&self) -> (bool, bool) {
+        (self.status.mxr, self.status.sum)
+    }
+
     pub fn get_csr(&self, addr: CsrAddress) -> u64 {
         match addr.into() {
             0xC00u16 => self.mcycle,
@@ -203,7 +213,7 @@ impl CsrHolder {
             0x142 => self.scause,
             0x143 => self.stval,
             0x144 => 0, // self.sip
-            // 0x180 => self.satp,
+            0x180 => self.satp.to_bits(),
             0xF11 => self.mvendorid,
             0xF12 => self.marchid,
             0xF13 => self.mimpid,
@@ -277,7 +287,11 @@ impl CsrHolder {
                 0x143 => {
                     self.stval = value;
                 }
-                // 0x180 => self.satp,
+                0x180 => {
+                    if let Some(val) = Satp::from_bits(value) {
+                        self.satp = val;
+                    }
+                }
                 0x300 => {
                     self.status.update_from_m_bits(value);
                 }
@@ -382,7 +396,11 @@ impl CsrHolder {
                 0x143 => {
                     self.stval |= mask;
                 }
-                // 0x180 => self.satp,
+                0x180 => {
+                    if let Some(val) = Satp::from_bits(self.satp.to_bits() | mask) {
+                        self.satp = val;
+                    }
+                }
                 0x300 => {
                     self.status
                         .update_from_m_bits(self.status.to_m_bits() | mask);
@@ -492,7 +510,11 @@ impl CsrHolder {
                 0x143 => {
                     self.stval &= !mask;
                 }
-                // 0x180 => self.satp,
+                0x180 => {
+                    if let Some(val) = Satp::from_bits(self.satp.to_bits() & !mask) {
+                        self.satp = val;
+                    }
+                }
                 0x300 => {
                     self.status
                         .update_from_m_bits(self.status.to_m_bits() & !mask);

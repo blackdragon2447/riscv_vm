@@ -8,6 +8,7 @@ use crate::{
 
 use super::Memory;
 
+#[cfg(test)]
 mod pmp {
 
     use crate::memory::pmp::{AddressMatch, PmpCfg, PMP};
@@ -147,23 +148,202 @@ mod pmp {
             ranges[2],
             (
                 &PmpCfg::new_configured(true, false, true, AddressMatch::NAPOT, true),
-                (0x80000000u64.into()..0x8000001fu64.into())
+                (0x80000000u64.into()..=0x8000001fu64.into())
             )
         );
         assert_eq!(
             ranges[1],
             (
                 &PmpCfg::new_configured(true, true, false, AddressMatch::TOR, false),
-                (0xB1000u64.into()..0xB1FA0u64.into())
+                (0xB1000u64.into()..=0xB1FA0u64.into())
             )
         );
         assert_eq!(
             ranges[0],
             (
                 &PmpCfg::new_configured(true, false, false, AddressMatch::TOR, true),
-                (0x0u64.into()..0xB1000u64.into())
+                (0x0u64.into()..=0xB1000u64.into())
             )
         );
+    }
+}
+
+#[cfg(test)]
+mod paging {
+    use enumflags2::{make_bitflags, BitFlag};
+
+    use crate::memory::paging::{AddressTranslationMode, Pte, PteFlags, PteType};
+
+    #[test]
+    fn leafs_sv39() {
+        let pte0 = 0x0026_8149_7679_E847u64;
+        let pte1 = 0x4036_11F6_CCF0_3CF7u64;
+        let pte2 = 0xC010_95DA_756F_0855u64;
+        let pte3 = 0xC008_B229_0A31_B8C9u64;
+        let pte4 = 0x0013_BDA3_CD92_6867u64;
+        let pte5 = 0x4018_2528_8D16_1434u64;
+        let pte6 = 0x0009_DE02_DFDC_D48Cu64;
+        let pte7 = 0xC020_CE55_6717_A445u64;
+
+        let pte0 = PteType::from_bytes(pte0, AddressTranslationMode::Sv39);
+        let pte1 = PteType::from_bytes(pte1, AddressTranslationMode::Sv39);
+        let pte2 = PteType::from_bytes(pte2, AddressTranslationMode::Sv39);
+        let pte3 = PteType::from_bytes(pte3, AddressTranslationMode::Sv39);
+        let pte4 = PteType::from_bytes(pte4, AddressTranslationMode::Sv39);
+        let pte5 = PteType::from_bytes(pte5, AddressTranslationMode::Sv39);
+        let pte6 = PteType::from_bytes(pte6, AddressTranslationMode::Sv39);
+        let pte7 = PteType::from_bytes(pte7, AddressTranslationMode::Sv39);
+
+        let expected_pte0 = PteType::Leaf(Pte::Sv39 {
+            flags: make_bitflags!(PteFlags::{ V | R | W | A }),
+            ppn: [122, 207, 40375447],
+            pbmt: 0,
+            n: false,
+        });
+
+        let expected_pte1 = PteType::Leaf(Pte::Sv39 {
+            flags: make_bitflags!(PteFlags::{ V | R | W | U | G | A | D }),
+            ppn: [15, 414, 56696684],
+            pbmt: 0,
+            n: false,
+        });
+
+        let expected_pte2 = PteType::Leaf(Pte::Sv39 {
+            flags: make_bitflags!(PteFlags::{ V | W | U | A }),
+            ppn: [450, 173, 17391015],
+            pbmt: 0,
+            n: false,
+        });
+
+        let expected_pte3 = PteType::Leaf(Pte::Sv39 {
+            flags: make_bitflags!(PteFlags::{ V | X | A | D }),
+            ppn: [110, 326, 9118352],
+            pbmt: 0,
+            n: false,
+        });
+
+        let expected_pte4 = PteType::Leaf(Pte::Sv39 {
+            flags: make_bitflags!(PteFlags::{ V | R | W | G | A }),
+            ppn: [154, 434, 20699708],
+            pbmt: 0,
+            n: false,
+        });
+
+        let expected_pte5 = PteType::Leaf(Pte::Sv39 {
+            flags: make_bitflags!(PteFlags::{ W | U | G }),
+            ppn: [389, 418, 25318024],
+            pbmt: 0,
+            n: false,
+        });
+
+        let expected_pte6 = PteType::Leaf(Pte::Sv39 {
+            flags: make_bitflags!(PteFlags::{ D | X | W }),
+            ppn: [309, 507, 10346541],
+            pbmt: 0,
+            n: false,
+        });
+
+        let expected_pte7 = PteType::Leaf(Pte::Sv39 {
+            flags: make_bitflags!(PteFlags::{ V | W | A }),
+            ppn: [489, 226, 34399574],
+            pbmt: 0,
+            n: false,
+        });
+
+        assert_eq!(pte0, expected_pte0);
+        assert_eq!(pte1, expected_pte1);
+        assert_eq!(pte2, expected_pte2);
+        assert_eq!(pte3, expected_pte3);
+        assert_eq!(pte4, expected_pte4);
+        assert_eq!(pte5, expected_pte5);
+        assert_eq!(pte6, expected_pte6);
+        assert_eq!(pte7, expected_pte7);
+    }
+
+    #[test]
+    fn branches_sv39() {
+        let pte0 = 0x0026_8149_7679_E801u64;
+        let pte1 = 0x4036_11F6_CCF0_3C01u64;
+        let pte2 = 0xC010_95DA_756F_0801u64;
+        let pte3 = 0xC008_B229_0A31_B801u64;
+        let pte4 = 0x0013_BDA3_CD92_6801u64;
+        let pte5 = 0x4018_2528_8D16_1401u64;
+        let pte6 = 0x0009_DE02_DFDC_D401u64;
+        let pte7 = 0xC020_CE55_6717_A401u64;
+
+        let pte0 = PteType::from_bytes(pte0, AddressTranslationMode::Sv39);
+        let pte1 = PteType::from_bytes(pte1, AddressTranslationMode::Sv39);
+        let pte2 = PteType::from_bytes(pte2, AddressTranslationMode::Sv39);
+        let pte3 = PteType::from_bytes(pte3, AddressTranslationMode::Sv39);
+        let pte4 = PteType::from_bytes(pte4, AddressTranslationMode::Sv39);
+        let pte5 = PteType::from_bytes(pte5, AddressTranslationMode::Sv39);
+        let pte6 = PteType::from_bytes(pte6, AddressTranslationMode::Sv39);
+        let pte7 = PteType::from_bytes(pte7, AddressTranslationMode::Sv39);
+
+        let expected_pte0 = PteType::Branch(Pte::Sv39 {
+            flags: make_bitflags!(PteFlags::{ V }),
+            ppn: [122, 207, 40375447],
+            pbmt: 0,
+            n: false,
+        });
+
+        let expected_pte1 = PteType::Branch(Pte::Sv39 {
+            flags: make_bitflags!(PteFlags::{ V }),
+            ppn: [15, 414, 56696684],
+            pbmt: 0,
+            n: false,
+        });
+
+        let expected_pte2 = PteType::Branch(Pte::Sv39 {
+            flags: make_bitflags!(PteFlags::{ V }),
+            ppn: [450, 173, 17391015],
+            pbmt: 0,
+            n: false,
+        });
+
+        let expected_pte3 = PteType::Branch(Pte::Sv39 {
+            flags: make_bitflags!(PteFlags::{ V }),
+            ppn: [110, 326, 9118352],
+            pbmt: 0,
+            n: false,
+        });
+
+        let expected_pte4 = PteType::Branch(Pte::Sv39 {
+            flags: make_bitflags!(PteFlags::{ V }),
+            ppn: [154, 434, 20699708],
+            pbmt: 0,
+            n: false,
+        });
+
+        let expected_pte5 = PteType::Branch(Pte::Sv39 {
+            flags: make_bitflags!(PteFlags::{ V }),
+            ppn: [389, 418, 25318024],
+            pbmt: 0,
+            n: false,
+        });
+
+        let expected_pte6 = PteType::Branch(Pte::Sv39 {
+            flags: make_bitflags!(PteFlags::{ V }),
+            ppn: [309, 507, 10346541],
+            pbmt: 0,
+            n: false,
+        });
+
+        let expected_pte7 = PteType::Branch(Pte::Sv39 {
+            flags: make_bitflags!(PteFlags::{ V }),
+            ppn: [489, 226, 34399574],
+            pbmt: 0,
+            n: false,
+        });
+
+        assert_eq!(pte0, expected_pte0);
+        assert_eq!(pte1, expected_pte1);
+        assert_eq!(pte2, expected_pte2);
+        assert_eq!(pte3, expected_pte3);
+        assert_eq!(pte4, expected_pte4);
+        assert_eq!(pte5, expected_pte5);
+        assert_eq!(pte6, expected_pte6);
+        assert_eq!(pte7, expected_pte7);
     }
 }
 

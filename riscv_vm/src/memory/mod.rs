@@ -1,9 +1,13 @@
+use core::panic;
 use std::{
     collections::HashMap,
     fmt::Debug,
+    fs::File,
+    io::Write,
+    mem,
     ops::{Add, AddAssign, Deref, Range, RangeBounds, Sub},
     sync::{Arc, PoisonError, RwLock, RwLockWriteGuard},
-    vec,
+    u8, vec,
 };
 
 use elf_load::ByteRanges;
@@ -19,11 +23,13 @@ use crate::{
 };
 
 use self::{
-    address::Address,
+    address::{Address, VirtAddress},
+    paging::{walk_page_table, AccessContext, AddressTranslationMode, PageError, Satp},
     pmp::{AccessMode, PmpCfg, PMP},
 };
 
 pub mod address;
+pub mod paging;
 pub mod pmp;
 pub mod registers;
 #[cfg(test)]
@@ -44,6 +50,9 @@ pub struct MemoryWindow<'a> {
     mem: &'a mut Memory,
     privilege: PrivilegeMode,
     pmp: Option<&'a PMP>,
+    paging: Satp,
+    mxr: bool,
+    sum: bool,
 }
 
 #[derive(Debug)]
@@ -51,15 +60,31 @@ pub enum MemoryError {
     OutOfBoundsWrite(Address, Range<Address>),
     OutOfBoundsRead(Address, Range<Address>),
     OutOfMemory,
-    FetchError,
     PmpDeniedRead,
     PmpDeniedWrite,
+    PmpDeniedFetch,
+    PageFaultRead,
+    PageFaultWrite,
+    PageFaultFetch,
     DeviceMemoryPoison,
 }
 
 impl Default for Memory {
     fn default() -> Self {
         Self::new::<{ 4 * KB }>()
+    }
+}
+
+impl Debug for Memory {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "range: {:?}", self.mem_range);
+        for c in self.mem.chunks(32) {
+            for b in c {
+                write!(f, "{:02X} ", b)?;
+            }
+            writeln!(f);
+        }
+        Ok(())
     }
 }
 
@@ -140,7 +165,7 @@ impl Memory {
         pmp: Option<&PMP>,
     ) -> Result<u32, MemoryError> {
         if !pmp.map_or_else(|| true, |pmp| pmp.check(addr, privilege, AccessMode::Exec)) {
-            return Err(MemoryError::FetchError);
+            return Err(MemoryError::PmpDeniedFetch);
         }
         if (self.mem_range.contains(&addr)) {
             let idx = addr - self.mem_range.start;
@@ -153,7 +178,7 @@ impl Memory {
                         .unwrap(),
                 ))
             } else {
-                Err(MemoryError::FetchError)
+                Err(MemoryError::OutOfBoundsRead(addr, self.mem_range.clone()))
             }
         } else {
             for dev in self.device_regions.values() {
@@ -161,13 +186,13 @@ impl Memory {
                 if dev.0.contains(&addr) {
                     return Ok(u32::from_le_bytes(
                         dev.read_bytes(addr, 4)
-                            .map_err(|_| MemoryError::FetchError)?
+                            .map_err(|_| MemoryError::OutOfBoundsRead(addr, dev.0.clone()))?
                             .try_into()
                             .unwrap(),
                     ));
                 }
             }
-            Err(MemoryError::FetchError)
+            Err(MemoryError::PmpDeniedFetch)
         }
     }
 
@@ -176,6 +201,13 @@ impl Memory {
         id: usize,
         mem: DeviceMemory,
     ) -> Result<Arc<RwLock<DeviceMemory>>, DeviceInitError> {
+        if self.mem_range.contains(&mem.0.start)
+            || self.mem_range.contains(&mem.0.end)
+            || mem.0.contains(&self.mem_range.start)
+            || mem.0.contains(&self.mem_range.end)
+        {
+            return Err(DeviceInitError::MemoryOverlap);
+        }
         for dev in &self.device_regions {
             let dev = dev.1.read()?;
             if dev.0.contains(&mem.0.start)
@@ -192,6 +224,7 @@ impl Memory {
     }
 
     pub fn window<'a>(&'a mut self, hart: &'a Hart) -> MemoryWindow {
+        let (mxr, sum) = hart.get_csr().get_mxr_sum();
         MemoryWindow {
             mem: self,
             privilege: if hart.get_csr().get_status().mprv {
@@ -200,6 +233,9 @@ impl Memory {
                 hart.privilege()
             },
             pmp: hart.pmp_enable().then(|| &hart.get_csr().pmp),
+            paging: hart.get_csr().get_satp(),
+            mxr,
+            sum,
         }
     }
 
@@ -213,14 +249,104 @@ impl Memory {
             Ok(None)
         }
     }
+
+    pub fn dump(&self) {
+        let mut w = File::create("./mem.dump").unwrap();
+        writeln!(&mut w, "{:?}", self);
+    }
 }
 
 impl MemoryWindow<'_> {
     pub fn write_bytes(&mut self, bytes: &[u8], addr: Address) -> Result<(), MemoryError> {
+        let addr = if self.paging.mode != AddressTranslationMode::Bare
+            && self.privilege != PrivilegeMode::Machine
+        {
+            match walk_page_table(
+                VirtAddress::from_address(addr, self.paging.mode),
+                self.paging,
+                self,
+                AccessContext {
+                    mode: AccessMode::Write,
+                    privilege: self.privilege,
+                    mxr: self.mxr,
+                    sum: self.sum,
+                },
+            )
+            .map_err(|e| match e {
+                PageError::AccessFault => MemoryError::PmpDeniedWrite,
+                PageError::PageFault => MemoryError::PageFaultWrite,
+            }) {
+                Ok(a) => a,
+                Err(e) => {
+                    let mut w = File::create("./mem.dump").unwrap();
+                    writeln!(&mut w, "{:?}", &self.mem);
+                    return Err(e);
+                }
+            }
+        } else {
+            addr
+        };
         self.mem.write_bytes(bytes, addr, self.privilege, self.pmp)
     }
 
-    pub fn read_bytes(&mut self, addr: Address, size: usize) -> Result<Vec<u8>, MemoryError> {
+    pub fn read_bytes(&self, addr: Address, size: usize) -> Result<Vec<u8>, MemoryError> {
+        let addr = if self.paging.mode != AddressTranslationMode::Bare
+            && self.privilege != PrivilegeMode::Machine
+        {
+            walk_page_table(
+                VirtAddress::from_address(addr, self.paging.mode),
+                self.paging,
+                self,
+                AccessContext {
+                    mode: AccessMode::Write,
+                    privilege: self.privilege,
+                    mxr: self.mxr,
+                    sum: self.sum,
+                },
+            )
+            .map_err(|e| match e {
+                PageError::AccessFault => MemoryError::PmpDeniedRead,
+                PageError::PageFault => MemoryError::PageFaultRead,
+            })?
+        } else {
+            addr
+        };
+        self.mem.read_bytes(addr, size, self.privilege, self.pmp)
+    }
+
+    pub fn fetch(&self, addr: Address) -> Result<u32, MemoryError> {
+        let addr = if self.paging.mode != AddressTranslationMode::Bare
+            && self.privilege != PrivilegeMode::Machine
+        {
+            match walk_page_table(
+                VirtAddress::from_address(addr, self.paging.mode),
+                self.paging,
+                self,
+                AccessContext {
+                    mode: AccessMode::Exec,
+                    privilege: self.privilege,
+                    mxr: self.mxr,
+                    sum: self.sum,
+                },
+            )
+            .map_err(|e| match e {
+                PageError::AccessFault => MemoryError::PmpDeniedFetch,
+                PageError::PageFault => MemoryError::PageFaultFetch,
+            }) {
+                Ok(a) => a,
+                Err(e) => {
+                    let mut w = File::create("./mem.dump").unwrap();
+                    writeln!(&mut w, "{:?}", &self.mem);
+                    return Err(e);
+                }
+            }
+        } else {
+            addr
+        };
+        self.mem.fetch(addr, self.privilege, self.pmp)
+    }
+
+    pub(self) fn read_phys(&self, addr: Address, size: usize) -> Result<Vec<u8>, MemoryError> {
         self.mem.read_bytes(addr, size, self.privilege, self.pmp)
     }
 }
