@@ -5,13 +5,19 @@ build-release:
     cargo build --release
 
 run:
-    cargo run
+    # "Use cargo commands directly fur running"
 
 setup-tests:
     cd ./vm_tests/official_tests/ && autoconf
     cd ./vm_tests/official_tests/ && ./configure
     -cd ./vm_tests/official_tests/ && make
     cd ./vm_tests/official_tests/ && make isa
+    cd ./vm_tests/custom_tests/ && just build
+
+clean:
+    cargo clean
+    cd ./vm_tests/official_tests/ && make clean
+    cd ./vm_tests/custom_tests/ && just clean
 
 test: build
     cargo test
@@ -34,6 +40,7 @@ clippy:
       -W clippy::suspicious_xor_used_as_pow \
       -W clippy::tests_outside_test_module \
       -W clippy::todo \
-      -W clippy::unnecessary_self_imports
+      -W clippy::unnecessary_self_imports \
+      -D unused_must_use
 
-working: build test clippy
+check: build test clippy
