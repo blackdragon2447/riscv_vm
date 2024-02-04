@@ -16,12 +16,6 @@
 .equ	PTE_DIRTY,	0b10000000
 
 stvec:
-	la t1, _memory_start
-	la a0, pass
-	sub a0, a0, t1
-	la a1, fail
-	sub a1, a1, t1
-
 	csrr a2, scause
 	li t5, 5
 	beq a2, t5, stvec.fail
@@ -44,7 +38,7 @@ stvec.check_umem:
 	ld a5, 0(a4)
 	beq a5, t1, stvec.pass
 stvec.fail:
-	jr a1
+	j fail
 stvec.pass:
 	la a0, s_mode_cont
 	la a1, _memory_start
@@ -262,10 +256,7 @@ s_mode:
 	# load the index of this PTE
 	li a3, 1
 
-	la a4, put_pte
-	la a5, _memory_start
-	sub a4, a4, a5
-	jalr ra, a4, 0
+	jal ra, put_pte
 
 	li a0, 0b0
 	slli a0, a0, 8
@@ -278,12 +269,6 @@ s_mode:
 	sret
 
 s_mode_cont:
-	la t1, _memory_start
-	la a4, pass
-	sub a4, a4, t1
-	la a5, fail
-	sub a5, a5, t1
-
 	li a0, 1
 	slli a0, a0, 18
 	csrc sstatus, a0
@@ -295,10 +280,10 @@ s_mode_cont:
 	li a2, 0x10200073
 	bne a1, a2, s_mode_cont.fail
 s_mode_cont.pass:
-	jr a4
+	j pass
 
 s_mode_cont.fail:
-	jr a5
+	j fail
 	
 # a0 contains the bits that need to be set
 # a1 contains the place it points to

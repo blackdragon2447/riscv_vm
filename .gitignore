@@ -2,3 +2,6 @@
 
 instructions.*
 test_os/
+mem.dump
+
+vm_tests/custom_tests/rv64*-*
