@@ -34,8 +34,11 @@ pub struct CsrHolder {
     pub(in crate::hart) satp: Satp,
 
     // MachineMode
+    /// RO 0
     mvendorid: u64,
+    /// RO 0
     marchid: u64,
+    /// RO 0
     mimpid: u64,
     mhartid: u64,
     mconfigptr: u64,
@@ -65,42 +68,73 @@ pub struct CsrHolder {
     pub(in crate::hart) status: Status,
 }
 
+/// State values for the FS VX XS Fields of mstatus, names of variants are for FS and VS, XS
+/// meanings are in docs.
+#[repr(u8)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum FVXS {
+    /// XS meaning: All off
+    Off = 0,
+    /// XS meaning: None dirty or clean, some on
+    Initial = 1,
+    /// XS meaning: None dirty, some clean
+    Clean = 2,
+    /// XS meaning: Some dirty
+    Dirty = 3,
+}
+
 #[derive(Debug)]
 pub struct Status {
-    /// [1] M + S
+    /// [1] M + S, Enable interrupts in supervisor mode while in that mode
     pub(crate) sie: bool, // always false (interrupts not impl)
 
-    /// [3] M
+    /// [3] M, Enable interrupts in machine mode while in that mode
     pub(crate) mie: bool, // always false (interrupts not impl)
 
-    /// [5] M + S
+    /// [5] M + S, Value of sie prior to taking a trap to S mode. Is set to
+    /// the value of sie when a trap is taken and sie is set to this value on an sret.
     pub(crate) spie: bool,
 
-    /// [7] M
+    /// [7] M, Value of mie prior to taking a trap to M mode. Is set to the
+    /// value of mie when a trap is taken and mie is set to this value on an mret.
     pub(crate) mpie: bool,
 
-    /// [8] M + S
+    /// [8] M + S, The privilege mode prior to taking a trap to S mode. Sret will set the
+    /// privilege level to the value of this register, may never contain M or H
     pub(crate) spp: PrivilegeMode,
 
-    /// [11..12] M
+    /// [9..10] M + S, See privileged spec table 3.4 for exact state.
+    pub(crate) vs: FVXS,
+
+    /// [11..12] M, The privilege mode prior to taking a trap to M mode. Mret will
+    /// set the privilege level to the value of this register.
     pub(crate) mpp: PrivilegeMode,
 
-    /// [17] M
-    pub(crate) mprv: bool, // always false (virt mem not impl)
+    /// [13..14] M + S, See privileged spec table 3.4 for exact state.
+    pub(crate) fs: FVXS,
 
-    /// [18] M + S
+    /// [15..16] M + S, See privileged spec table 3.4 for exact state.
+    pub(crate) xs: FVXS,
+
+    /// [17] M, If set, memory accesses while in M mode are executed as if the privilege
+    /// mode in mpp was the current privilege mode.
+    pub(crate) mprv: bool,
+
+    /// [18] M + S, If set any pages marked as user are also readable from supervisor mode.
     pub(crate) sum: bool,
 
-    /// [19] M + S
+    /// [19] M + S, If set any pages marked as executable but not readable are readable.
     pub(crate) mxr: bool,
 
-    /// [20] M
+    /// [20] M, If set, writes to satp, and SFENCE.VMA and SINVAL.VMA instructions will be trapped
+    /// and throw an lllegal instruction.
     pub(crate) tvm: bool,
 
-    /// [21] M
+    /// [21] M, If set, wfi in S or U mode will cause an IllegalInstruction if it does not complete
+    /// in a set time (0)
     pub(crate) tw: bool,
 
-    /// [22] M
+    /// [22] M, If set, sret in S mode will cause an IllegalInstruction
     pub(crate) tsr: bool,
 }
 
@@ -185,7 +219,10 @@ impl CsrHolder {
                 spie: false,
                 mpie: false,
                 spp: PrivilegeMode::User,
+                vs: FVXS::Off,
                 mpp: PrivilegeMode::User,
+                fs: FVXS::Off,
+                xs: FVXS::Off,
                 mprv: false,
                 sum: false,
                 mxr: false,
@@ -287,13 +324,6 @@ impl CsrHolder {
             || addr.get_type() == CsrType::CustomRO
             || addr.get_privilege() > privilege
         {
-            eprintln!(
-                "Illegal write to {:?}, with mode {:?} (self: {:?}), and type {:?}",
-                addr,
-                addr.get_privilege(),
-                privilege,
-                addr.get_type()
-            );
             Err(ExecuteError::Exception(Exception::IllegalInstruction))
         } else {
             let old = self.get_csr(addr);
@@ -322,7 +352,7 @@ impl CsrHolder {
                 0x143 => {
                     self.stval = value;
                 }
-                0x180 => {
+                0x180 if !self.status.tvm => {
                     if let Some(val) = Satp::from_bits(value) {
                         self.satp = val;
                     }
@@ -394,13 +424,6 @@ impl CsrHolder {
             || ((addr.get_type() == CsrType::StandardRO || addr.get_type() == CsrType::CustomRO)
                 && should_write)
         {
-            eprintln!(
-                "Illegal write to {:?}, with mode {:?} (self: {:?}), and type {:?}",
-                addr,
-                addr.get_privilege(),
-                privilege,
-                addr.get_type()
-            );
             return Err(ExecuteError::Exception(Exception::IllegalInstruction));
         }
         let old = self.get_csr(addr);
@@ -431,7 +454,7 @@ impl CsrHolder {
                 0x143 => {
                     self.stval |= mask;
                 }
-                0x180 => {
+                0x180 if !self.status.tvm => {
                     if let Some(val) = Satp::from_bits(self.satp.to_bits() | mask) {
                         self.satp = val;
                     }
@@ -507,13 +530,6 @@ impl CsrHolder {
             || ((addr.get_type() == CsrType::StandardRO || addr.get_type() == CsrType::CustomRO)
                 && should_write)
         {
-            eprintln!(
-                "Illegal write to {:?}, with mode {:?} (self: {:?}), and type {:?}",
-                addr,
-                addr.get_privilege(),
-                privilege,
-                addr.get_type()
-            );
             return Err(ExecuteError::Exception(Exception::IllegalInstruction));
         }
         let old = self.get_csr(addr);
@@ -545,7 +561,7 @@ impl CsrHolder {
                 0x143 => {
                     self.stval &= !mask;
                 }
-                0x180 => {
+                0x180 if !self.status.tvm => {
                     if let Some(val) = Satp::from_bits(self.satp.to_bits() & !mask) {
                         self.satp = val;
                     }
@@ -626,6 +642,10 @@ impl Status {
 
         bits |= ((self.spp as u64 & 0b1) << 8);
 
+        bits |= ((self.vs as u64 & 0b11) << 9);
+        bits |= ((self.fs as u64 & 0b11) << 13);
+        bits |= ((self.xs as u64 & 0b11) << 15);
+
         if self.sum {
             bits |= (0b1 << 18);
         }
@@ -635,6 +655,10 @@ impl Status {
         }
 
         bits |= (0b10 << 32); // UXL Needs to be 10 for 64 bit
+
+        if self.vs == FVXS::Dirty || self.fs == FVXS::Dirty || self.xs == FVXS::Dirty {
+            bits |= 0b1 << 63;
+        }
 
         bits
     }
@@ -648,6 +672,30 @@ impl Status {
             self.spp = PrivilegeMode::Supervisor;
         } else {
             self.spp = PrivilegeMode::User;
+        }
+
+        match (bits >> 9 & 0b11) {
+            0b00 => self.vs = FVXS::Off,
+            0b01 => self.vs = FVXS::Initial,
+            0b10 => self.vs = FVXS::Clean,
+            0b11 => self.vs = FVXS::Dirty,
+            _ => unreachable!(),
+        }
+
+        match (bits >> 13 & 0b11) {
+            0b00 => self.fs = FVXS::Off,
+            0b01 => self.fs = FVXS::Initial,
+            0b10 => self.fs = FVXS::Clean,
+            0b11 => self.fs = FVXS::Dirty,
+            _ => unreachable!(),
+        }
+
+        match (bits >> 15 & 0b11) {
+            0b00 => self.xs = FVXS::Off,
+            0b01 => self.xs = FVXS::Initial,
+            0b10 => self.xs = FVXS::Clean,
+            0b11 => self.xs = FVXS::Dirty,
+            _ => unreachable!(),
         }
 
         self.sum = (bits & (0b1 << 18)) > 0;
@@ -675,7 +723,10 @@ impl Status {
         }
 
         bits |= ((self.spp as u64 & 0b1) << 8);
+        bits |= ((self.vs as u64 & 0b11) << 9);
         bits |= ((self.mpp as u64 & 0b11) << 11);
+        bits |= ((self.fs as u64 & 0b11) << 13);
+        bits |= ((self.xs as u64 & 0b11) << 15);
 
         if self.mprv {
             bits |= (0b1 << 17)
@@ -702,6 +753,11 @@ impl Status {
         }
 
         bits |= (0b10 << 32); // UXL Needs to be 10 for 64 bit.
+        bits |= (0b10 << 34); // SXL Needs to be 10 for 64 bit
+
+        if self.vs == FVXS::Dirty || self.fs == FVXS::Dirty || self.xs == FVXS::Dirty {
+            bits |= 0b1 << 63;
+        }
 
         bits
     }
@@ -721,10 +777,34 @@ impl Status {
             self.spp = PrivilegeMode::User;
         }
 
+        match (bits >> 9 & 0b11) {
+            0b00 => self.vs = FVXS::Off,
+            0b01 => self.vs = FVXS::Initial,
+            0b10 => self.vs = FVXS::Clean,
+            0b11 => self.vs = FVXS::Dirty,
+            _ => unreachable!(),
+        }
+
         match (bits & (0b11 << 11)) >> 11 {
             0b00 => self.mpp = PrivilegeMode::User,
             0b01 => self.mpp = PrivilegeMode::Supervisor,
             0b11 => self.mpp = PrivilegeMode::Machine,
+            _ => unreachable!(),
+        }
+
+        match (bits >> 13 & 0b11) {
+            0b00 => self.fs = FVXS::Off,
+            0b01 => self.fs = FVXS::Initial,
+            0b10 => self.fs = FVXS::Clean,
+            0b11 => self.fs = FVXS::Dirty,
+            _ => unreachable!(),
+        }
+
+        match (bits >> 15 & 0b11) {
+            0b00 => self.xs = FVXS::Off,
+            0b01 => self.xs = FVXS::Initial,
+            0b10 => self.xs = FVXS::Clean,
+            0b11 => self.xs = FVXS::Dirty,
             _ => unreachable!(),
         }
 

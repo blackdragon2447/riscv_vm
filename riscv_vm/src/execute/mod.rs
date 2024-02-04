@@ -154,7 +154,7 @@ pub fn execute_rv64(
         CSRRCI { rd, uimm: 0, csr } => inst_csrroi(hart, rd, csr, rv64zicsr::csrr),
         CSRRCI { rd, uimm, csr } => inst_csri(hart, rd, uimm, csr, rv64zicsr::csrrci),
 
-        MRET => {
+        MRET if hart.privilege() >= PrivilegeMode::Machine => {
             let status = hart.get_csr_mut().get_status_mut();
             let mpp = status.mpp;
             status.mie = status.mpie;
@@ -165,7 +165,12 @@ pub fn execute_rv64(
             Ok(ExecuteResult::Jump(hart.get_csr().get_mepc()))
         }
 
-        SRET => {
+        SRET if hart.get_csr().get_status().tsr
+            && hart.privilege() == PrivilegeMode::Supervisor =>
+        {
+            Err(ExecuteError::Exception(Exception::IllegalInstruction))
+        }
+        SRET if hart.privilege() >= PrivilegeMode::Supervisor => {
             let status = hart.get_csr_mut().get_status_mut();
             let spp = status.spp;
             status.sie = status.spie;
@@ -185,6 +190,15 @@ pub fn execute_rv64(
         },
         EBREAK => Err(ExecuteError::Exception(Exception::BreakPoint)),
 
+        WFI if hart.get_csr().get_status().tw && hart.privilege() < PrivilegeMode::Machine => {
+            // Timeout is 0
+            Err(ExecuteError::Exception(Exception::IllegalInstruction))
+        }
+        WFI => Err(ExecuteError::Exception(Exception::IllegalInstruction)), // Not implemented
+
+        // SFENCE.VLA if !hart.get_csr().status.tvm
+        // SINVAL.VLA if !hart.get_csr().status.tvm
+        //
         Undifined(i) => {
             eprintln!("Trying to execute Undifined Instruction: {:#8x}", i);
             Err(ExecuteError::Exception(Exception::IllegalInstruction))

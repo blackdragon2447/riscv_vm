@@ -109,8 +109,8 @@ impl Hart {
             Ok(ExecuteResult::Continue) => self.inc_pc(),
             Ok(ExecuteResult::Jump(pc)) => self.set_pc(pc),
             Ok(ExecuteResult::CsrUpdate(addr)) => {
-                if addr == 0x180u16.into() {
-                    println!("satp Set");
+                if addr == 0x180u16.into() && self.csr.status.tvm {
+                    return self.exception(Exception::IllegalInstruction);
                 }
                 self.inc_pc();
             }
