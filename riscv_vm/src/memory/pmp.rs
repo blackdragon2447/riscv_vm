@@ -9,7 +9,6 @@ use enumflags2::{bitflags, BitFlags};
 use super::address::Address;
 use crate::hart::privilege::{self, PrivilegeMode};
 
-// #[derive(Debug)]
 pub struct PMP {
     pmpcfg: [PmpCfg; 64],
     pmpaddr: [u64; 64],
@@ -17,7 +16,32 @@ pub struct PMP {
 
 impl Debug for PMP {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "-- ommitted --")
+        let mut debug = f.debug_struct("PMP");
+
+        #[derive(Debug)]
+        struct PmpDebug {
+            pmpcfg: PmpCfg,
+            pmpaddr: Address,
+        }
+
+        for (i, (a, c)) in self
+            .pmpaddr
+            .iter()
+            .copied()
+            .map(Address::from)
+            .zip(self.pmpcfg)
+            .enumerate()
+        {
+            debug.field(
+                format!("pmp_{}", i).as_str(),
+                &PmpDebug {
+                    pmpcfg: c,
+                    pmpaddr: a,
+                },
+            );
+        }
+
+        debug.finish()
     }
 }
 

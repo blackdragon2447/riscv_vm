@@ -6,7 +6,7 @@ pub mod privilege;
 mod tests;
 pub mod trap;
 
-use std::{collections::HashMap, time::Instant};
+use std::{collections::HashMap, time::Instant, usize};
 
 use crate::{
     decode::{decode, instruction::Instruction},
@@ -122,14 +122,25 @@ impl Hart {
         Ok(())
     }
 
-    pub fn step_until(&mut self, mem: &mut Memory, target: Address) -> Result<(), VMError> {
-        while self.pc != target {
+    pub fn step_until(
+        &mut self,
+        mem: &mut Memory,
+        target: Address,
+        limit: usize,
+    ) -> Result<(), VMError> {
+        let mut i = 0;
+        while self.pc != target && i < limit {
+            i += 1;
             self.step(mem)?
         }
-        Ok(())
+        if i >= limit {
+            Err(VMError::StepUntilLimit)
+        } else {
+            Ok(())
+        }
     }
 
-    fn fetch(&self, mem: &mut Memory) -> Result<Instruction, MemoryError> {
+    pub fn fetch(&self, mem: &mut Memory) -> Result<Instruction, MemoryError> {
         let window = mem.window(self);
         let inst = window.fetch(self.get_pc())?;
         Ok(decode(inst))

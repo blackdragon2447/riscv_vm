@@ -12,9 +12,8 @@ use super::{
     trap::{Exception, Interrupt},
     CsrAddress,
 };
-use std::{collections::HashMap, time::Instant};
+use std::{collections::HashMap, fmt::Debug, time::Instant};
 
-#[derive(Debug)]
 pub struct CsrHolder {
     // UserMode
     // cycle (tied to mcylce)
@@ -58,7 +57,7 @@ pub struct CsrHolder {
     minstret: u64,
     mcounterinhibit: u64,
 
-    pub(crate) pmp: PMP,
+    pub pmp: PMP,
 
     csr: HashMap<CsrAddress, u64>,
 
@@ -103,6 +102,42 @@ pub struct Status {
 
     /// [22] M
     pub(crate) tsr: bool,
+}
+
+impl Debug for CsrHolder {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CsrHolder")
+            .field("time_started", &self.time_started)
+            .field("stvec", &self.stvec)
+            .field("scounteren", &self.scounteren)
+            .field("senvcfg", &self.senvcfg)
+            .field("sscratch", &self.sscratch)
+            .field("sepc", &self.sepc)
+            .field("scause", &self.scause)
+            .field("stval", &self.stval)
+            .field("satp", &self.satp)
+            .field("mvendorid", &self.mvendorid)
+            .field("marchid", &self.marchid)
+            .field("mimpid", &self.mimpid)
+            .field("mhartid", &self.mhartid)
+            .field("mconfigptr", &self.mconfigptr)
+            .field("misa", &self.misa)
+            .field("medeleg", &self.medeleg)
+            .field("mideleg", &self.mideleg)
+            .field("mtvec", &self.mtvec)
+            .field("mcounteren", &self.mcounteren)
+            .field("mscratch", &self.mscratch)
+            .field("mepc", &self.mepc)
+            .field("mcause", &self.mcause)
+            .field("mtval", &self.mtval)
+            .field("menvcfg", &self.menvcfg)
+            .field("mseccfg", &self.mseccfg)
+            .field("mcycle", &self.mcycle)
+            .field("minstret", &self.minstret)
+            .field("mcounterinhibit", &self.mcounterinhibit)
+            .field("[m/s]status", &self.status)
+            .finish_non_exhaustive()
+    }
 }
 
 impl CsrHolder {

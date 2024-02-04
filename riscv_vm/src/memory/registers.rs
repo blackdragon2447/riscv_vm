@@ -1,6 +1,19 @@
-#[derive(Debug)]
+use std::fmt::Debug;
+
 pub struct Registers {
     registers: [i64; 32],
+}
+
+impl Debug for Registers {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut debug = f.debug_struct("Registers");
+
+        for (i, r) in self.registers.iter().enumerate() {
+            debug.field(format!("X{i}").as_str(), r);
+        }
+
+        debug.finish()
+    }
 }
 
 impl Default for Registers {

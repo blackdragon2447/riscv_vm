@@ -6,10 +6,10 @@ use elf_load::{
 };
 
 use crate::{
-    decode::decode,
+    decode::{decode, instruction::Instruction},
     devices::{AsyncDevice, Device, DeviceError, DeviceInitError, HandledDevice},
     execute::{execute_rv64, ExecuteError},
-    hart::{privilege::PrivilegeMode, Hart},
+    hart::{self, privilege::PrivilegeMode, Hart},
     memory::{address::Address, pmp::PMP, DeviceMemory, Memory, MemoryError},
 };
 
@@ -47,8 +47,10 @@ pub enum VMError {
     FetchError(MemoryError),
     InvalidElfKernel(KernelError),
     NoDeviceMemory,
+    StepUntilLimit,
     DeviceError(DeviceError),
     ExecureError(ExecuteError),
+    MBreak,
 }
 
 impl<const MEM_SIZE: usize> VMStateBuilder<MEM_SIZE> {
@@ -159,7 +161,40 @@ impl VMState {
     }
 
     pub fn step_hart_until(&mut self, hart: usize, target: Address) -> Result<(), VMError> {
-        self.harts[hart].step_until(&mut self.mem, target)
+        self.harts[hart].step_until(&mut self.mem, target, 10000)
+    }
+
+    pub fn step_all_until(&mut self, target: Address) -> Result<(), VMError> {
+        for _ in 0..10000 {
+            for hart in &mut self.harts {
+                if hart.get_pc() != target {
+                    hart.step(&mut self.mem)?;
+                }
+            }
+
+            for dev in &mut self.sync_devices {
+                dev.1.update(
+                    &mut *self
+                        .mem
+                        .get_device_memory(dev.0)?
+                        .ok_or(VMError::NoDeviceMemory)?,
+                )?;
+            }
+        }
+
+        for hart in &self.harts {
+            if hart.get_pc() != target {
+                return Err(VMError::StepUntilLimit);
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn run(&mut self) -> Result<(), VMError> {
+        loop {
+            self.step()?
+        }
     }
 
     #[cfg(test)]
@@ -167,8 +202,16 @@ impl VMState {
         &self.mem
     }
 
+    pub fn fetch(&mut self, hart: usize) -> Result<Instruction, MemoryError> {
+        self.harts[hart].fetch(&mut self.mem)
+    }
+
     pub fn dump_mem(&self) {
         self.mem.dump();
+    }
+
+    pub fn get_hart(&self, hart: usize) -> Option<&Hart> {
+        self.harts.get(hart)
     }
 }
 
