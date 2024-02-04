@@ -85,7 +85,7 @@ impl Hart {
         self.privilege = privilege;
     }
 
-    pub fn step(&mut self, mem: &mut Memory) -> Result<(), VMError> {
+    pub fn step(&mut self, mem: &mut Memory, verbose: bool) -> Result<(), VMError> {
         let inst = match self.fetch(mem) {
             Ok(inst) => inst,
             Err(err) => match err {
@@ -101,7 +101,9 @@ impl Hart {
                 _ => unreachable!("fetch may not return non fetch errors"),
             },
         };
-        // println!("{:#?}", &inst);
+        if verbose {
+            println!("{:#?}", &inst);
+        }
         let result = execute_rv64(self, mem, inst, self.csr.isa());
         match result {
             Ok(ExecuteResult::Continue) => self.inc_pc(),
@@ -131,7 +133,7 @@ impl Hart {
         let mut i = 0;
         while self.pc != target && i < limit {
             i += 1;
-            self.step(mem)?
+            self.step(mem, false)?
         }
         if i >= limit {
             Err(VMError::StepUntilLimit)

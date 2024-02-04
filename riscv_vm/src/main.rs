@@ -48,13 +48,31 @@ fn main() {
                             continue;
                         };
                         for _ in 0..count {
-                            if let Err(e) = vmstate.step() {
+                            if let Err(e) = vmstate.step(false) {
                                 println!("Stepping errored at {:?}", e);
                                 continue 'cmdline;
                             }
                         }
                     } else {
-                        if let Err(e) = vmstate.step() {
+                        if let Err(e) = vmstate.step(false) {
+                            println!("Stepping errored at {:?}", e);
+                        }
+                    }
+                }
+                "stepv" => {
+                    if let Some(count) = args.get(1) {
+                        let Ok(count) = count.parse::<usize>() else {
+                            println!("Invalid number of steps: {}", count);
+                            continue;
+                        };
+                        for _ in 0..count {
+                            if let Err(e) = vmstate.step(true) {
+                                println!("Stepping errored at {:?}", e);
+                                continue 'cmdline;
+                            }
+                        }
+                    } else {
+                        if let Err(e) = vmstate.step(true) {
                             println!("Stepping errored at {:?}", e);
                         }
                     }
@@ -200,6 +218,11 @@ fn main() {
                     println!("step [count]:");
                     println!("\tIf count is given step all hearts that many cycles");
                     println!("\tOtherwise step all harts once cycle.");
+                    println!();
+                    println!("stepv [count]:");
+                    println!("\tIf count is given step all hearts that many cycles");
+                    println!("\tOtherwise step all harts once cycle.");
+                    println!("\tPrint the vmstate and instruction on each step.");
                     println!();
                     println!("step_until hart <id> <target>:");
                     println!("step_until all <target>:");

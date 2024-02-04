@@ -142,9 +142,9 @@ impl VMState {
         Ok(())
     }
 
-    pub fn step(&mut self) -> Result<(), VMError> {
+    pub fn step(&mut self, verbose: bool) -> Result<(), VMError> {
         for hart in &mut self.harts {
-            hart.step(&mut self.mem)?;
+            hart.step(&mut self.mem, verbose)?;
         }
         // self.mem.update_devices();
 
@@ -155,6 +155,10 @@ impl VMState {
                     .get_device_memory(dev.0)?
                     .ok_or(VMError::NoDeviceMemory)?,
             )?;
+        }
+
+        if verbose {
+            println!("{:#?}", self);
         }
 
         Ok(())
@@ -168,7 +172,7 @@ impl VMState {
         for _ in 0..10000 {
             for hart in &mut self.harts {
                 if hart.get_pc() != target {
-                    hart.step(&mut self.mem)?;
+                    hart.step(&mut self.mem, false)?;
                 }
             }
 
@@ -193,7 +197,7 @@ impl VMState {
 
     pub fn run(&mut self) -> Result<(), VMError> {
         loop {
-            self.step()?
+            self.step(false)?
         }
     }
 
