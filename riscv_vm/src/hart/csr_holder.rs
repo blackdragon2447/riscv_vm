@@ -14,6 +14,19 @@ use super::{
 };
 use std::{collections::HashMap, fmt::Debug, time::Instant};
 
+#[repr(u8)]
+#[derive(Debug)]
+pub enum TrapMode {
+    Direct = 0,
+    Vectored = 1,
+}
+
+#[derive(Debug)]
+pub struct TrapVector {
+    pub(crate) mode: TrapMode,
+    pub(crate) base: Address,
+}
+
 pub struct CsrHolder {
     // UserMode
     // cycle (tied to mcylce)
@@ -23,7 +36,7 @@ pub struct CsrHolder {
     // SupervisorMode
     // sstatus (tied to status)
     // sie: u64,
-    pub(in crate::hart) stvec: Address,
+    pub(in crate::hart) stvec: TrapVector,
     scounteren: u64,
     senvcfg: u64,
     sscratch: u64,
@@ -46,7 +59,7 @@ pub struct CsrHolder {
     pub(in crate::hart) medeleg: BitFlags<Exception>,
     mideleg: BitFlags<Interrupt>,
     // mie: u64,
-    pub(in crate::hart) mtvec: Address,
+    pub(in crate::hart) mtvec: TrapVector,
     mcounteren: u64,
     mscratch: u64,
     pub(in crate::hart) mepc: Address,
@@ -181,7 +194,10 @@ impl CsrHolder {
             time_started: Instant::now(),
 
             // SupervisorMode
-            stvec: 0u64.into(),
+            stvec: TrapVector {
+                mode: TrapMode::Direct,
+                base: 0u64.into(),
+            },
             scounteren: 0,
             senvcfg: 0,
             sscratch: 0,
@@ -200,7 +216,10 @@ impl CsrHolder {
             misa: Isa::maximal(),
             medeleg: Exception::empty(),
             mideleg: Interrupt::empty(),
-            mtvec: 0u64.into(),
+            mtvec: TrapVector {
+                mode: TrapMode::Direct,
+                base: 0u64.into(),
+            },
             mcounteren: 0,
             mscratch: 0,
             mepc: 0u64.into(),
@@ -277,7 +296,7 @@ impl CsrHolder {
 
             0x100 => self.status.to_s_bits(),
             0x104 => 0, // self.sie
-            0x105 => self.stvec.into(),
+            0x105 => self.stvec.to_bits(),
             0x106 => self.scounteren,
             0x10A => self.senvcfg,
             0x140 => self.sscratch,
@@ -296,7 +315,7 @@ impl CsrHolder {
             0x302 => self.medeleg.bits(),
             0x303 => self.mideleg.bits(),
             0x304 => 0, // self.mie
-            0x305 => self.mtvec.into(),
+            0x305 => self.mtvec.to_bits(),
             0x306 => self.mcounteren,
             0x340 => self.mscratch,
             0x341 => self.mepc.into(),
@@ -332,7 +351,7 @@ impl CsrHolder {
                     self.status.update_from_s_bits(value);
                 }
                 0x105 => {
-                    self.stvec = (value & !0b11).into();
+                    self.stvec.update_from_bits(value);
                 }
                 0x106 => {
                     self.scounteren = (value & 0b111);
@@ -370,7 +389,7 @@ impl CsrHolder {
                     self.mideleg = BitFlags::<Interrupt>::from_bits_truncate(value);
                 }
                 0x305 => {
-                    self.mtvec = (value & !0b11).into();
+                    self.mtvec.update_from_bits(value);
                 }
                 0x306 => {
                     self.mcounteren = (value & 0b111);
@@ -434,7 +453,7 @@ impl CsrHolder {
                         .update_from_s_bits(self.status.to_s_bits() | mask);
                 }
                 0x105 => {
-                    self.stvec = ((<Address as Into<u64>>::into(self.stvec) | mask) & !0b11).into();
+                    self.stvec.update_from_bits(self.stvec.to_bits() | mask);
                 }
                 0x106 => {
                     self.scounteren = ((self.scounteren | mask) & 0b111);
@@ -475,7 +494,7 @@ impl CsrHolder {
                         BitFlags::<Interrupt>::from_bits_truncate(self.mideleg.bits() | mask);
                 }
                 0x305 => {
-                    self.mtvec = ((<Address as Into<u64>>::into(self.mtvec) | mask) & !0b11).into();
+                    self.mtvec.update_from_bits(self.mtvec.to_bits() | mask);
                 }
                 0x306 => {
                     self.mcounteren = ((self.mcounteren | mask) & 0b111);
@@ -540,8 +559,7 @@ impl CsrHolder {
                         .update_from_s_bits(self.status.to_s_bits() & !mask);
                 }
                 0x105 => {
-                    self.stvec =
-                        ((<Address as Into<u64>>::into(self.stvec) & !mask) & !0b11).into();
+                    self.stvec.update_from_bits(self.stvec.to_bits() & !mask);
                 }
                 0x106 => {
                     self.scounteren = ((self.scounteren & !mask) & 0b111);
@@ -582,8 +600,7 @@ impl CsrHolder {
                         BitFlags::<Interrupt>::from_bits_truncate(self.mideleg.bits() & !mask);
                 }
                 0x305 => {
-                    self.mtvec =
-                        ((<Address as Into<u64>>::into(self.mtvec) & !mask) & !0b11).into();
+                    self.mtvec.update_from_bits(self.mtvec.to_bits() & !mask);
                 }
                 0x306 => {
                     self.mcounteren = ((self.mcounteren & !mask) & 0b111);
@@ -625,6 +642,25 @@ impl CsrHolder {
             }
         }
         Ok(old)
+    }
+}
+
+impl TrapVector {
+    fn update_from_bits(&mut self, bits: u64) {
+        match bits & 0b11 {
+            0 => self.mode = TrapMode::Direct,
+            1 => self.mode = TrapMode::Vectored,
+            _ => return,
+        }
+
+        self.base = (bits & !0b11).into();
+    }
+
+    fn to_bits(&self) -> u64 {
+        match self.mode {
+            TrapMode::Direct => self.base.into(),
+            TrapMode::Vectored => <Address as Into<u64>>::into(self.base) | 1,
+        }
     }
 }
 

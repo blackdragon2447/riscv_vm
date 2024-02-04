@@ -168,7 +168,7 @@ impl Hart {
             self.csr.status.sie = false;
             self.csr.status.spp = self.privilege();
             self.privilege = PrivilegeMode::Supervisor;
-            self.set_pc(self.csr.stvec);
+            self.set_pc(self.csr.stvec.base);
             Ok(())
         } else {
             eprintln!("Delegating exception to M mode");
@@ -184,7 +184,7 @@ impl Hart {
             self.csr.status.mie = false;
             self.csr.status.mpp = self.privilege();
             self.privilege = PrivilegeMode::Machine;
-            self.set_pc(self.csr.mtvec);
+            self.set_pc(self.csr.mtvec.base);
             Ok(())
         }
     }
