@@ -1,0 +1,37 @@
+name: Rust
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@master
+
+      - name: Build
+        run: cargo build --verbose
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: riscv_vm
+          path: target/debug/riscv_vm
+
+      - name: BuildWithVga
+        run: cargo build --features vga_text_buf --verbose
+
+      - name: UploadWithVga
+        uses: actions/upload-artifact@v4
+        with:
+          name: riscv_vm_vga
+          path: target/debug/riscv_vm
