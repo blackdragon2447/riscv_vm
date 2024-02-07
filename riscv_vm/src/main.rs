@@ -41,7 +41,9 @@ fn main() {
         let args: Vec<&str> = buf.split(' ').collect();
         if let Some(cmd) = args.first() {
             match *cmd {
-                "step" => {
+                "step" =>
+                {
+                    #[allow(clippy::collapsible_else_if)]
                     if let Some(count) = args.get(1) {
                         let Ok(count) = count.parse::<usize>() else {
                             println!("Invalid number of steps: {}", count);
@@ -59,7 +61,9 @@ fn main() {
                         }
                     }
                 }
-                "stepv" => {
+                "stepv" =>
+                {
+                    #[allow(clippy::collapsible_else_if)]
                     if let Some(count) = args.get(1) {
                         let Ok(count) = count.parse::<usize>() else {
                             println!("Invalid number of steps: {}", count);

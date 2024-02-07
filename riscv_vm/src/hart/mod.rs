@@ -5,6 +5,7 @@ pub mod privilege;
 #[cfg(test)]
 mod tests;
 pub mod trap;
+mod counters;
 
 use std::{collections::HashMap, time::Instant, usize};
 

@@ -121,6 +121,14 @@ impl Sub for CsrAddress {
     }
 }
 
+impl Sub<u16> for CsrAddress {
+    type Output = Self;
+
+    fn sub(self, rhs: u16) -> Self::Output {
+        Self(self.0 - rhs)
+    }
+}
+
 impl From<CsrAddress> for usize {
     fn from(val: CsrAddress) -> Self {
         val.0 as usize

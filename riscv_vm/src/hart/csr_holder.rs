@@ -6,13 +6,14 @@ use crate::{
 };
 
 use super::{
+    counters::Counters,
     csr_address::CsrType,
     isa::Isa,
     privilege::{self, PrivilegeMode},
     trap::{Exception, Interrupt},
     CsrAddress,
 };
-use std::{collections::HashMap, fmt::Debug, time::Instant};
+use std::{collections::HashMap, fmt::Debug, ops::RangeBounds, time::Instant};
 
 #[repr(u8)]
 #[derive(Debug)]
@@ -37,7 +38,7 @@ pub struct CsrHolder {
     // sstatus (tied to status)
     // sie: u64,
     pub(in crate::hart) stvec: TrapVector,
-    scounteren: u64,
+    scounteren: BitFlags<Counters>,
     senvcfg: u64,
     sscratch: u64,
     pub(in crate::hart) sepc: Address,
@@ -60,7 +61,7 @@ pub struct CsrHolder {
     mideleg: BitFlags<Interrupt>,
     // mie: u64,
     pub(in crate::hart) mtvec: TrapVector,
-    mcounteren: u64,
+    mcounteren: BitFlags<Counters>,
     mscratch: u64,
     pub(in crate::hart) mepc: Address,
     pub(in crate::hart) mcause: u64,
@@ -71,7 +72,7 @@ pub struct CsrHolder {
 
     mcycle: u64,
     minstret: u64,
-    mcounterinhibit: u64,
+    mcounterinhibit: BitFlags<Counters>,
 
     pub pmp: PMP,
 
@@ -83,9 +84,10 @@ pub struct CsrHolder {
 
 /// State values for the FS VX XS Fields of mstatus, names of variants are for FS and VS, XS
 /// meanings are in docs.
+#[allow(clippy::upper_case_acronyms)]
 #[repr(u8)]
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum FVXS {
+pub enum FloatVectorXternalStatus {
     /// XS meaning: All off
     Off = 0,
     /// XS meaning: None dirty or clean, some on
@@ -117,17 +119,17 @@ pub struct Status {
     pub(crate) spp: PrivilegeMode,
 
     /// [9..10] M + S, See privileged spec table 3.4 for exact state.
-    pub(crate) vs: FVXS,
+    pub(crate) vs: FloatVectorXternalStatus,
 
     /// [11..12] M, The privilege mode prior to taking a trap to M mode. Mret will
     /// set the privilege level to the value of this register.
     pub(crate) mpp: PrivilegeMode,
 
     /// [13..14] M + S, See privileged spec table 3.4 for exact state.
-    pub(crate) fs: FVXS,
+    pub(crate) fs: FloatVectorXternalStatus,
 
     /// [15..16] M + S, See privileged spec table 3.4 for exact state.
-    pub(crate) xs: FVXS,
+    pub(crate) xs: FloatVectorXternalStatus,
 
     /// [17] M, If set, memory accesses while in M mode are executed as if the privilege
     /// mode in mpp was the current privilege mode.
@@ -198,7 +200,7 @@ impl CsrHolder {
                 mode: TrapMode::Direct,
                 base: 0u64.into(),
             },
-            scounteren: 0,
+            scounteren: Counters::empty(),
             senvcfg: 0,
             sscratch: 0,
             sepc: 0u64.into(),
@@ -220,7 +222,7 @@ impl CsrHolder {
                 mode: TrapMode::Direct,
                 base: 0u64.into(),
             },
-            mcounteren: 0,
+            mcounteren: Counters::empty(),
             mscratch: 0,
             mepc: 0u64.into(),
             mcause: 0,
@@ -229,7 +231,7 @@ impl CsrHolder {
             mseccfg: 0,
             mcycle: 0,
             minstret: 0,
-            mcounterinhibit: 0,
+            mcounterinhibit: Counters::empty(),
             pmp: PMP::default(),
             csr: HashMap::new(),
             status: Status {
@@ -238,10 +240,10 @@ impl CsrHolder {
                 spie: false,
                 mpie: false,
                 spp: PrivilegeMode::User,
-                vs: FVXS::Off,
+                vs: FloatVectorXternalStatus::Off,
                 mpp: PrivilegeMode::User,
-                fs: FVXS::Off,
-                xs: FVXS::Off,
+                fs: FloatVectorXternalStatus::Off,
+                xs: FloatVectorXternalStatus::Off,
                 mprv: false,
                 sum: false,
                 mxr: false,
@@ -257,11 +259,15 @@ impl CsrHolder {
     }
 
     pub(in crate::hart) fn inc_instret(&mut self, value: u64) {
-        self.minstret += value;
+        if !self.mcounterinhibit.contains(Counters::InstRet) {
+            self.minstret += value;
+        }
     }
 
     pub(in crate::hart) fn inc_cycle(&mut self, value: u64) {
-        self.mcycle += value;
+        if !self.mcounterinhibit.contains(Counters::Cycle) {
+            self.mcycle += value;
+        }
     }
 
     pub(crate) fn get_status_mut(&mut self) -> &mut Status {
@@ -297,7 +303,7 @@ impl CsrHolder {
             0x100 => self.status.to_s_bits(),
             0x104 => 0, // self.sie
             0x105 => self.stvec.to_bits(),
-            0x106 => self.scounteren,
+            0x106 => self.scounteren.bits() as u64,
             0x10A => self.senvcfg,
             0x140 => self.sscratch,
             0x141 => self.sepc.into(),
@@ -316,7 +322,8 @@ impl CsrHolder {
             0x303 => self.mideleg.bits(),
             0x304 => 0, // self.mie
             0x305 => self.mtvec.to_bits(),
-            0x306 => self.mcounteren,
+            0x306 => self.mcounteren.bits() as u64,
+            0x320 => self.mcounterinhibit.bits() as u64,
             0x340 => self.mscratch,
             0x341 => self.mepc.into(),
             0x342 => self.mcause,
@@ -328,6 +335,8 @@ impl CsrHolder {
             0x747 => self.mseccfg,
             0xB00 => self.mcycle,
             0xB02 => self.minstret,
+            0xB03..=0xB1F => 0, // TODO: Performance counters
+            0x323..=0x33F => 0, // TODO: Performance counters
             _ => *self.csr.get(&addr).unwrap_or(&0),
         }
     }
@@ -344,6 +353,10 @@ impl CsrHolder {
             || addr.get_privilege() > privilege
         {
             Err(ExecuteError::Exception(Exception::IllegalInstruction))
+        } else if (0xC00u16..=0xC1F).contains(&addr.into())
+            && !self.counter_enabled(privilege, addr)
+        {
+            Err(ExecuteError::Exception(Exception::IllegalInstruction))
         } else {
             let old = self.get_csr(addr);
             match <CsrAddress as Into<u16>>::into(addr) {
@@ -354,7 +367,8 @@ impl CsrHolder {
                     self.stvec.update_from_bits(value);
                 }
                 0x106 => {
-                    self.scounteren = (value & 0b111);
+                    self.scounteren =
+                        BitFlags::<Counters>::from_bits_truncate((value & 0b111) as u32);
                 }
                 0x10A => {
                     self.senvcfg = (value & 0b1);
@@ -392,7 +406,12 @@ impl CsrHolder {
                     self.mtvec.update_from_bits(value);
                 }
                 0x306 => {
-                    self.mcounteren = (value & 0b111);
+                    self.mcounteren =
+                        BitFlags::<Counters>::from_bits_truncate((value & 0b111) as u32);
+                }
+                0x306 => {
+                    self.mcounterinhibit =
+                        BitFlags::<Counters>::from_bits_truncate((value & 0b101) as u32);
                 }
                 0x340 => {
                     self.mscratch = value;
@@ -422,6 +441,8 @@ impl CsrHolder {
                 0xB02 => {
                     self.minstret = value;
                 }
+                0xB03..=0xB1F => {} // TODO: Performance counters
+                0x323..=0x33F => {} // TODO: Performance counters
                 _ => {}
             }
             if should_read {
@@ -456,7 +477,9 @@ impl CsrHolder {
                     self.stvec.update_from_bits(self.stvec.to_bits() | mask);
                 }
                 0x106 => {
-                    self.scounteren = ((self.scounteren | mask) & 0b111);
+                    self.scounteren = BitFlags::<Counters>::from_bits_truncate(
+                        (self.scounteren.bits() | mask as u32) & 0b111,
+                    );
                 }
                 0x10A => {
                     self.senvcfg = ((self.senvcfg | mask) & 0b1);
@@ -497,7 +520,14 @@ impl CsrHolder {
                     self.mtvec.update_from_bits(self.mtvec.to_bits() | mask);
                 }
                 0x306 => {
-                    self.mcounteren = ((self.mcounteren | mask) & 0b111);
+                    self.mcounteren = BitFlags::<Counters>::from_bits_truncate(
+                        (self.mcounteren.bits() | mask as u32) & 0b111,
+                    );
+                }
+                0x320 => {
+                    self.mcounterinhibit = BitFlags::<Counters>::from_bits_truncate(
+                        (self.mcounterinhibit.bits() | mask as u32) & 0b101,
+                    );
                 }
                 0x340 => {
                     self.mscratch |= mask;
@@ -532,6 +562,8 @@ impl CsrHolder {
                 0xB02 => {
                     self.minstret |= mask;
                 }
+                0xB03..=0xB1F => {} // TODO: Performance counters
+                0x323..=0x33F => {} // TODO: Performance counters
                 _ => {}
             }
         }
@@ -562,7 +594,9 @@ impl CsrHolder {
                     self.stvec.update_from_bits(self.stvec.to_bits() & !mask);
                 }
                 0x106 => {
-                    self.scounteren = ((self.scounteren & !mask) & 0b111);
+                    self.scounteren = BitFlags::<Counters>::from_bits_truncate(
+                        (self.scounteren.bits() & !mask as u32) & 0b111,
+                    );
                 }
                 0x10A => {
                     self.senvcfg = ((self.senvcfg & !mask) & 0b1);
@@ -603,7 +637,14 @@ impl CsrHolder {
                     self.mtvec.update_from_bits(self.mtvec.to_bits() & !mask);
                 }
                 0x306 => {
-                    self.mcounteren = ((self.mcounteren & !mask) & 0b111);
+                    self.mcounteren = BitFlags::<Counters>::from_bits_truncate(
+                        (self.mcounteren.bits() & !mask as u32) & 0b111,
+                    );
+                }
+                0x320 => {
+                    self.mcounterinhibit = BitFlags::<Counters>::from_bits_truncate(
+                        (self.mcounterinhibit.bits() & !mask as u32) & 0b111,
+                    );
                 }
                 0x340 => {
                     self.mscratch &= !mask;
@@ -638,10 +679,20 @@ impl CsrHolder {
                 0xB02 => {
                     self.minstret &= !mask;
                 }
+                0xB03..=0xB1F => {} // TODO: Performance counters
+                0x323..=0x33F => {} // TODO: Performance counters
                 _ => {}
             }
         }
         Ok(old)
+    }
+
+    fn counter_enabled(&self, privilege: PrivilegeMode, counter: CsrAddress) -> bool {
+        let counter = BitFlags::<Counters>::from_bits_truncate(<u16 as From<CsrAddress>>::from(
+            counter - 0xC00u16,
+        ) as u32);
+        ((self.mcounteren.contains(counter) && privilege == PrivilegeMode::Supervisor)
+            || (self.scounteren.contains(counter) && privilege == PrivilegeMode::User))
     }
 }
 
@@ -692,7 +743,10 @@ impl Status {
 
         bits |= (0b10 << 32); // UXL Needs to be 10 for 64 bit
 
-        if self.vs == FVXS::Dirty || self.fs == FVXS::Dirty || self.xs == FVXS::Dirty {
+        if self.vs == FloatVectorXternalStatus::Dirty
+            || self.fs == FloatVectorXternalStatus::Dirty
+            || self.xs == FloatVectorXternalStatus::Dirty
+        {
             bits |= 0b1 << 63;
         }
 
@@ -711,26 +765,26 @@ impl Status {
         }
 
         match (bits >> 9 & 0b11) {
-            0b00 => self.vs = FVXS::Off,
-            0b01 => self.vs = FVXS::Initial,
-            0b10 => self.vs = FVXS::Clean,
-            0b11 => self.vs = FVXS::Dirty,
+            0b00 => self.vs = FloatVectorXternalStatus::Off,
+            0b01 => self.vs = FloatVectorXternalStatus::Initial,
+            0b10 => self.vs = FloatVectorXternalStatus::Clean,
+            0b11 => self.vs = FloatVectorXternalStatus::Dirty,
             _ => unreachable!(),
         }
 
         match (bits >> 13 & 0b11) {
-            0b00 => self.fs = FVXS::Off,
-            0b01 => self.fs = FVXS::Initial,
-            0b10 => self.fs = FVXS::Clean,
-            0b11 => self.fs = FVXS::Dirty,
+            0b00 => self.fs = FloatVectorXternalStatus::Off,
+            0b01 => self.fs = FloatVectorXternalStatus::Initial,
+            0b10 => self.fs = FloatVectorXternalStatus::Clean,
+            0b11 => self.fs = FloatVectorXternalStatus::Dirty,
             _ => unreachable!(),
         }
 
         match (bits >> 15 & 0b11) {
-            0b00 => self.xs = FVXS::Off,
-            0b01 => self.xs = FVXS::Initial,
-            0b10 => self.xs = FVXS::Clean,
-            0b11 => self.xs = FVXS::Dirty,
+            0b00 => self.xs = FloatVectorXternalStatus::Off,
+            0b01 => self.xs = FloatVectorXternalStatus::Initial,
+            0b10 => self.xs = FloatVectorXternalStatus::Clean,
+            0b11 => self.xs = FloatVectorXternalStatus::Dirty,
             _ => unreachable!(),
         }
 
@@ -791,7 +845,10 @@ impl Status {
         bits |= (0b10 << 32); // UXL Needs to be 10 for 64 bit.
         bits |= (0b10 << 34); // SXL Needs to be 10 for 64 bit
 
-        if self.vs == FVXS::Dirty || self.fs == FVXS::Dirty || self.xs == FVXS::Dirty {
+        if self.vs == FloatVectorXternalStatus::Dirty
+            || self.fs == FloatVectorXternalStatus::Dirty
+            || self.xs == FloatVectorXternalStatus::Dirty
+        {
             bits |= 0b1 << 63;
         }
 
@@ -814,10 +871,10 @@ impl Status {
         }
 
         match (bits >> 9 & 0b11) {
-            0b00 => self.vs = FVXS::Off,
-            0b01 => self.vs = FVXS::Initial,
-            0b10 => self.vs = FVXS::Clean,
-            0b11 => self.vs = FVXS::Dirty,
+            0b00 => self.vs = FloatVectorXternalStatus::Off,
+            0b01 => self.vs = FloatVectorXternalStatus::Initial,
+            0b10 => self.vs = FloatVectorXternalStatus::Clean,
+            0b11 => self.vs = FloatVectorXternalStatus::Dirty,
             _ => unreachable!(),
         }
 
@@ -829,18 +886,18 @@ impl Status {
         }
 
         match (bits >> 13 & 0b11) {
-            0b00 => self.fs = FVXS::Off,
-            0b01 => self.fs = FVXS::Initial,
-            0b10 => self.fs = FVXS::Clean,
-            0b11 => self.fs = FVXS::Dirty,
+            0b00 => self.fs = FloatVectorXternalStatus::Off,
+            0b01 => self.fs = FloatVectorXternalStatus::Initial,
+            0b10 => self.fs = FloatVectorXternalStatus::Clean,
+            0b11 => self.fs = FloatVectorXternalStatus::Dirty,
             _ => unreachable!(),
         }
 
         match (bits >> 15 & 0b11) {
-            0b00 => self.xs = FVXS::Off,
-            0b01 => self.xs = FVXS::Initial,
-            0b10 => self.xs = FVXS::Clean,
-            0b11 => self.xs = FVXS::Dirty,
+            0b00 => self.xs = FloatVectorXternalStatus::Off,
+            0b01 => self.xs = FloatVectorXternalStatus::Initial,
+            0b10 => self.xs = FloatVectorXternalStatus::Clean,
+            0b11 => self.xs = FloatVectorXternalStatus::Dirty,
             _ => unreachable!(),
         }
 
