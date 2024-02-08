@@ -1,6 +1,9 @@
 use enumflags2::{bitflags, make_bitflags, BitFlag, BitFlags};
 
-use crate::{hart::privilege::PrivilegeMode, memory::pmp::AccessMode};
+use crate::{
+    hart::privilege::{self, PrivilegeMode},
+    memory::pmp::AccessMode,
+};
 
 use super::{
     address::{Address, VirtAddress},
@@ -151,7 +154,9 @@ fn walk_page_table_internal(
             {
                 match context.mode {
                     AccessMode::Read => {
-                        if !pte.flags().contains(PteFlags::R) {
+                        if !(pte.flags().contains(PteFlags::R)
+                            || (pte.flags().contains(PteFlags::X) && context.mxr))
+                        {
                             return Err(PageError::PageFault);
                         }
                     }
@@ -164,7 +169,10 @@ fn walk_page_table_internal(
                         }
                     }
                     AccessMode::Exec => {
-                        if !pte.flags().contains(PteFlags::X) && !context.mxr {
+                        if !pte.flags().contains(PteFlags::X)
+                            || (pte.flags().contains(PteFlags::U)
+                                && context.privilege == PrivilegeMode::Supervisor)
+                        {
                             return Err(PageError::PageFault);
                         }
                     }
