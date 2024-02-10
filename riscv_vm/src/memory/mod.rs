@@ -11,6 +11,7 @@ use std::{
 };
 
 use elf_load::ByteRanges;
+use nohash_hasher::IntMap;
 
 use registers::IntRegister;
 
@@ -44,10 +45,12 @@ pub struct Memory {
     mem: Box<[u8]>,
     mem_range: Range<Address>,
     device_regions: HashMap<usize, Arc<RwLock<DeviceMemory>>>,
+    reservations: IntMap<u64, Range<Address>>,
 }
 
 pub struct MemoryWindow<'a> {
     mem: &'a mut Memory,
+    hartid: u64,
     privilege: PrivilegeMode,
     pmp: Option<&'a PMP>,
     paging: Satp,
@@ -55,7 +58,7 @@ pub struct MemoryWindow<'a> {
     sum: bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum MemoryError {
     OutOfBoundsWrite(Address, Range<Address>),
     OutOfBoundsRead(Address, Range<Address>),
@@ -95,9 +98,11 @@ impl Memory {
             mem,
             mem_range: 0x80000000u64.into()..(0x80000000u64 + SIZE as u64).into(),
             device_regions: HashMap::new(),
+            reservations: IntMap::default(),
         }
     }
 
+    /// NOTE, does not do atomic checks, pmp checks or page table walks
     pub fn write_bytes(
         &mut self,
         bytes: &[u8],
@@ -105,9 +110,6 @@ impl Memory {
         privilege: PrivilegeMode,
         pmp: Option<&PMP>,
     ) -> Result<(), MemoryError> {
-        if !pmp.map_or_else(|| true, |pmp| pmp.check(addr, privilege, AccessMode::Write)) {
-            return Err(MemoryError::PmpDeniedWrite);
-        }
         if (self.mem_range.contains(&addr)) {
             let idx = addr - self.mem_range.start;
             if <Address as Into<usize>>::into(idx) > self.mem.len() {
@@ -130,6 +132,7 @@ impl Memory {
         }
     }
 
+    /// NOTE, does not do atomic checks, pmp checks or page table walks
     pub fn read_bytes(
         &self,
         addr: Address,
@@ -137,9 +140,6 @@ impl Memory {
         privilege: PrivilegeMode,
         pmp: Option<&PMP>,
     ) -> Result<Vec<u8>, MemoryError> {
-        if !pmp.map_or_else(|| true, |pmp| pmp.check(addr, privilege, AccessMode::Read)) {
-            return Err(MemoryError::PmpDeniedRead);
-        }
         if (self.mem_range.contains(&addr)) {
             let idx = addr - self.mem_range.start;
             if <Address as Into<usize>>::into(idx) + size < self.mem.len() {
@@ -158,15 +158,13 @@ impl Memory {
         }
     }
 
+    /// NOTE, does not do atomic checks, pmp checks or page table walks
     pub fn fetch(
         &self,
         addr: Address,
         privilege: PrivilegeMode,
         pmp: Option<&PMP>,
     ) -> Result<u32, MemoryError> {
-        if !pmp.map_or_else(|| true, |pmp| pmp.check(addr, privilege, AccessMode::Exec)) {
-            return Err(MemoryError::PmpDeniedFetch);
-        }
         if (self.mem_range.contains(&addr)) {
             let idx = addr - self.mem_range.start;
             if <Address as Into<usize>>::into(idx) + 4 < self.mem.len() {
@@ -201,20 +199,12 @@ impl Memory {
         id: usize,
         mem: DeviceMemory,
     ) -> Result<Arc<RwLock<DeviceMemory>>, DeviceInitError> {
-        if self.mem_range.contains(&mem.0.start)
-            || self.mem_range.contains(&mem.0.end)
-            || mem.0.contains(&self.mem_range.start)
-            || mem.0.contains(&self.mem_range.end)
-        {
+        if self.mem_range.start <= mem.0.end && mem.0.start <= self.mem_range.end {
             return Err(DeviceInitError::MemoryOverlap);
         }
         for dev in &self.device_regions {
             let dev = dev.1.read()?;
-            if dev.0.contains(&mem.0.start)
-                || dev.0.contains(&mem.0.end)
-                || mem.0.contains(&dev.0.start)
-                || mem.0.contains(&dev.0.end)
-            {
+            if dev.0.start <= mem.0.end && mem.0.start <= dev.0.end {
                 return Err(DeviceInitError::MemoryOverlap);
             }
         }
@@ -227,6 +217,7 @@ impl Memory {
         let (mxr, sum) = hart.get_csr().get_mxr_sum();
         MemoryWindow {
             mem: self,
+            hartid: hart.get_hart_id(),
             privilege: if hart.get_csr().get_status().mprv {
                 hart.get_csr().get_status().mpp
             } else {
@@ -286,10 +277,22 @@ impl MemoryWindow<'_> {
         } else {
             addr
         };
+        if !self.pmp.map_or_else(
+            || true,
+            |pmp| pmp.check(addr, self.privilege, AccessMode::Write),
+        ) {
+            return Err(MemoryError::PmpDeniedWrite);
+        };
+        // Remove all reservations that
+        // contain the address we write to
+        self.mem.reservations.retain(|_, v| {
+            let range = addr..(addr + bytes.len() as u64);
+            v.start >= range.end || range.start >= v.end
+        });
         self.mem.write_bytes(bytes, addr, self.privilege, self.pmp)
     }
 
-    pub fn read_bytes(&self, addr: Address, size: usize) -> Result<Vec<u8>, MemoryError> {
+    pub fn read_bytes(&mut self, addr: Address, size: usize) -> Result<Vec<u8>, MemoryError> {
         let addr = if self.paging.mode != AddressTranslationMode::Bare
             && self.privilege != PrivilegeMode::Machine
         {
@@ -311,10 +314,71 @@ impl MemoryWindow<'_> {
         } else {
             addr
         };
+        if !self.pmp.map_or_else(
+            || true,
+            |pmp| pmp.check(addr, self.privilege, AccessMode::Read),
+        ) {
+            return Err(MemoryError::PmpDeniedRead);
+        }
+        // Remove all reservations that
+        // contain the address we write to
+        self.mem.reservations.retain(|_, v| {
+            let range = addr..(addr + size as u64);
+            v.start >= range.end || range.start >= v.end
+        });
         self.mem.read_bytes(addr, size, self.privilege, self.pmp)
     }
 
-    pub fn fetch(&self, addr: Address) -> Result<u32, MemoryError> {
+    pub fn write_conditional(&mut self, bytes: &[u8], addr: Address) -> Result<bool, MemoryError> {
+        // A reservation exists for this hart and is for the address and size we want to write to
+        dbg!(&self.mem.reservations);
+        dbg!(addr..(addr + bytes.len() as u64));
+        if let Some(r) = self.mem.reservations.get(&self.hartid) {
+            if *r == (addr..(addr + bytes.len() as u64)) {
+                self.write_bytes(bytes, addr).map(|_| true)
+            } else {
+                Ok(false)
+            }
+        } else {
+            Ok(false)
+        }
+    }
+
+    pub fn read_reserve(&mut self, addr: Address, size: usize) -> Result<Vec<u8>, MemoryError> {
+        let bytes = self.read_bytes(addr, size)?;
+        self.mem
+            .reservations
+            .insert(self.hartid, addr..(addr + size as u64));
+        Ok(bytes)
+    }
+
+    #[inline]
+    pub fn atomic_operation_w(
+        &mut self,
+        addr: Address,
+        rs: i32,
+        op: fn(orig: i32, rs: i32) -> i32,
+    ) -> Result<i32, MemoryError> {
+        let bytes = self.read_bytes(addr, 4)?;
+        let orig = i32::from_le_bytes(bytes.try_into().unwrap());
+        self.write_bytes(&op(rs, orig).to_le_bytes(), addr);
+        Ok(orig)
+    }
+
+    #[inline]
+    pub fn atomic_operation_d(
+        &mut self,
+        addr: Address,
+        rs: i64,
+        op: fn(orig: i64, rs: i64) -> i64,
+    ) -> Result<i64, MemoryError> {
+        let bytes = self.read_bytes(addr, 8)?;
+        let orig = i64::from_le_bytes(bytes.try_into().unwrap());
+        self.write_bytes(&op(rs, orig).to_le_bytes(), addr);
+        Ok(orig)
+    }
+
+    pub fn fetch(&mut self, addr: Address) -> Result<u32, MemoryError> {
         let addr = if self.paging.mode != AddressTranslationMode::Bare
             && self.privilege != PrivilegeMode::Machine
         {
@@ -343,6 +407,18 @@ impl MemoryWindow<'_> {
         } else {
             addr
         };
+        if !self.pmp.map_or_else(
+            || true,
+            |pmp| pmp.check(addr, self.privilege, AccessMode::Read),
+        ) {
+            return Err(MemoryError::PmpDeniedRead);
+        }
+        // Remove all reservations that
+        // contain the address we write to
+        self.mem.reservations.retain(|_, v| {
+            let range = addr..(addr + 4);
+            v.start >= range.end || range.start >= v.end
+        });
         self.mem.fetch(addr, self.privilege, self.pmp)
     }
 

@@ -157,10 +157,6 @@ impl VMState {
             )?;
         }
 
-        if verbose {
-            println!("{:#?}", self);
-        }
-
         Ok(())
     }
 

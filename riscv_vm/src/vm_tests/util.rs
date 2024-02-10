@@ -134,7 +134,7 @@ macro_rules! isa_test {
             vmstate.load_elf_kernel(&elf).unwrap();
 
             loop {
-                vmstate.step();
+                vmstate.step(false);
                 let bytes = u32::from_le_bytes(
                     vmstate
                         .mem()

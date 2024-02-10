@@ -1,9 +1,10 @@
 use crate::{
-    hart::privilege::PrivilegeMode,
+    hart::{privilege::PrivilegeMode, Hart},
     memory::{
         pmp::{AddressMatch, PmpCfg, PMP},
         MemoryError,
     },
+    vmstate::VMSettings,
 };
 
 use super::Memory;
@@ -376,8 +377,20 @@ fn read_pmp_denied() {
         PmpCfg::new_configured(false, false, false, AddressMatch::TOR, false).to_bits() as u64,
     );
     pmp.write_addr_rv64(0, (0x90000000u64 >> 2));
-    let mem = Memory::new::<256>();
-    let result = mem.read_bytes(0x8000000Fu64.into(), 4, PrivilegeMode::User, Some(&pmp));
+    let mut mem = Memory::new::<256>();
+    let mut hart = Hart::new(
+        0,
+        VMSettings {
+            pmp_enable: true,
+            virt_mem_enable: false,
+        },
+    );
+    hart.get_csr_mut().pmp = pmp;
+    hart.set_privilege(PrivilegeMode::User);
+
+    let mut window = mem.window(&hart);
+
+    let result = window.read_bytes(0x8000000Fu64.into(), 4);
     assert!(matches!(result, Err(MemoryError::PmpDeniedRead)));
 }
 
@@ -415,13 +428,21 @@ fn write_pmp_denied() {
     );
     pmp.write_addr_rv64(0, (0x90000000u64 >> 2));
     let mut mem = Memory::new::<256>();
-    let to_write = [37; 4];
-    let result = mem.write_bytes(
-        &to_write,
-        0x8000000Fu64.into(),
-        PrivilegeMode::User,
-        Some(&pmp),
+    let mut hart = Hart::new(
+        0,
+        VMSettings {
+            pmp_enable: true,
+            virt_mem_enable: false,
+        },
     );
+    hart.get_csr_mut().pmp = pmp;
+    hart.set_privilege(PrivilegeMode::User);
+
+    let mut window = mem.window(&hart);
+
+    let to_write = [37; 4];
+    let result = window.write_bytes(&to_write, 0x8000000Fu64.into());
+    dbg!(&result);
     assert!(matches!(result, Err(MemoryError::PmpDeniedWrite)));
 }
 
@@ -473,4 +494,53 @@ fn write_oob() {
         None,
     );
     assert!(matches!(result, Err(MemoryError::OutOfBoundsWrite(_, _))));
+}
+
+#[test]
+fn reservation() {
+    let mut mem = Memory::new::<256>();
+    let hart = Hart::new(0, VMSettings::default());
+
+    // Populate the memory with random junk
+    let to_write = 0xB2F1F0565F2B6A7E47BADB6EE79FE14Au128.to_le_bytes();
+    mem.write_bytes(
+        &to_write,
+        0x80000000u64.into(),
+        PrivilegeMode::Machine,
+        None,
+    )
+    .unwrap();
+    let to_write = 0xEEE79FB2F1F051DB665F2B6A7E47BA4Au128.to_le_bytes();
+    mem.write_bytes(
+        &to_write,
+        0x80000010u64.into(),
+        PrivilegeMode::Machine,
+        None,
+    )
+    .unwrap();
+
+    let mut window = mem.window(&hart);
+
+    let bytes = window.read_reserve(0x80000008u64.into(), 8).unwrap();
+
+    assert_eq!(
+        window.write_conditional(&bytes, 0x80000008u64.into()),
+        Ok(true)
+    );
+
+    assert_eq!(
+        window.write_conditional(&bytes[0..4], 0x80000008u64.into()),
+        Ok(false)
+    );
+
+    let bytes_reserved = window.read_reserve(0x80000018u64.into(), 8).unwrap();
+
+    let bytes = 0xdeadbeefu32.to_le_bytes();
+
+    window.write_bytes(&bytes, 0x80000018u64.into());
+
+    assert_eq!(
+        window.write_conditional(&bytes_reserved, 0x80000018u64.into()),
+        Ok(false)
+    );
 }

@@ -167,4 +167,31 @@ mod instructions {
             }
         )
     }
+
+    #[test]
+    fn amoadd_d() {
+        assert_eq!(
+            decode(0x00b6b72f),
+            AMOADD_D {
+                rd: X14,
+                rs1: X13,
+                rs2: X11,
+                rl: false,
+                aq: false
+            }
+        )
+    }
+
+    #[test]
+    fn lr_w() {
+        assert_eq!(
+            decode(0x1005272f),
+            LR_W {
+                rd: X14,
+                rs1: X10,
+                rl: false,
+                aq: false
+            }
+        )
+    }
 }

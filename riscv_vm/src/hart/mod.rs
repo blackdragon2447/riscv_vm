@@ -1,3 +1,4 @@
+mod counters;
 mod csr_address;
 mod csr_holder;
 pub mod isa;
@@ -5,7 +6,6 @@ pub mod privilege;
 #[cfg(test)]
 mod tests;
 pub mod trap;
-mod counters;
 
 use std::{collections::HashMap, time::Instant, usize};
 
@@ -144,7 +144,7 @@ impl Hart {
     }
 
     pub fn fetch(&self, mem: &mut Memory) -> Result<Instruction, MemoryError> {
-        let window = mem.window(self);
+        let mut window = mem.window(self);
         let inst = window.fetch(self.get_pc())?;
         Ok(decode(inst))
     }

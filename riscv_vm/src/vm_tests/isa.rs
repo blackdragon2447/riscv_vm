@@ -59,6 +59,7 @@ isa_test!(off: rv64ui_p_subw);
 isa_test!(off: rv64ui_p_sw, { 16 * KB });
 isa_test!(off: rv64ui_p_xor);
 isa_test!(off: rv64ui_p_xori);
+
 isa_test!(off: rv64um_p_div);
 isa_test!(off: rv64um_p_divu);
 isa_test!(off: rv64um_p_divuw);
@@ -72,6 +73,26 @@ isa_test!(off: rv64um_p_rem);
 isa_test!(off: rv64um_p_remu);
 isa_test!(off: rv64um_p_remuw);
 isa_test!(off: rv64um_p_remw);
+
+isa_test!(off: rv64ua_p_lrsc, {16 * KB});
+isa_test!(off: rv64ua_p_amoswap_w, "rv64ua-p-amoswap_w", {16 * KB});
+isa_test!(off: rv64ua_p_amoswap_d, "rv64ua-p-amoswap_d", {16 * KB});
+isa_test!(off: rv64ua_p_amoadd_w, "rv64ua-p-amoadd_w", {16 * KB});
+isa_test!(off: rv64ua_p_amoadd_d, "rv64ua-p-amoadd_d", {16 * KB});
+isa_test!(off: rv64ua_p_amoand_w, "rv64ua-p-amoand_w", {16 * KB});
+isa_test!(off: rv64ua_p_amoand_d, "rv64ua-p-amoand_d", {16 * KB});
+isa_test!(off: rv64ua_p_amoor_w, "rv64ua-p-amoor_w", {16 * KB});
+isa_test!(off: rv64ua_p_amoor_d, "rv64ua-p-amoor_d", {16 * KB});
+isa_test!(off: rv64ua_p_amoxor_w, "rv64ua-p-amoxor_w", {16 * KB});
+isa_test!(off: rv64ua_p_amoxor_d, "rv64ua-p-amoxor_d", {16 * KB});
+isa_test!(off: rv64ua_p_amomax_w, "rv64ua-p-amomax_w", {16 * KB});
+isa_test!(off: rv64ua_p_amomax_d, "rv64ua-p-amomax_d", {16 * KB});
+isa_test!(off: rv64ua_p_amomaxu_w, "rv64ua-p-amomaxu_w", {16 * KB});
+isa_test!(off: rv64ua_p_amomaxu_d, "rv64ua-p-amomaxu_d", {16 * KB});
+isa_test!(off: rv64ua_p_amomin_w, "rv64ua-p-amomin_w", {16 * KB});
+isa_test!(off: rv64ua_p_amomin_d, "rv64ua-p-amomin_d", {16 * KB});
+isa_test!(off: rv64ua_p_amominu_w, "rv64ua-p-amominu_w", {16 * KB});
+isa_test!(off: rv64ua_p_amominu_d, "rv64ua-p-amominu_d", {16 * KB});
 
 isa_test!(off: rv64si_p_csr, { 16 * KB });
 isa_test!(off: rv64si_p_scall, { 16 * KB });

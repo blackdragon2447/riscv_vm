@@ -165,6 +165,172 @@ pub fn decode(inst: u32) -> Instruction {
                         rs1: rs1.into(),
                         rs2: rs2.into(),
                     },
+                    (0b0101111, 0b010, f7) => {
+                        let rl = (f7 & 0b0000001) != 0;
+                        let aq = (f7 & 0b0000010) != 0;
+                        match f7 >> 2 {
+                            0b00010 => Instruction::LR_W {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rl,
+                                aq,
+                            },
+                            0b00011 => Instruction::SC_W {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rs2: rs2.into(),
+                                rl,
+                                aq,
+                            },
+                            0b00001 => Instruction::AMOSWAP_W {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rs2: rs2.into(),
+                                rl,
+                                aq,
+                            },
+                            0b00000 => Instruction::AMOADD_W {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rs2: rs2.into(),
+                                rl,
+                                aq,
+                            },
+                            0b00100 => Instruction::AMOXOR_W {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rs2: rs2.into(),
+                                rl,
+                                aq,
+                            },
+                            0b01100 => Instruction::AMOAND_W {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rs2: rs2.into(),
+                                rl,
+                                aq,
+                            },
+                            0b01000 => Instruction::AMOOR_W {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rs2: rs2.into(),
+                                rl,
+                                aq,
+                            },
+                            0b10000 => Instruction::AMOMIN_W {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rs2: rs2.into(),
+                                rl,
+                                aq,
+                            },
+                            0b10100 => Instruction::AMOMAX_W {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rs2: rs2.into(),
+                                rl,
+                                aq,
+                            },
+                            0b11000 => Instruction::AMOMINU_W {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rs2: rs2.into(),
+                                rl,
+                                aq,
+                            },
+                            0b11100 => Instruction::AMOMAXU_W {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rs2: rs2.into(),
+                                rl,
+                                aq,
+                            },
+                            _ => Instruction::Undifined(inst),
+                        }
+                    }
+                    (0b0101111, 0b011, f7) => {
+                        let rl = (f7 & 0b0000001) != 0;
+                        let aq = (f7 & 0b0000010) != 0;
+                        match f7 >> 2 {
+                            0b00010 => Instruction::LR_D {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rl,
+                                aq,
+                            },
+                            0b00011 => Instruction::SC_D {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rs2: rs2.into(),
+                                rl,
+                                aq,
+                            },
+                            0b00001 => Instruction::AMOSWAP_D {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rs2: rs2.into(),
+                                rl,
+                                aq,
+                            },
+                            0b00000 => Instruction::AMOADD_D {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rs2: rs2.into(),
+                                rl,
+                                aq,
+                            },
+                            0b00100 => Instruction::AMOXOR_D {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rs2: rs2.into(),
+                                rl,
+                                aq,
+                            },
+                            0b01100 => Instruction::AMOAND_D {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rs2: rs2.into(),
+                                rl,
+                                aq,
+                            },
+                            0b01000 => Instruction::AMOOR_D {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rs2: rs2.into(),
+                                rl,
+                                aq,
+                            },
+                            0b10000 => Instruction::AMOMIN_D {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rs2: rs2.into(),
+                                rl,
+                                aq,
+                            },
+                            0b10100 => Instruction::AMOMAX_D {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rs2: rs2.into(),
+                                rl,
+                                aq,
+                            },
+                            0b11000 => Instruction::AMOMINU_D {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rs2: rs2.into(),
+                                rl,
+                                aq,
+                            },
+                            0b11100 => Instruction::AMOMAXU_D {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rs2: rs2.into(),
+                                rl,
+                                aq,
+                            },
+                            _ => Instruction::Undifined(inst),
+                        }
+                    }
                     _ => Instruction::Undifined(inst),
                 }
             }
@@ -538,7 +704,7 @@ const TYPE_MAP: [Option<InstructionType>; 128] = [
     /*0b0101100 */ None,
     /*0b0101101 */ None,
     /*0b0101110 */ None,
-    /*0b0101111 */ None,
+    /*0b0101111 */ Some(InstructionType::R),
     /*0b0110000 */ None,
     /*0b0110001 */ None,
     /*0b0110010 */ None,

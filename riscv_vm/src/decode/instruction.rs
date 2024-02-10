@@ -1,5 +1,6 @@
 use crate::{hart::CsrAddress, memory::registers::IntRegister};
 
+#[allow(non_camel_case_types)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Instruction {
     // RV64I
@@ -271,7 +272,7 @@ pub enum Instruction {
     ECALL,
     EBREAK,
 
-    //RV64m
+    //RV64M
     MUL {
         rd: IntRegister,
         rs1: IntRegister,
@@ -369,6 +370,162 @@ pub enum Instruction {
         rd: IntRegister,
         uimm: u32,
         csr: CsrAddress,
+    },
+
+    // RV32A
+    LR_W {
+        rd: IntRegister,
+        rs1: IntRegister,
+        rl: bool,
+        aq: bool,
+    },
+    SC_W {
+        rd: IntRegister,
+        rs1: IntRegister,
+        rs2: IntRegister,
+        rl: bool,
+        aq: bool,
+    },
+    AMOSWAP_W {
+        rd: IntRegister,
+        rs1: IntRegister,
+        rs2: IntRegister,
+        rl: bool,
+        aq: bool,
+    },
+    AMOADD_W {
+        rd: IntRegister,
+        rs1: IntRegister,
+        rs2: IntRegister,
+        rl: bool,
+        aq: bool,
+    },
+    AMOXOR_W {
+        rd: IntRegister,
+        rs1: IntRegister,
+        rs2: IntRegister,
+        rl: bool,
+        aq: bool,
+    },
+    AMOAND_W {
+        rd: IntRegister,
+        rs1: IntRegister,
+        rs2: IntRegister,
+        rl: bool,
+        aq: bool,
+    },
+    AMOOR_W {
+        rd: IntRegister,
+        rs1: IntRegister,
+        rs2: IntRegister,
+        rl: bool,
+        aq: bool,
+    },
+    AMOMIN_W {
+        rd: IntRegister,
+        rs1: IntRegister,
+        rs2: IntRegister,
+        rl: bool,
+        aq: bool,
+    },
+    AMOMAX_W {
+        rd: IntRegister,
+        rs1: IntRegister,
+        rs2: IntRegister,
+        rl: bool,
+        aq: bool,
+    },
+    AMOMINU_W {
+        rd: IntRegister,
+        rs1: IntRegister,
+        rs2: IntRegister,
+        rl: bool,
+        aq: bool,
+    },
+    AMOMAXU_W {
+        rd: IntRegister,
+        rs1: IntRegister,
+        rs2: IntRegister,
+        rl: bool,
+        aq: bool,
+    },
+
+    // RV64A
+    LR_D {
+        rd: IntRegister,
+        rs1: IntRegister,
+        rl: bool,
+        aq: bool,
+    },
+    SC_D {
+        rd: IntRegister,
+        rs1: IntRegister,
+        rs2: IntRegister,
+        rl: bool,
+        aq: bool,
+    },
+    AMOSWAP_D {
+        rd: IntRegister,
+        rs1: IntRegister,
+        rs2: IntRegister,
+        rl: bool,
+        aq: bool,
+    },
+    AMOADD_D {
+        rd: IntRegister,
+        rs1: IntRegister,
+        rs2: IntRegister,
+        rl: bool,
+        aq: bool,
+    },
+    AMOXOR_D {
+        rd: IntRegister,
+        rs1: IntRegister,
+        rs2: IntRegister,
+        rl: bool,
+        aq: bool,
+    },
+    AMOAND_D {
+        rd: IntRegister,
+        rs1: IntRegister,
+        rs2: IntRegister,
+        rl: bool,
+        aq: bool,
+    },
+    AMOOR_D {
+        rd: IntRegister,
+        rs1: IntRegister,
+        rs2: IntRegister,
+        rl: bool,
+        aq: bool,
+    },
+    AMOMIN_D {
+        rd: IntRegister,
+        rs1: IntRegister,
+        rs2: IntRegister,
+        rl: bool,
+        aq: bool,
+    },
+    AMOMAX_D {
+        rd: IntRegister,
+        rs1: IntRegister,
+        rs2: IntRegister,
+        rl: bool,
+        aq: bool,
+    },
+    AMOMINU_D {
+        rd: IntRegister,
+        rs1: IntRegister,
+        rs2: IntRegister,
+        rl: bool,
+        aq: bool,
+    },
+    AMOMAXU_D {
+        rd: IntRegister,
+        rs1: IntRegister,
+        rs2: IntRegister,
+        rl: bool,
+        aq: bool,
     },
 
     // Privilege

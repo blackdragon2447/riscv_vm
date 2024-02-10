@@ -1,5 +1,7 @@
+mod rv32a;
 mod rv32i;
 mod rv32m;
+mod rv64a;
 mod rv64i;
 mod rv64m;
 mod rv64zicsr;
@@ -59,17 +61,17 @@ pub fn execute_rv64(
         BGE { rs1, rs2, imm } => s_type(hart, imm, rs1, rs2, rv32i::bge_64),
         BLTU { rs1, rs2, imm } => s_type(hart, imm as i32, rs1, rs2, rv32i::bltu_64),
         BGEU { rs1, rs2, imm } => s_type(hart, imm as i32, rs1, rs2, rv32i::bgeu_64),
-        LB { rd, rs1, imm } => i_type_mem_access(hart, mem, rd, rs1, imm, rv32i::lb_64),
-        LH { rd, rs1, imm } => i_type_mem_access(hart, mem, rd, rs1, imm, rv32i::lh_64),
-        LW { rd, rs1, imm } => i_type_mem_access(hart, mem, rd, rs1, imm, rv32i::lw_64),
-        LD { rd, rs1, imm } => i_type_mem_access(hart, mem, rd, rs1, imm, rv64i::ld_64),
-        LBU { rd, rs1, imm } => i_type_mem_access(hart, mem, rd, rs1, imm, rv32i::lbu_64),
-        LHU { rd, rs1, imm } => i_type_mem_access(hart, mem, rd, rs1, imm, rv32i::lhu_64),
-        LWU { rd, rs1, imm } => i_type_mem_access(hart, mem, rd, rs1, imm, rv64i::lwu_64),
-        SB { rs1, rs2, imm } => s_type_mem_access(hart, mem, imm, rs1, rs2, rv32i::sb_64),
-        SH { rs1, rs2, imm } => s_type_mem_access(hart, mem, imm, rs1, rs2, rv32i::sh_64),
-        SW { rs1, rs2, imm } => s_type_mem_access(hart, mem, imm, rs1, rs2, rv32i::sw_64),
-        SD { rs1, rs2, imm } => s_type_mem_access(hart, mem, imm, rs1, rs2, rv64i::sd_64),
+        LB { rd, rs1, imm } => i_type_mem(hart, mem, rd, rs1, imm, rv32i::lb_64),
+        LH { rd, rs1, imm } => i_type_mem(hart, mem, rd, rs1, imm, rv32i::lh_64),
+        LW { rd, rs1, imm } => i_type_mem(hart, mem, rd, rs1, imm, rv32i::lw_64),
+        LD { rd, rs1, imm } => i_type_mem(hart, mem, rd, rs1, imm, rv64i::ld_64),
+        LBU { rd, rs1, imm } => i_type_mem(hart, mem, rd, rs1, imm, rv32i::lbu_64),
+        LHU { rd, rs1, imm } => i_type_mem(hart, mem, rd, rs1, imm, rv32i::lhu_64),
+        LWU { rd, rs1, imm } => i_type_mem(hart, mem, rd, rs1, imm, rv64i::lwu_64),
+        SB { rs1, rs2, imm } => s_type_mem(hart, mem, imm, rs1, rs2, rv32i::sb_64),
+        SH { rs1, rs2, imm } => s_type_mem(hart, mem, imm, rs1, rs2, rv32i::sh_64),
+        SW { rs1, rs2, imm } => s_type_mem(hart, mem, imm, rs1, rs2, rv32i::sw_64),
+        SD { rs1, rs2, imm } => s_type_mem(hart, mem, imm, rs1, rs2, rv64i::sd_64),
         ADDI { rd, rs1, imm } => i_type(hart, rd, rs1, imm, rv32i::addi_64),
         SLTI { rd, rs1, imm } => i_type(hart, rd, rs1, imm, rv32i::slti_64),
         SLTIU { rd, rs1, imm } => i_type(hart, rd, rs1, imm as i32, rv32i::sltiu_64),
@@ -124,6 +126,152 @@ pub fn execute_rv64(
             r_type(hart, rd, rs1, rs2, rv64m::remuw_64)
         }
 
+        // rv32a
+        LR_W { rd, rs1, rl, aq } => r_type_mem(hart, mem, rd, rs1, IntRegister::X0, rv32a::lr_w_64),
+        SC_W {
+            rd,
+            rs1,
+            rs2,
+            rl,
+            aq,
+        } => r_type_mem(hart, mem, rd, rs1, rs2, rv32a::sc_w_64),
+        AMOSWAP_W {
+            rd,
+            rs1,
+            rs2,
+            rl,
+            aq,
+        } => r_type_mem(hart, mem, rd, rs1, rs2, rv32a::amoswap_w_64),
+        AMOADD_W {
+            rd,
+            rs1,
+            rs2,
+            rl,
+            aq,
+        } => r_type_mem(hart, mem, rd, rs1, rs2, rv32a::amoadd_w_64),
+        AMOAND_W {
+            rd,
+            rs1,
+            rs2,
+            rl,
+            aq,
+        } => r_type_mem(hart, mem, rd, rs1, rs2, rv32a::amoand_w_64),
+        AMOOR_W {
+            rd,
+            rs1,
+            rs2,
+            rl,
+            aq,
+        } => r_type_mem(hart, mem, rd, rs1, rs2, rv32a::amoor_w_64),
+        AMOXOR_W {
+            rd,
+            rs1,
+            rs2,
+            rl,
+            aq,
+        } => r_type_mem(hart, mem, rd, rs1, rs2, rv32a::amoxor_w_64),
+        AMOMAX_W {
+            rd,
+            rs1,
+            rs2,
+            rl,
+            aq,
+        } => r_type_mem(hart, mem, rd, rs1, rs2, rv32a::amomax_w_64),
+        AMOMAXU_W {
+            rd,
+            rs1,
+            rs2,
+            rl,
+            aq,
+        } => r_type_mem(hart, mem, rd, rs1, rs2, rv32a::amomaxu_w_64),
+        AMOMIN_W {
+            rd,
+            rs1,
+            rs2,
+            rl,
+            aq,
+        } => r_type_mem(hart, mem, rd, rs1, rs2, rv32a::amomin_w_64),
+        AMOMINU_W {
+            rd,
+            rs1,
+            rs2,
+            rl,
+            aq,
+        } => r_type_mem(hart, mem, rd, rs1, rs2, rv32a::amominu_w_64),
+
+        // rv64a
+        LR_D { rd, rs1, rl, aq } => r_type_mem(hart, mem, rd, rs1, IntRegister::X0, rv64a::lr_d_64),
+        SC_D {
+            rd,
+            rs1,
+            rs2,
+            rl,
+            aq,
+        } => r_type_mem(hart, mem, rd, rs1, rs2, rv64a::sc_d_64),
+        AMOSWAP_D {
+            rd,
+            rs1,
+            rs2,
+            rl,
+            aq,
+        } => r_type_mem(hart, mem, rd, rs1, rs2, rv64a::amoswap_d_64),
+        AMOADD_D {
+            rd,
+            rs1,
+            rs2,
+            rl,
+            aq,
+        } => r_type_mem(hart, mem, rd, rs1, rs2, rv64a::amoadd_d_64),
+        AMOAND_D {
+            rd,
+            rs1,
+            rs2,
+            rl,
+            aq,
+        } => r_type_mem(hart, mem, rd, rs1, rs2, rv64a::amoand_d_64),
+        AMOOR_D {
+            rd,
+            rs1,
+            rs2,
+            rl,
+            aq,
+        } => r_type_mem(hart, mem, rd, rs1, rs2, rv64a::amoor_d_64),
+        AMOXOR_D {
+            rd,
+            rs1,
+            rs2,
+            rl,
+            aq,
+        } => r_type_mem(hart, mem, rd, rs1, rs2, rv64a::amoxor_d_64),
+        AMOMAX_D {
+            rd,
+            rs1,
+            rs2,
+            rl,
+            aq,
+        } => r_type_mem(hart, mem, rd, rs1, rs2, rv64a::amomax_d_64),
+        AMOMAXU_D {
+            rd,
+            rs1,
+            rs2,
+            rl,
+            aq,
+        } => r_type_mem(hart, mem, rd, rs1, rs2, rv64a::amomaxu_d_64),
+        AMOMIN_D {
+            rd,
+            rs1,
+            rs2,
+            rl,
+            aq,
+        } => r_type_mem(hart, mem, rd, rs1, rs2, rv64a::amomin_d_64),
+        AMOMINU_D {
+            rd,
+            rs1,
+            rs2,
+            rl,
+            aq,
+        } => r_type_mem(hart, mem, rd, rs1, rs2, rv64a::amominu_d_64),
+
         // rv64 Zicsr
         CSRRW {
             rd: IntRegister::X0,
@@ -154,6 +302,7 @@ pub fn execute_rv64(
         CSRRCI { rd, uimm: 0, csr } => inst_csrroi(hart, rd, csr, rv64zicsr::csrr),
         CSRRCI { rd, uimm, csr } => inst_csri(hart, rd, uimm, csr, rv64zicsr::csrrci),
 
+        // privileged
         MRET if hart.privilege() >= PrivilegeMode::Machine => {
             let status = hart.get_csr_mut().get_status_mut();
             let mpp = status.mpp;
@@ -225,6 +374,25 @@ where
     Ok(result)
 }
 
+fn r_type_mem<E>(
+    hart: &mut Hart,
+    mem: &mut Memory,
+    rd: IntRegister,
+    rs1: IntRegister,
+    rs2: IntRegister,
+    executor: E,
+) -> Result<ExecuteResult, ExecuteError>
+where
+    E: Fn(Address, MemoryWindow, &mut i64, &i64, &i64) -> Result<ExecuteResult, ExecuteError>,
+{
+    let rs1 = hart.get_reg(rs1);
+    let rs2 = hart.get_reg(rs2);
+    let mut rdv = 0;
+    let result = executor(hart.get_pc(), mem.window(hart), &mut rdv, &rs1, &rs2)?;
+    hart.set_reg(rd, rdv);
+    Ok(result)
+}
+
 fn i_type<E>(
     hart: &mut Hart,
     rd: IntRegister,
@@ -242,7 +410,7 @@ where
     Ok(result)
 }
 
-fn i_type_mem_access<E>(
+fn i_type_mem<E>(
     hart: &mut Hart,
     mem: &mut Memory,
     rd: IntRegister,
@@ -276,7 +444,7 @@ where
     Ok(result)
 }
 
-fn s_type_mem_access<E>(
+fn s_type_mem<E>(
     hart: &mut Hart,
     mem: &mut Memory,
     imm: i32,

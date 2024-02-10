@@ -12,6 +12,7 @@ use syn::{
 
 enum InstType {
     R,
+    RMem,
     I,
     IMem,
     S,
@@ -66,6 +67,7 @@ impl Parse for Inst {
 
         let inst_type = match syntax.inst_type.to_string().as_str() {
             "r" => InstType::R,
+            "r_mem" => InstType::RMem,
             "i" => InstType::I,
             "i_mem" => InstType::IMem,
             "s" => InstType::S,
@@ -132,6 +134,21 @@ pub(super) fn inst_internal(input: TokenStream) -> TokenStream {
                 impls.push(quote!(
                     pub(super) fn #name(
                         pc: Address,
+                        rd: &mut #xlen,
+                        rs1: &#xlen,
+                        rs2: &#xlen
+                    ) -> Result<ExecuteResult, ExecuteError> {
+                        #len_types
+
+                        #code
+                    }
+                ));
+            }
+            InstType::RMem => {
+                impls.push(quote!(
+                    pub(super) fn #name(
+                        pc: Address,
+                        mut mem: MemoryWindow,
                         rd: &mut #xlen,
                         rs1: &#xlen,
                         rs2: &#xlen
