@@ -36,7 +36,7 @@ pub struct CsrHolder {
 
     // SupervisorMode
     // sstatus (tied to status)
-    // sie: u64,
+    sie: BitFlags<Interrupt>,
     pub(in crate::hart) stvec: TrapVector,
     scounteren: BitFlags<Counters>,
     senvcfg: u64,
@@ -44,7 +44,7 @@ pub struct CsrHolder {
     pub(in crate::hart) sepc: Address,
     pub(in crate::hart) scause: u64,
     pub(in crate::hart) stval: u64,
-    // sip: u64
+    sip: BitFlags<Interrupt>,
     pub(in crate::hart) satp: Satp,
 
     // MachineMode
@@ -59,14 +59,14 @@ pub struct CsrHolder {
     misa: BitFlags<Isa>,
     pub(in crate::hart) medeleg: BitFlags<Exception>,
     mideleg: BitFlags<Interrupt>,
-    // mie: u64,
+    mie: BitFlags<Interrupt>,
     pub(in crate::hart) mtvec: TrapVector,
     mcounteren: BitFlags<Counters>,
     mscratch: u64,
     pub(in crate::hart) mepc: Address,
     pub(in crate::hart) mcause: u64,
     pub(in crate::hart) mtval: u64,
-    // mip: u64
+    mip: BitFlags<Interrupt>,
     menvcfg: u64,
     mseccfg: u64,
 
@@ -196,6 +196,7 @@ impl CsrHolder {
             time_started: Instant::now(),
 
             // SupervisorMode
+            sie: Interrupt::empty(),
             stvec: TrapVector {
                 mode: TrapMode::Direct,
                 base: 0u64.into(),
@@ -208,6 +209,7 @@ impl CsrHolder {
             stval: 0,
             // We may unwrap because 0 is a know valid value for satp
             satp: Satp::from_bits(0).unwrap(),
+            sip: Interrupt::empty(),
 
             // MachineMode
             mvendorid: 0,
@@ -218,6 +220,7 @@ impl CsrHolder {
             misa: Isa::maximal(),
             medeleg: Exception::empty(),
             mideleg: Interrupt::empty(),
+            mie: Interrupt::empty(),
             mtvec: TrapVector {
                 mode: TrapMode::Direct,
                 base: 0u64.into(),
@@ -227,6 +230,7 @@ impl CsrHolder {
             mepc: 0u64.into(),
             mcause: 0,
             mtval: 0,
+            mip: Interrupt::empty(),
             menvcfg: 0,
             mseccfg: 0,
             mcycle: 0,
@@ -297,7 +301,7 @@ impl CsrHolder {
     pub fn get_csr(&self, addr: CsrAddress) -> u64 {
         match addr.into() {
             0xC00u16 => self.mcycle,
-            0xC01 => self.time_started.elapsed().as_millis() as u64,
+            0xC01 => self.time_started.elapsed().as_micros() as u64,
             0xC02 => self.minstret,
 
             0x100 => self.status.to_s_bits(),
@@ -424,6 +428,10 @@ impl CsrHolder {
                 }
                 0x343 => {
                     self.mtval = value;
+                }
+                0x344 => {
+                    self.mip =
+                        BitFlags::<Interrupt>::from_bits_truncate(value & !0b0000_1000_1000_1000)
                 }
                 0x30A => {
                     self.menvcfg = (value & (0b1 | 0b1 << 62));

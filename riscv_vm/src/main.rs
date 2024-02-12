@@ -81,6 +81,7 @@ fn main() {
                         }
                     }
                 }
+                "run" => vmstate.run().unwrap(),
                 "step_until" => {
                     if let Some(target) = args.get(1) {
                         match *target {

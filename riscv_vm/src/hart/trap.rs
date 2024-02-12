@@ -48,7 +48,20 @@ pub(super) enum Interrupt {
     SupervisorSoftware = 0b1 << 1,
     MachineSoftware = 0b1 << 3,
     SupervisorTimer = 0b1 << 5,
-    MachineTimer = 0b1 << 6,
+    MachineTimer = 0b1 << 7,
     SupervisorExternal = 0b1 << 9,
     MachineExternal = 0b1 << 11,
+}
+
+impl Interrupt {
+    pub fn get_code(&self) -> u64 {
+        match self {
+            Interrupt::SupervisorSoftware => 1,
+            Interrupt::MachineSoftware => 3,
+            Interrupt::SupervisorTimer => 5,
+            Interrupt::MachineTimer => 7,
+            Interrupt::SupervisorExternal => 9,
+            Interrupt::MachineExternal => 11,
+        }
+    }
 }

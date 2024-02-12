@@ -308,7 +308,9 @@ pub fn execute_rv64(
             let mpp = status.mpp;
             status.mie = status.mpie;
             status.mpie = false;
-            status.mprv = false;
+            if mpp != PrivilegeMode::Machine {
+                status.mprv = false;
+            }
             hart.set_privilege(mpp);
 
             Ok(ExecuteResult::Jump(hart.get_csr().get_mepc()))
@@ -324,7 +326,9 @@ pub fn execute_rv64(
             let spp = status.spp;
             status.sie = status.spie;
             status.spie = false;
-            status.mprv = false;
+            if spp != PrivilegeMode::Machine {
+                status.mprv = false;
+            }
             hart.set_privilege(spp);
 
             Ok(ExecuteResult::Jump(hart.get_csr().get_sepc()))
