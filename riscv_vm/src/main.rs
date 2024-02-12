@@ -31,6 +31,8 @@ fn main() {
     // vmstate.step_hart_until(0, 0x2d8u64.into()).unwrap();
     // vmstate.dump_mem();
 
+    println!("Input a command or type help");
+
     'cmdline: loop {
         print!("> ");
         let mut buf = String::new();
