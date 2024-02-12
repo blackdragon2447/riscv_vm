@@ -2,9 +2,9 @@ name: Rust
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 env:
   CARGO_TERM_COLOR: always
@@ -21,17 +21,35 @@ jobs:
       - name: Build
         run: cargo build --verbose
 
+      - run: |
+          mkdir artifacts
+          cp target/debug/riscv_vm artifacts/
+          cp examples/os.elf artifacts/
+
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
           name: riscv_vm
-          path: target/debug/riscv_vm
+          path: artifacts/
 
-      - name: BuildWithVga
+  build_vga:
+    name: BuildWithVga
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@master
+
+      - name: Build
         run: cargo build --features vga_text_buf --verbose
 
-      - name: UploadWithVga
+      - run: |
+          mkdir artifacts_vga
+          cp target/debug/riscv_vm artifacts_vga/
+          cp examples/os_vga.elf artifacts_vga/
+
+      - name: Upload
         uses: actions/upload-artifact@v4
         with:
           name: riscv_vm_vga
-          path: target/debug/riscv_vm
+          path: artifacts_vga/
