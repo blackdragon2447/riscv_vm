@@ -19,7 +19,7 @@ use winit::{
     dpi::{LogicalSize, PhysicalSize},
     event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
     event_loop::{self, ControlFlow, EventLoop, EventLoopBuilder},
-    platform::x11::EventLoopBuilderExtX11,
+    platform::{wayland::EventLoopBuilderExtWayland, x11::EventLoopBuilderExtX11},
     window::{Window, WindowBuilder},
 };
 
@@ -80,10 +80,37 @@ impl Device for VgaTextMode {
 
         let padding = 10;
 
-        let event_loop = EventLoopBuilder::new()
-            .with_x11()
-            .with_any_thread(true)
-            .build();
+        // let event_loop =
+        let event_loop = match std::env::var("XDG_SESSION_TYPE") {
+            Ok(s) => {
+                match s.as_str() {
+                    "x11" => EventLoopBuilderExtX11::with_any_thread(
+                        EventLoopBuilder::new().with_x11(),
+                        true,
+                    )
+                    .build(),
+                    "wayland" => EventLoopBuilderExtWayland::with_any_thread(
+                        EventLoopBuilder::new().with_wayland(),
+                        true,
+                    )
+                    .build(),
+                    _ => {
+                        eprintln!("cannot guess session type using xdg_session_type, falling back to xorg");
+                        EventLoopBuilderExtX11::with_any_thread(
+                            EventLoopBuilder::new().with_x11(),
+                            true,
+                        )
+                        .build()
+                    }
+                }
+            }
+            _ => {
+                eprintln!("cannot guess session type using xdg_session_type, falling back to xorg");
+                EventLoopBuilderExtX11::with_any_thread(EventLoopBuilder::new().with_x11(), true)
+                    .build()
+            }
+        };
+
         let window = WindowBuilder::new()
             .with_resizable(false)
             .with_inner_size(PhysicalSize::new(
