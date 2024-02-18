@@ -3,6 +3,7 @@ mod csr_address;
 mod csr_holder;
 pub mod isa;
 pub mod privilege;
+pub mod registers;
 #[cfg(test)]
 mod tests;
 pub mod trap;
@@ -12,17 +13,18 @@ use std::{collections::HashMap, time::Instant, usize};
 use crate::{
     decode::{decode, instruction::Instruction},
     execute::{execute_rv64, ExecuteError, ExecuteResult},
-    memory::{
-        address::Address,
-        registers::{IntRegister, Registers},
-        Memory, MemoryError,
-    },
+    memory::{address::Address, Memory, MemoryError},
     vmstate::{VMError, VMSettings},
 };
 
 pub use csr_address::CsrAddress;
 
-use self::{csr_holder::CsrHolder, privilege::PrivilegeMode, trap::Exception};
+use self::{
+    csr_holder::CsrHolder,
+    privilege::PrivilegeMode,
+    registers::{IntRegister, Registers},
+    trap::Exception,
+};
 
 #[derive(Debug)]
 pub struct Hart {

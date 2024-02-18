@@ -37,7 +37,7 @@ mod types {
 mod instructions {
     use crate::{
         decode::{decode, Instruction::*},
-        memory::registers::IntRegister::*,
+        hart::registers::IntRegister::*,
     };
 
     #[test]

@@ -13,8 +13,6 @@ use std::{
 use elf_load::ByteRanges;
 use nohash_hasher::IntMap;
 
-use registers::IntRegister;
-
 use crate::{
     devices::DeviceInitError,
     hart::{
@@ -32,7 +30,6 @@ use self::{
 pub mod address;
 pub mod paging;
 pub mod pmp;
-pub mod registers;
 #[cfg(test)]
 mod tests;
 

@@ -10,8 +10,11 @@ use enumflags2::BitFlags;
 
 use crate::{
     decode::instruction::{Instruction, Instruction::*},
-    hart::{isa::Isa, privilege::PrivilegeMode, trap::Exception, CsrAddress, Hart},
-    memory::{address::Address, registers::IntRegister, Memory, MemoryError, MemoryWindow},
+    hart::{
+        isa::Isa, privilege::PrivilegeMode, registers::IntRegister, trap::Exception, CsrAddress,
+        Hart,
+    },
+    memory::{address::Address, Memory, MemoryError, MemoryWindow},
 };
 
 pub enum ExecuteResult {

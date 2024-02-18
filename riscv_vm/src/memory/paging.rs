@@ -7,7 +7,7 @@ use crate::{
 
 use super::{
     address::{Address, VirtAddress},
-    registers, MemoryError, MemoryWindow,
+    MemoryError, MemoryWindow,
 };
 
 const PAGE_SIZE: u64 = 4096;

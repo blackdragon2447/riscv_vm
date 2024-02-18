@@ -1,4 +1,4 @@
-use crate::{hart::CsrAddress, memory::registers::IntRegister};
+use crate::{hart::registers::IntRegister, hart::CsrAddress};
 
 #[allow(non_camel_case_types)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
