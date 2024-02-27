@@ -6,8 +6,8 @@ use crate::{
     hart::privilege::PrivilegeMode,
     memory::pmp::PMP,
     memory::{KB, MB},
+    vmstate::builder::VMStateBuilder,
     vmstate::VMState,
-    vmstate::VMStateBuilder,
 };
 
 isa_test!(off: rv64ui_p_add);

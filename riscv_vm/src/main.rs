@@ -7,26 +7,24 @@ use std::{
 use elf_load::Elf;
 #[cfg(feature = "vga_text_buf")]
 use riscv_vm::devices::vga_text_mode::VgaTextMode;
-use riscv_vm::{devices::simple_uart::SimpleUart, memory::MB, vmstate::VMStateBuilder};
+use riscv_vm::{devices::simple_uart::SimpleUart, memory::MB, vmstate::builder::VMStateBuilder};
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let bytes = fs::read(&args[1]).unwrap();
     let elf = Elf::from_bytes(bytes).unwrap();
 
-    let mut vmstate = VMStateBuilder::<{ 3 * MB }>::default()
-        .set_hart_count(1)
-        .build();
-    vmstate.load_elf_kernel(&elf).unwrap();
-
-    vmstate
+    #[cfg_attr(not(feature = "vga_text_buf"), allow(unused_mut))]
+    let mut builder = VMStateBuilder::<{ 3 * MB }>::default()
         .add_sync_device::<SimpleUart>(0x10000000u64.into())
-        .unwrap();
+        .set_hart_count(1);
 
     #[cfg(feature = "vga_text_buf")]
-    vmstate
-        .add_async_device::<VgaTextMode>(0xB8000u64.into())
-        .unwrap();
+    let builder = builder.add_sync_device::<VgaTextMode>(0xB8000u64);
+
+    let mut vmstate = builder.build().unwrap();
+
+    vmstate.load_elf_kernel(&elf).unwrap();
 
     // vmstate.step_hart_until(0, 0x2d8u64.into()).unwrap();
     // vmstate.dump_mem();

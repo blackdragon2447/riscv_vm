@@ -1,16 +1,25 @@
 use std::{
     collections::btree_map::Range,
     error::Error,
-    sync::{Arc, PoisonError, RwLock},
+    sync::{
+        mpsc::{self, Receiver, Sender},
+        Arc, PoisonError, RwLock,
+    },
+    time::{Duration, Instant},
 };
 
-use elf_load::Address;
+use crate::memory::{address::Address, registers::MemoryRegisterHandle, DeviceMemory};
 
-use crate::memory::DeviceMemory;
+use self::event_bus::DeviceEvent;
 
+pub mod async_device;
+pub mod event_bus;
+pub mod handled_device;
 pub mod simple_uart;
 #[cfg(feature = "vga_text_buf")]
 pub mod vga_text_mode;
+
+pub type DeviceId = usize;
 
 #[derive(Debug)]
 pub enum DeviceInitError {
@@ -23,26 +32,26 @@ pub enum DeviceInitError {
 #[derive(Debug)]
 pub enum DeviceError {
     MemoryOverlap,
-    UpdateError(Box<dyn Error>),
+    UpdateError(Box<dyn Error + Send>),
 }
 
 pub trait Device {
-    const MEN_SIZE: u64;
+    const MEM_SIZE: u64;
 
-    fn init(mem: &mut DeviceMemory) -> Result<Self, DeviceInitError>
-    where
-        Self: Sized;
+    fn new() -> Self;
 }
 
-pub trait HandledDevice {
-    fn update(&mut self, mem: &mut DeviceMemory) -> Result<(), DeviceError>;
+pub trait DeviceObject {
+    fn init(
+        &mut self,
+        mem: &mut DeviceMemory,
+        registers: MemoryRegisterHandle,
+    ) -> Result<(), DeviceInitError>;
+    // where
+    // Self: Sized;
 }
 
-pub trait AsyncDevice {
-    fn run(self, mem: Arc<RwLock<DeviceMemory>>);
-}
-
-impl<T: Error + 'static> From<T> for DeviceError {
+impl<T: Error + Send + 'static> From<T> for DeviceError {
     fn from(value: T) -> Self {
         Self::UpdateError(Box::new(value))
     }

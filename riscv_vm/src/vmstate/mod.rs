@@ -1,4 +1,10 @@
-use std::{collections::HashMap, fmt::Debug};
+pub mod builder;
+
+use std::{
+    collections::HashMap,
+    fmt::Debug,
+    sync::mpsc::{self, Receiver, Sender},
+};
 
 use elf_load::{
     data::{Bitness, Endianess, ProgramType, ASI},
@@ -7,10 +13,15 @@ use elf_load::{
 
 use crate::{
     decode::{decode, instruction::Instruction},
-    devices::{AsyncDevice, Device, DeviceError, DeviceInitError, HandledDevice},
+    devices::{
+        async_device::{AsyncDevice, AsyncDeviceHolder},
+        event_bus::{DeviceEvent, DeviceEventBus},
+        handled_device::{HandledDevice, HandledDeviceHolder},
+        Device, DeviceError, DeviceId, DeviceInitError,
+    },
     execute::{execute_rv64, ExecuteError},
     hart::{self, privilege::PrivilegeMode, Hart},
-    memory::{address::Address, pmp::PMP, DeviceMemory, Memory, MemoryError},
+    memory::{self, address::Address, pmp::PMP, DeviceMemory, Memory, MemoryError},
 };
 
 #[derive(Default, Debug, Clone, Copy)]
@@ -19,17 +30,12 @@ pub struct VMSettings {
     pub virt_mem_enable: bool,
 }
 
-#[derive(Default, Debug)]
-pub struct VMStateBuilder<const MEM_SIZE: usize> {
-    hart_count: u64, //TODO: Change to vec HartSettings at some point
-    settings: VMSettings,
-}
-
 pub struct VMState {
     harts: Vec<Hart>,
     mem: Memory,
-    sync_devices: HashMap<usize, Box<dyn HandledDevice>>,
+    sync_devices: HashMap<usize, HandledDeviceHolder>,
     // async_devices: HashMap<usize, Box<dyn AsyncDevice>>,
+    device_event_bus: DeviceEventBus,
     next_dev_id: usize,
     settings: VMSettings,
 }
@@ -53,27 +59,6 @@ pub enum VMError {
     MBreak,
 }
 
-impl<const MEM_SIZE: usize> VMStateBuilder<MEM_SIZE> {
-    pub fn enable_pmp(mut self) -> Self {
-        self.settings.pmp_enable = true;
-        self
-    }
-
-    pub fn enable_virt_mem(mut self) -> Self {
-        self.settings.pmp_enable = true;
-        self
-    }
-
-    pub fn set_hart_count(mut self, harts: u64) -> Self {
-        self.hart_count = harts;
-        self
-    }
-
-    pub fn build(self) -> VMState {
-        VMState::new::<MEM_SIZE>(self.hart_count, self.settings)
-    }
-}
-
 impl VMState {
     fn new<const MEM_SIZE: usize>(hart_count: u64, settings: VMSettings) -> Self {
         let mut harts = Vec::new();
@@ -81,11 +66,14 @@ impl VMState {
             harts.push(Hart::new(i, settings));
         }
 
+        let (s, bus) = DeviceEventBus::new();
+
         Self {
             harts,
-            mem: Memory::new::<MEM_SIZE>(),
+            mem: Memory::new::<MEM_SIZE>(s),
             sync_devices: HashMap::new(),
             // async_devices: HashMap::new(),
+            device_event_bus: bus,
             next_dev_id: 0,
             settings,
         }
@@ -111,36 +99,55 @@ impl VMState {
         Ok(())
     }
 
-    pub fn add_sync_device<D: Device + HandledDevice + 'static>(
+    pub fn add_sync_device(
         &mut self,
-        // mem_size: u64,
+        mut dev: (Sender<DeviceEvent>, HandledDeviceHolder),
         addr: Address,
+        id: DeviceId,
+        mem_size: u64,
     ) -> Result<(), DeviceInitError> {
-        let mut memory = DeviceMemory::new(D::MEN_SIZE, addr);
-        self.sync_devices
-            .insert(self.next_dev_id, Box::new(D::init(&mut memory)?));
-        self.mem.add_device_memory(self.next_dev_id, memory)?;
-        self.next_dev_id += 1;
+        let mut memory = DeviceMemory::new(mem_size, addr);
+        dev.1
+            .init_device(&mut memory, self.mem.register_handle(id))?;
+        self.sync_devices.insert(id, dev.1);
+        self.mem.add_device_memory(id, memory);
+        self.device_event_bus.add_device(id, dev.0);
         Ok(())
     }
 
-    pub fn add_async_device<D: Device + AsyncDevice + 'static>(
+    pub fn add_async_device(
         &mut self,
-        // mem_size: u64,
+        mut dev: (Sender<DeviceEvent>, AsyncDeviceHolder),
         addr: Address,
+        id: DeviceId,
+        mem_size: u64,
     ) -> Result<(), DeviceInitError> {
-        let mut memory = DeviceMemory::new(D::MEN_SIZE, addr);
-        // self.async_devices
-        //     .insert(self.next_dev_id, Box::new(D::init(&mut memory)?));
-        let mem = self.mem.add_device_memory(self.next_dev_id, memory)?;
-        std::thread::spawn(move || -> Result<(), DeviceInitError> {
-            let device = D::init(&mut mem.write().unwrap())?;
-            device.run(mem);
-            Ok(())
-        });
-        self.next_dev_id += 1;
+        let mut memory = DeviceMemory::new(mem_size, addr);
+        dev.1
+            .init_device(&mut memory, self.mem.register_handle(id))?;
+        self.device_event_bus.add_device(id, dev.0);
+        let mem = self.mem.add_device_memory(id, memory)?;
+        dev.1.run(mem);
         Ok(())
     }
+
+    // pub fn add_sync_device<D: Device + HandledDevice + 'static>(
+    //     &mut self,
+    //     // mem_size: u64,
+    //     addr: Address,
+    // ) -> Result<(), DeviceInitError> {
+    //     let mut memory = DeviceMemory::new(D::MEN_SIZE, addr);
+    //     let device = Box::new(D::init(
+    //         &mut memory,
+    //         self.mem.register_handle(self.next_dev_id),
+    //     )?);
+    //     let (s, holder) = HandledDeviceHolder::new(device);
+    //     self.sync_devices.insert(self.next_dev_id, holder);
+    //     self.mem.add_device_memory(self.next_dev_id, memory)?;
+    //     self.device_event_bus.add_device(self.next_dev_id, s);
+    //     self.next_dev_id += 1;
+    //     Ok(())
+    // }
 
     pub fn step(&mut self, verbose: bool) -> Result<(), VMError> {
         for hart in &mut self.harts {

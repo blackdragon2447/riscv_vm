@@ -1,22 +1,38 @@
-use crate::devices::{Device, HandledDevice};
+use crate::devices::{handled_device::HandledDevice, Device, DeviceObject};
 
+#[derive(Debug)]
 pub struct TestOutputDevice;
 
 impl Device for TestOutputDevice {
-    const MEN_SIZE: u64 = 128;
+    const MEM_SIZE: u64 = 128;
 
-    fn init(mem: &mut crate::memory::DeviceMemory) -> Result<Self, crate::devices::DeviceInitError>
-    where
-        Self: Sized,
-    {
-        Ok(Self)
+    fn new() -> Self {
+        Self
+    }
+}
+
+impl DeviceObject for TestOutputDevice {
+    fn init(
+        &mut self,
+        _: &mut crate::memory::DeviceMemory,
+        _: crate::memory::registers::MemoryRegisterHandle,
+    ) -> Result<(), crate::devices::DeviceInitError> {
+        Ok(())
     }
 }
 
 impl HandledDevice for TestOutputDevice {
     fn update(
         &mut self,
-        mem: &mut crate::memory::DeviceMemory,
+        _: &mut crate::memory::DeviceMemory,
+    ) -> Result<(), crate::devices::DeviceError> {
+        Ok(())
+    }
+
+    fn event(
+        &mut self,
+        _: &mut crate::memory::DeviceMemory,
+        _: crate::devices::event_bus::DeviceEvent,
     ) -> Result<(), crate::devices::DeviceError> {
         Ok(())
     }
@@ -35,7 +51,8 @@ macro_rules! isa_test {
 
             let mut vmstate = VMStateBuilder::<{ (4 * KB) + 128 }>::default()
                 .set_hart_count(1)
-                .build();
+                .build()
+                .unwrap();
 
             vmstate.load_elf_kernel(&elf).unwrap();
 
@@ -52,9 +69,8 @@ macro_rules! isa_test {
                 if (bytes & 0b1) == 1 {
                     if (bytes >> 1) == 0 {
                         return Ok(());
-                    } else {
-                        return Err(bytes >> 1);
                     }
+                    return Err(bytes >> 1);
                 }
             }
         }
@@ -69,7 +85,10 @@ macro_rules! isa_test {
             .unwrap();
             let elf = Elf::from_bytes(bytes).unwrap();
 
-            let mut vmstate = VMStateBuilder::<$mem>::default().set_hart_count(1).build();
+            let mut vmstate = VMStateBuilder::<$mem>::default()
+                .set_hart_count(1)
+                .build()
+                .unwrap();
             vmstate.load_elf_kernel(&elf).unwrap();
 
             loop {
@@ -85,9 +104,8 @@ macro_rules! isa_test {
                 if (bytes & 0b1) == 1 {
                     if (bytes >> 1) == 0 {
                         return Ok(());
-                    } else {
-                        return Err(bytes >> 1);
                     }
+                    return Err(bytes >> 1);
                 }
             }
         }
@@ -117,9 +135,8 @@ macro_rules! isa_test {
                 if (bytes & 0b1) == 1 {
                     if (bytes >> 1) == 0 {
                         return Ok(());
-                    } else {
-                        return Err(bytes >> 1);
                     }
+                    return Err(bytes >> 1);
                 }
             }
         }
@@ -130,7 +147,10 @@ macro_rules! isa_test {
             let bytes = fs::read(format!("../vm_tests/official_tests/isa/{}", $file)).unwrap();
             let elf = Elf::from_bytes(bytes).unwrap();
 
-            let mut vmstate = VMStateBuilder::<$mem>::default().set_hart_count(1).build();
+            let mut vmstate = VMStateBuilder::<$mem>::default()
+                .set_hart_count(1)
+                .build()
+                .unwrap();
             vmstate.load_elf_kernel(&elf).unwrap();
 
             loop {
@@ -146,9 +166,8 @@ macro_rules! isa_test {
                 if (bytes & 0b1) == 1 {
                     if (bytes >> 1) == 0 {
                         return Ok(());
-                    } else {
-                        return Err(bytes >> 1);
                     }
+                    return Err(bytes >> 1);
                 }
             }
         }
@@ -166,9 +185,8 @@ macro_rules! isa_test {
 
             let mut vmstate = VMStateBuilder::<{ (4 * KB) + 128 }>::default()
                 .set_hart_count(1)
-                .build();
-            vmstate
                 .add_sync_device::<TestOutputDevice>(0x70000000u64.into())
+                .build()
                 .unwrap();
 
             vmstate.load_elf_kernel(&elf).unwrap();
@@ -186,9 +204,8 @@ macro_rules! isa_test {
                 if (bytes & 0b1) == 1 {
                     if (bytes >> 1) == 0 {
                         return Ok(());
-                    } else {
-                        return Err(bytes >> 1);
                     }
+                    return Err(bytes >> 1);
                 }
             }
         }
@@ -203,9 +220,10 @@ macro_rules! isa_test {
             .unwrap();
             let elf = Elf::from_bytes(bytes).unwrap();
 
-            let mut vmstate = VMStateBuilder::<$mem>::default().set_hart_count(1).build();
-            vmstate
+            let mut vmstate = VMStateBuilder::<$mem>::default()
+                .set_hart_count(1)
                 .add_sync_device::<TestOutputDevice>(0x70000000u64.into())
+                .build()
                 .unwrap();
 
             vmstate.load_elf_kernel(&elf).unwrap();
@@ -223,9 +241,8 @@ macro_rules! isa_test {
                 if (bytes & 0b1) == 1 {
                     if (bytes >> 1) == 0 {
                         return Ok(());
-                    } else {
-                        return Err(bytes >> 1);
                     }
+                    return Err(bytes >> 1);
                 }
             }
         }
@@ -259,9 +276,8 @@ macro_rules! isa_test {
                 if (bytes & 0b1) == 1 {
                     if (bytes >> 1) == 0 {
                         return Ok(());
-                    } else {
-                        return Err(bytes >> 1);
                     }
+                    return Err(bytes >> 1);
                 }
             }
         }
@@ -272,9 +288,10 @@ macro_rules! isa_test {
             let bytes = fs::read(format!("../vm_tests/custom_tests/{}", $file)).unwrap();
             let elf = Elf::from_bytes(bytes).unwrap();
 
-            let mut vmstate = VMStateBuilder::<$mem>::default().set_hart_count(1).build();
-            vmstate
+            let mut vmstate = VMStateBuilder::<$mem>::default()
+                .set_hart_count(1)
                 .add_sync_device::<TestOutputDevice>(0x70000000u64.into())
+                .build()
                 .unwrap();
 
             vmstate.load_elf_kernel(&elf).unwrap();
@@ -292,9 +309,8 @@ macro_rules! isa_test {
                 if (bytes & 0b1) == 1 {
                     if (bytes >> 1) == 0 {
                         return Ok(());
-                    } else {
-                        return Err(bytes >> 1);
                     }
+                    return Err(bytes >> 1);
                 }
             }
         }

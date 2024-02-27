@@ -6,15 +6,18 @@ use std::{
     io::Write,
     mem,
     ops::{Add, AddAssign, Deref, Range, RangeBounds, Sub},
-    sync::{Arc, PoisonError, RwLock, RwLockWriteGuard},
-    u8, vec,
+    sync::{mpsc::Sender, Arc, PoisonError, RwLock, RwLockWriteGuard},
+    u8, usize, vec,
 };
 
 use elf_load::ByteRanges;
 use nohash_hasher::IntMap;
 
 use crate::{
-    devices::DeviceInitError,
+    devices::{
+        event_bus::{DeviceEvent, DeviceEventType},
+        DeviceInitError,
+    },
     hart::{
         privilege::{self, PrivilegeMode},
         Hart,
@@ -41,8 +44,9 @@ pub struct DeviceMemory(Range<Address>, Vec<u8>);
 pub struct Memory {
     mem: Box<[u8]>,
     mem_range: Range<Address>,
-    device_regions: HashMap<usize, Arc<RwLock<DeviceMemory>>>,
+    device_regions: IntMap<usize, Arc<RwLock<DeviceMemory>>>,
     reservations: IntMap<u64, Range<Address>>,
+    device_event_bus: Sender<DeviceEvent>,
 }
 
 pub struct MemoryWindow<'a> {
@@ -89,13 +93,14 @@ impl Debug for Memory {
 }
 
 impl Memory {
-    pub fn new<const SIZE: usize>() -> Self {
+    pub fn new<const SIZE: usize>(device_event_bus: Sender<DeviceEvent>) -> Self {
         let mem = vec![0u8; SIZE].into_boxed_slice();
         Self {
             mem,
             mem_range: 0x80000000u64.into()..(0x80000000u64 + SIZE as u64).into(),
-            device_regions: HashMap::new(),
+            device_regions: IntMap::default(),
             reservations: IntMap::default(),
+            device_event_bus,
         }
     }
 
@@ -227,6 +232,10 @@ impl Memory {
         }
     }
 
+    pub fn register_handle<'a>(&'a mut self, dev_id: usize) -> MemoryRegisterHandle {
+        MemoryRegisterHandle::new(self, dev_id)
+    }
+
     pub fn get_device_memory(
         &mut self,
         id: &usize,
@@ -241,6 +250,14 @@ impl Memory {
     pub fn dump(&self) {
         let mut w = File::create("./mem.dump").unwrap();
         writeln!(&mut w, "{:?}", self);
+    }
+}
+
+impl MemoryRegisterHandle<'_> {
+    pub fn add_register(&mut self, addr: Address, permission: PrivilegeMode) -> bool {
+        self.memory_ref
+            .add_register(self.dev_id, Register::new(permission), addr)
+            .is_ok()
     }
 }
 

@@ -1,23 +1,36 @@
-use crate::memory::DeviceMemory;
+use crate::{
+    hart::registers,
+    memory::{registers::MemoryRegisterHandle, DeviceMemory},
+};
 
-use super::{Device, DeviceError, DeviceInitError, HandledDevice};
+use super::{
+    handled_device::HandledDevice, Device, DeviceError, DeviceEvent, DeviceInitError, DeviceObject,
+};
 
 /// It's not uart and probably breaks if you look at it wrong.
+#[derive(Debug)]
 pub struct SimpleUart;
 
 impl Device for SimpleUart {
     /// Hint for vm's using this device, a vm may give more/less memory.
-    const MEN_SIZE: u64 = 8;
+    const MEM_SIZE: u64 = 8;
 
-    fn init(mem: &mut DeviceMemory) -> Result<Self, DeviceInitError>
-    where
-        Self: Sized,
-    {
+    fn new() -> Self {
+        Self
+    }
+}
+
+impl DeviceObject for SimpleUart {
+    fn init(
+        &mut self,
+        mem: &mut DeviceMemory,
+        registers: MemoryRegisterHandle,
+    ) -> Result<(), DeviceInitError> {
         if mem.size() < 8 {
             Err(DeviceInitError::InsufficientMemory)
         } else {
             mem.get_mem_mut()[5] |= 0x40;
-            Ok(Self)
+            Ok(())
         }
     }
 }
@@ -31,6 +44,10 @@ impl HandledDevice for SimpleUart {
             mem.get_mem_mut()[5] |= 0x40;
         }
 
+        Ok(())
+    }
+
+    fn event(&mut self, mem: &mut DeviceMemory, event: DeviceEvent) -> Result<(), DeviceError> {
         Ok(())
     }
 }
