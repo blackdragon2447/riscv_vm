@@ -32,8 +32,8 @@ pub enum ExecuteError {
 impl From<MemoryError> for ExecuteError {
     fn from(value: MemoryError) -> Self {
         match value {
-            MemoryError::OutOfBoundsWrite(_, _) => Self::Exception(Exception::StoreAccessFault),
-            MemoryError::OutOfBoundsRead(_, _) => Self::Exception(Exception::LoadAccessFault),
+            MemoryError::OutOfBoundsWrite(_) => Self::Exception(Exception::StoreAccessFault),
+            MemoryError::OutOfBoundsRead(_) => Self::Exception(Exception::LoadAccessFault),
             MemoryError::OutOfMemory => Self::Exception(Exception::StoreAccessFault),
             MemoryError::PmpDeniedWrite => Self::Exception(Exception::StoreAccessFault),
             MemoryError::PmpDeniedRead => Self::Exception(Exception::LoadAccessFault),

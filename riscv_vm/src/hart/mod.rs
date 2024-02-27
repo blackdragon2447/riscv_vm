@@ -98,7 +98,7 @@ impl Hart {
                 MemoryError::PageFaultFetch => {
                     return self.exception(Exception::InstructionPageFault);
                 }
-                MemoryError::OutOfBoundsRead(_, _) => {
+                MemoryError::OutOfBoundsRead(_) => {
                     return self.exception(Exception::InstructionAccessFault);
                 }
                 _ => unreachable!("fetch may not return non fetch errors"),

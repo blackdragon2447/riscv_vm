@@ -3,10 +3,14 @@ use std::{
     ops::{Add, AddAssign, Sub},
 };
 
+use nohash_hasher::IsEnabled;
+
 use super::paging::AddressTranslationMode;
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Address(u64);
+
+impl IsEnabled for Address {}
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct VirtAddress {

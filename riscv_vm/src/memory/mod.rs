@@ -26,13 +26,17 @@ use crate::{
 
 use self::{
     address::{Address, VirtAddress},
+    memory_map::{MemoryMap, MemoryMapError, MemoryRegion},
     paging::{walk_page_table, AccessContext, AddressTranslationMode, PageError, Satp},
     pmp::{AccessMode, PmpCfg, PMP},
+    registers::{MemoryRegisterHandle, Register},
 };
 
 pub mod address;
+mod memory_map;
 pub mod paging;
 pub mod pmp;
+pub mod registers;
 #[cfg(test)]
 mod tests;
 
@@ -43,7 +47,8 @@ pub struct DeviceMemory(Range<Address>, Vec<u8>);
 
 pub struct Memory {
     mem: Box<[u8]>,
-    mem_range: Range<Address>,
+    memory_map: MemoryMap,
+    registers: IntMap<Address, Register>,
     device_regions: IntMap<usize, Arc<RwLock<DeviceMemory>>>,
     reservations: IntMap<u64, Range<Address>>,
     device_event_bus: Sender<DeviceEvent>,
@@ -61,8 +66,8 @@ pub struct MemoryWindow<'a> {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum MemoryError {
-    OutOfBoundsWrite(Address, Range<Address>),
-    OutOfBoundsRead(Address, Range<Address>),
+    OutOfBoundsWrite(Address),
+    OutOfBoundsRead(Address),
     OutOfMemory,
     PmpDeniedRead,
     PmpDeniedWrite,
@@ -73,15 +78,9 @@ pub enum MemoryError {
     DeviceMemoryPoison,
 }
 
-impl Default for Memory {
-    fn default() -> Self {
-        Self::new::<{ 4 * KB }>()
-    }
-}
-
 impl Debug for Memory {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "range: {:?}", self.mem_range);
+        // writeln!(f, "range: {:?}", self.mem_range);
         for c in self.mem.chunks(32) {
             for b in c {
                 write!(f, "{:02X} ", b)?;
@@ -97,7 +96,10 @@ impl Memory {
         let mem = vec![0u8; SIZE].into_boxed_slice();
         Self {
             mem,
-            mem_range: 0x80000000u64.into()..(0x80000000u64 + SIZE as u64).into(),
+            memory_map: MemoryMap::new(
+                (0x80000000u64.into()..(0x80000000u64 + SIZE as u64).into()),
+            ),
+            registers: IntMap::default(),
             device_regions: IntMap::default(),
             reservations: IntMap::default(),
             device_event_bus,
@@ -112,25 +114,42 @@ impl Memory {
         privilege: PrivilegeMode,
         pmp: Option<&PMP>,
     ) -> Result<(), MemoryError> {
-        if (self.mem_range.contains(&addr)) {
-            let idx = addr - self.mem_range.start;
-            if <Address as Into<usize>>::into(idx) > self.mem.len() {
-                return Err(MemoryError::OutOfBoundsWrite(addr, self.mem_range.clone()));
-            }
-            if <Address as Into<usize>>::into(idx) + bytes.len() > self.mem.len() {
-                return Err(MemoryError::OutOfMemory);
-            }
-            self.mem[idx.into()..(<Address as Into<usize>>::into(idx) + bytes.len())]
-                .copy_from_slice(bytes);
-            Ok(())
-        } else {
-            for dev in &mut self.device_regions.values_mut() {
-                let mut dev = dev.write()?;
-                if dev.0.contains(&addr) {
-                    return dev.write_bytes(bytes, addr);
+        match self.memory_map.fit(addr..(addr + bytes.len() as u64)) {
+            Ok(r) => match r {
+                MemoryRegion::Ram(r) => {
+                    let idx = addr - r.start;
+                    self.mem[idx.into()..(<Address as Into<usize>>::into(idx) + bytes.len())]
+                        .copy_from_slice(bytes);
+                    Ok(())
                 }
-            }
-            Err(MemoryError::OutOfBoundsWrite(addr, self.mem_range.clone()))
+                MemoryRegion::Rom(r) => todo!(),
+                MemoryRegion::IO(o, r) => self.device_regions[o].write()?.write_bytes(bytes, addr),
+                MemoryRegion::Register(o, a) => {
+                    let value = match bytes.len() {
+                        0 => [0; 8],
+                        i @ 1..=8 => {
+                            let mut value = [0u8; 8];
+                            value[0..i].copy_from_slice(bytes);
+                            value
+                        }
+                        i => {
+                            let mut value = [0u8; 8];
+                            value[0..8].copy_from_slice(&bytes[0..8]);
+                            value
+                        }
+                    };
+                    self.registers
+                        .get_mut(a)
+                        .unwrap()
+                        .set(u64::from_le_bytes(value));
+                    self.device_event_bus
+                        .send(DeviceEvent(*o, DeviceEventType::RegisterWrite(*a)));
+                    Ok(())
+                }
+            },
+            Err(MemoryMapError::TooLarge) => Err(MemoryError::OutOfMemory),
+            Err(MemoryMapError::OutOfBounds) => Err(MemoryError::OutOfBoundsWrite(addr)),
+            Err(_) => unreachable!(),
         }
     }
 
@@ -142,21 +161,17 @@ impl Memory {
         privilege: PrivilegeMode,
         pmp: Option<&PMP>,
     ) -> Result<Vec<u8>, MemoryError> {
-        if (self.mem_range.contains(&addr)) {
-            let idx = addr - self.mem_range.start;
-            if <Address as Into<usize>>::into(idx) + size < self.mem.len() {
-                Ok(self.mem.deref().get_bytes(idx.into(), size as u64).to_vec())
-            } else {
-                Err(MemoryError::OutOfBoundsRead(addr, self.mem_range.clone()))
-            }
-        } else {
-            for dev in self.device_regions.values() {
-                let dev = dev.read()?;
-                if dev.0.contains(&addr) {
-                    return dev.read_bytes(addr, size);
+        match self.memory_map.fit(addr..(addr + size as u64)) {
+            Ok(r) => match r {
+                MemoryRegion::Ram(r) => {
+                    let idx = addr - r.start;
+                    Ok(self.mem.deref().get_bytes(idx.into(), size as u64).to_vec())
                 }
-            }
-            Err(MemoryError::OutOfBoundsRead(addr, self.mem_range.clone()))
+                MemoryRegion::Rom(r) => todo!(),
+                MemoryRegion::IO(o, r) => self.device_regions[o].read()?.read_bytes(addr, size),
+                MemoryRegion::Register(o, a) => todo!(),
+            },
+            Err(_) => Err(MemoryError::OutOfBoundsRead(addr)),
         }
     }
 
@@ -167,32 +182,30 @@ impl Memory {
         privilege: PrivilegeMode,
         pmp: Option<&PMP>,
     ) -> Result<u32, MemoryError> {
-        if (self.mem_range.contains(&addr)) {
-            let idx = addr - self.mem_range.start;
-            if <Address as Into<usize>>::into(idx) + 4 < self.mem.len() {
-                Ok(u32::from_le_bytes(
-                    self.mem
-                        .deref()
-                        .get_bytes(idx.into(), 4)
-                        .try_into()
-                        .unwrap(),
-                ))
-            } else {
-                Err(MemoryError::OutOfBoundsRead(addr, self.mem_range.clone()))
-            }
-        } else {
-            for dev in self.device_regions.values() {
-                let dev = dev.read()?;
-                if dev.0.contains(&addr) {
-                    return Ok(u32::from_le_bytes(
-                        dev.read_bytes(addr, 4)
-                            .map_err(|_| MemoryError::OutOfBoundsRead(addr, dev.0.clone()))?
+        match self.memory_map.fit(addr..(addr + 4u64)) {
+            Ok(r) => match r {
+                MemoryRegion::Ram(r) => {
+                    let idx = addr - r.start;
+                    Ok(u32::from_le_bytes(
+                        self.mem
+                            .deref()
+                            .get_bytes(idx.into(), 4)
                             .try_into()
                             .unwrap(),
-                    ));
+                    ))
                 }
-            }
-            Err(MemoryError::PmpDeniedFetch)
+                MemoryRegion::Rom(r) => todo!(),
+                MemoryRegion::IO(o, r) => Ok(u32::from_le_bytes(
+                    self.device_regions[o]
+                        .read()?
+                        .read_bytes(addr, 4)
+                        .map_err(|_| MemoryError::OutOfBoundsRead(addr))?
+                        .try_into()
+                        .unwrap(),
+                )),
+                MemoryRegion::Register(o, a) => todo!(),
+            },
+            Err(_) => Err(MemoryError::OutOfBoundsRead(addr)),
         }
     }
 
@@ -201,18 +214,18 @@ impl Memory {
         id: usize,
         mem: DeviceMemory,
     ) -> Result<Arc<RwLock<DeviceMemory>>, DeviceInitError> {
-        if self.mem_range.start <= mem.0.end && mem.0.start <= self.mem_range.end {
-            return Err(DeviceInitError::MemoryOverlap);
-        }
-        for dev in &self.device_regions {
-            let dev = dev.1.read()?;
-            if dev.0.start <= mem.0.end && mem.0.start <= dev.0.end {
-                return Err(DeviceInitError::MemoryOverlap);
+        match self
+            .memory_map
+            .add_region(MemoryRegion::IO(id, mem.0.clone()))
+        {
+            Ok(_) => {
+                let mem = Arc::new(RwLock::new(mem));
+                self.device_regions.insert(id, mem.clone());
+                Ok(mem)
             }
+            Err(MemoryMapError::RegionOverlap) => Err(DeviceInitError::MemoryOverlap),
+            Err(_) => unreachable!(),
         }
-        let mem = Arc::new(RwLock::new(mem));
-        self.device_regions.insert(id, mem.clone());
-        Ok(mem)
     }
 
     pub fn window<'a>(&'a mut self, hart: &'a Hart) -> MemoryWindow {
@@ -234,6 +247,18 @@ impl Memory {
 
     pub fn register_handle<'a>(&'a mut self, dev_id: usize) -> MemoryRegisterHandle {
         MemoryRegisterHandle::new(self, dev_id)
+    }
+
+    fn add_register(
+        &mut self,
+        owner: usize,
+        reg: Register,
+        addr: Address,
+    ) -> Result<(), MemoryMapError> {
+        self.memory_map
+            .add_region(MemoryRegion::Register(owner, addr))?;
+        self.registers.insert(addr, reg);
+        Ok(())
     }
 
     pub fn get_device_memory(
@@ -462,7 +487,7 @@ impl DeviceMemory {
         if (self.0.contains(&addr)) {
             let idx = addr - self.0.start;
             if <Address as Into<usize>>::into(idx) > self.1.len() {
-                return Err(MemoryError::OutOfBoundsWrite(addr, self.0.clone()));
+                return Err(MemoryError::OutOfBoundsWrite(addr));
             }
             if <Address as Into<usize>>::into(idx) + bytes.len() > self.1.len() {
                 return Err(MemoryError::OutOfMemory);
@@ -470,7 +495,7 @@ impl DeviceMemory {
             self.1[idx.into()..(<Address as Into<usize>>::into(idx) + bytes.len())]
                 .copy_from_slice(bytes);
         } else {
-            return Err(MemoryError::OutOfBoundsWrite(addr, self.0.clone()));
+            return Err(MemoryError::OutOfBoundsWrite(addr));
         }
         Ok(())
     }
@@ -481,10 +506,10 @@ impl DeviceMemory {
             if <Address as Into<usize>>::into(idx) + size < self.1.len() {
                 Ok(self.1.get_bytes(idx.into(), size as u64).to_vec())
             } else {
-                Err(MemoryError::OutOfBoundsRead(addr, self.0.clone()))
+                Err(MemoryError::OutOfBoundsRead(addr))
             }
         } else {
-            Err(MemoryError::OutOfBoundsRead(addr, self.0.clone()))
+            Err(MemoryError::OutOfBoundsRead(addr))
         }
     }
 

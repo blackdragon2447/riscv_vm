@@ -367,8 +367,8 @@ impl TryFrom<u64> for AddressTranslationMode {
 impl From<MemoryError> for PageError {
     fn from(value: MemoryError) -> Self {
         match value {
-            MemoryError::OutOfBoundsWrite(_, _) => unreachable!(),
-            MemoryError::OutOfBoundsRead(_, _) => Self::AccessFault,
+            MemoryError::OutOfBoundsWrite(_) => unreachable!(),
+            MemoryError::OutOfBoundsRead(_) => Self::AccessFault,
             MemoryError::OutOfMemory => unreachable!(),
             MemoryError::PmpDeniedRead => Self::AccessFault,
             MemoryError::PmpDeniedWrite => unreachable!(),
