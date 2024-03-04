@@ -1,4 +1,4 @@
-use enumflags2::{BitFlag, BitFlags};
+use enumflags2::{make_bitflags, BitFlag, BitFlags};
 
 use crate::{
     execute::ExecuteError,
@@ -10,7 +10,7 @@ use super::{
     csr_address::CsrType,
     isa::Isa,
     privilege::{self, PrivilegeMode},
-    trap::{Exception, Interrupt},
+    trap::{Exception, Interrupt, InterruptInternal},
     CsrAddress,
 };
 use std::{collections::HashMap, fmt::Debug, ops::RangeBounds, time::Instant};
@@ -28,6 +28,9 @@ pub struct TrapVector {
     pub(crate) base: Address,
 }
 
+const S_INTERRUPT_MASK: u64 = 0b0000_0010_0010_0010;
+const TOGGLEABLE_INTERRUPTS: u64 = 0b0000_1010_0010_0000;
+
 pub struct CsrHolder {
     // UserMode
     // cycle (tied to mcylce)
@@ -36,7 +39,7 @@ pub struct CsrHolder {
 
     // SupervisorMode
     // sstatus (tied to status)
-    sie: BitFlags<Interrupt>,
+    pub(in crate::hart) sie: BitFlags<InterruptInternal>,
     pub(in crate::hart) stvec: TrapVector,
     scounteren: BitFlags<Counters>,
     senvcfg: u64,
@@ -44,7 +47,7 @@ pub struct CsrHolder {
     pub(in crate::hart) sepc: Address,
     pub(in crate::hart) scause: u64,
     pub(in crate::hart) stval: u64,
-    sip: BitFlags<Interrupt>,
+    // pub(in crate::hart) sip: BitFlags<InterruptInternal>,
     pub(in crate::hart) satp: Satp,
 
     // MachineMode
@@ -58,15 +61,15 @@ pub struct CsrHolder {
     mconfigptr: u64,
     misa: BitFlags<Isa>,
     pub(in crate::hart) medeleg: BitFlags<Exception>,
-    mideleg: BitFlags<Interrupt>,
-    mie: BitFlags<Interrupt>,
+    pub(in crate::hart) mideleg: BitFlags<InterruptInternal>,
+    pub(in crate::hart) mie: BitFlags<InterruptInternal>,
     pub(in crate::hart) mtvec: TrapVector,
     mcounteren: BitFlags<Counters>,
     mscratch: u64,
     pub(in crate::hart) mepc: Address,
     pub(in crate::hart) mcause: u64,
     pub(in crate::hart) mtval: u64,
-    mip: BitFlags<Interrupt>,
+    pub(in crate::hart) mip: BitFlags<InterruptInternal>,
     menvcfg: u64,
     mseccfg: u64,
 
@@ -196,7 +199,7 @@ impl CsrHolder {
             time_started: Instant::now(),
 
             // SupervisorMode
-            sie: Interrupt::empty(),
+            sie: InterruptInternal::empty(),
             stvec: TrapVector {
                 mode: TrapMode::Direct,
                 base: 0u64.into(),
@@ -207,9 +210,9 @@ impl CsrHolder {
             sepc: 0u64.into(),
             scause: 0,
             stval: 0,
+            // sip: InterruptInternal::empty(),
             // We may unwrap because 0 is a know valid value for satp
             satp: Satp::from_bits(0).unwrap(),
-            sip: Interrupt::empty(),
 
             // MachineMode
             mvendorid: 0,
@@ -219,8 +222,8 @@ impl CsrHolder {
             mconfigptr: 0,
             misa: Isa::maximal(),
             medeleg: Exception::empty(),
-            mideleg: Interrupt::empty(),
-            mie: Interrupt::empty(),
+            mideleg: InterruptInternal::empty(),
+            mie: InterruptInternal::empty(),
             mtvec: TrapVector {
                 mode: TrapMode::Direct,
                 base: 0u64.into(),
@@ -230,7 +233,7 @@ impl CsrHolder {
             mepc: 0u64.into(),
             mcause: 0,
             mtval: 0,
-            mip: Interrupt::empty(),
+            mip: InterruptInternal::empty(),
             menvcfg: 0,
             mseccfg: 0,
             mcycle: 0,
@@ -305,7 +308,7 @@ impl CsrHolder {
             0xC02 => self.minstret,
 
             0x100 => self.status.to_s_bits(),
-            0x104 => 0, // self.sie
+            0x104 => self.sie.bits(),
             0x105 => self.stvec.to_bits(),
             0x106 => self.scounteren.bits() as u64,
             0x10A => self.senvcfg,
@@ -313,7 +316,7 @@ impl CsrHolder {
             0x141 => self.sepc.into(),
             0x142 => self.scause,
             0x143 => self.stval,
-            0x144 => 0, // self.sip
+            0x144 => (self.mip & self.mideleg).bits(),
             0x180 => self.satp.to_bits(),
             0xF11 => self.mvendorid,
             0xF12 => self.marchid,
@@ -324,7 +327,7 @@ impl CsrHolder {
             0x301 => self.misa.bits() & 0b10 << 62,
             0x302 => self.medeleg.bits(),
             0x303 => self.mideleg.bits(),
-            0x304 => 0, // self.mie
+            0x304 => self.mie.bits(),
             0x305 => self.mtvec.to_bits(),
             0x306 => self.mcounteren.bits() as u64,
             0x320 => self.mcounterinhibit.bits() as u64,
@@ -332,7 +335,7 @@ impl CsrHolder {
             0x341 => self.mepc.into(),
             0x342 => self.mcause,
             0x343 => self.mtval,
-            0x344 => 0, // self.mip
+            0x344 => self.mip.bits(),
             0x30A => self.menvcfg,
             i @ 0x3A0..=0x3AF if i % 2 == 0 => self.pmp.read_cfg_rv64((i - 0x3A0) as usize),
             i @ 0x3B0..=0x3EF => self.pmp.read_addr_rv64((i - 0x3B0) as usize),
@@ -367,6 +370,10 @@ impl CsrHolder {
                 0x100 => {
                     self.status.update_from_s_bits(value);
                 }
+                0x104 => {
+                    self.sie =
+                        BitFlags::<InterruptInternal>::from_bits_truncate(value) & self.mideleg;
+                }
                 0x105 => {
                     self.stvec.update_from_bits(value);
                 }
@@ -389,6 +396,12 @@ impl CsrHolder {
                 0x143 => {
                     self.stval = value;
                 }
+                0x144 => {
+                    self.mip = BitFlags::<InterruptInternal>::from_bits_truncate(
+                        (self.mip.bits() & !(TOGGLEABLE_INTERRUPTS & S_INTERRUPT_MASK))
+                            | (value & (TOGGLEABLE_INTERRUPTS & S_INTERRUPT_MASK)),
+                    );
+                }
                 0x180 if !self.status.tvm => {
                     if let Some(val) = Satp::from_bits(value) {
                         self.satp = val;
@@ -404,7 +417,11 @@ impl CsrHolder {
                     self.medeleg = BitFlags::<Exception>::from_bits_truncate(value);
                 }
                 0x303 => {
-                    self.mideleg = BitFlags::<Interrupt>::from_bits_truncate(value);
+                    self.mideleg =
+                        BitFlags::<InterruptInternal>::from_bits_truncate(value & S_INTERRUPT_MASK);
+                }
+                0x304 => {
+                    self.mie = BitFlags::<InterruptInternal>::from_bits_truncate(value);
                 }
                 0x305 => {
                     self.mtvec.update_from_bits(value);
@@ -413,7 +430,7 @@ impl CsrHolder {
                     self.mcounteren =
                         BitFlags::<Counters>::from_bits_truncate((value & 0b111) as u32);
                 }
-                0x306 => {
+                0x320 => {
                     self.mcounterinhibit =
                         BitFlags::<Counters>::from_bits_truncate((value & 0b101) as u32);
                 }
@@ -430,8 +447,11 @@ impl CsrHolder {
                     self.mtval = value;
                 }
                 0x344 => {
-                    self.mip =
-                        BitFlags::<Interrupt>::from_bits_truncate(value & !0b0000_1000_1000_1000)
+                    // TODO: not all interrupts can be set/cleared via mip
+                    self.mip = BitFlags::<InterruptInternal>::from_bits_truncate(
+                        (self.mip.bits() & !TOGGLEABLE_INTERRUPTS)
+                            | (value & TOGGLEABLE_INTERRUPTS),
+                    );
                 }
                 0x30A => {
                     self.menvcfg = (value & (0b1 | 0b1 << 62));
@@ -481,6 +501,11 @@ impl CsrHolder {
                     self.status
                         .update_from_s_bits(self.status.to_s_bits() | mask);
                 }
+                0x104 => {
+                    self.sie =
+                        BitFlags::<InterruptInternal>::from_bits_truncate(self.sie.bits() | mask)
+                            & self.mideleg;
+                }
                 0x105 => {
                     self.stvec.update_from_bits(self.stvec.to_bits() | mask);
                 }
@@ -504,6 +529,11 @@ impl CsrHolder {
                 0x143 => {
                     self.stval |= mask;
                 }
+                0x144 => {
+                    self.mip = BitFlags::<InterruptInternal>::from_bits_truncate(
+                        (self.mip.bits() | (mask & (TOGGLEABLE_INTERRUPTS & S_INTERRUPT_MASK))),
+                    );
+                }
                 0x180 if !self.status.tvm => {
                     if let Some(val) = Satp::from_bits(self.satp.to_bits() | mask) {
                         self.satp = val;
@@ -521,8 +551,13 @@ impl CsrHolder {
                         BitFlags::<Exception>::from_bits_truncate(self.medeleg.bits() | mask);
                 }
                 0x303 => {
-                    self.mideleg =
-                        BitFlags::<Interrupt>::from_bits_truncate(self.mideleg.bits() | mask);
+                    self.mideleg = BitFlags::<InterruptInternal>::from_bits_truncate(
+                        (self.mideleg.bits() | mask) & S_INTERRUPT_MASK,
+                    );
+                }
+                0x304 => {
+                    self.mie =
+                        BitFlags::<InterruptInternal>::from_bits_truncate(self.mie.bits() | mask);
                 }
                 0x305 => {
                     self.mtvec.update_from_bits(self.mtvec.to_bits() | mask);
@@ -548,6 +583,12 @@ impl CsrHolder {
                 }
                 0x343 => {
                     self.mtval |= mask;
+                }
+                0x344 => {
+                    // TODO: not all interrupts can be set/cleared via mip
+                    self.mip = BitFlags::<InterruptInternal>::from_bits_truncate(
+                        self.mie.bits() | (mask & TOGGLEABLE_INTERRUPTS),
+                    );
                 }
                 0x30A => {
                     self.menvcfg = ((self.menvcfg | mask) & (0b1 | 0b1 << 62));
@@ -598,6 +639,11 @@ impl CsrHolder {
                     self.status
                         .update_from_s_bits(self.status.to_s_bits() & !mask);
                 }
+                0x104 => {
+                    self.sie =
+                        BitFlags::<InterruptInternal>::from_bits_truncate(self.sie.bits() & !mask)
+                            & self.mideleg;
+                }
                 0x105 => {
                     self.stvec.update_from_bits(self.stvec.to_bits() & !mask);
                 }
@@ -621,6 +667,11 @@ impl CsrHolder {
                 0x143 => {
                     self.stval &= !mask;
                 }
+                0x144 => {
+                    self.mip = BitFlags::<InterruptInternal>::from_bits_truncate(
+                        (self.mip.bits() & !(mask & (S_INTERRUPT_MASK & TOGGLEABLE_INTERRUPTS))),
+                    );
+                }
                 0x180 if !self.status.tvm => {
                     if let Some(val) = Satp::from_bits(self.satp.to_bits() & !mask) {
                         self.satp = val;
@@ -638,8 +689,13 @@ impl CsrHolder {
                         BitFlags::<Exception>::from_bits_truncate(self.medeleg.bits() & !mask);
                 }
                 0x303 => {
-                    self.mideleg =
-                        BitFlags::<Interrupt>::from_bits_truncate(self.mideleg.bits() & !mask);
+                    self.mideleg = BitFlags::<InterruptInternal>::from_bits_truncate(
+                        (self.mideleg.bits() & !mask) & S_INTERRUPT_MASK,
+                    );
+                }
+                0x304 => {
+                    self.mie =
+                        BitFlags::<InterruptInternal>::from_bits_truncate(self.mie.bits() & !mask);
                 }
                 0x305 => {
                     self.mtvec.update_from_bits(self.mtvec.to_bits() & !mask);
@@ -665,6 +721,12 @@ impl CsrHolder {
                 }
                 0x343 => {
                     self.mtval &= !mask;
+                }
+                0x344 => {
+                    // TODO: not all interrupts can be set/cleared via mip
+                    self.mip = BitFlags::<InterruptInternal>::from_bits_truncate(
+                        self.mie.bits() | (mask & TOGGLEABLE_INTERRUPTS),
+                    );
                 }
                 0x30A => {
                     self.menvcfg = ((self.menvcfg & !mask) & (0b1 | 0b1 << 62));

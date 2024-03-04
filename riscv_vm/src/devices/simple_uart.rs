@@ -4,7 +4,8 @@ use crate::{
 };
 
 use super::{
-    handled_device::HandledDevice, Device, DeviceError, DeviceEvent, DeviceInitError, DeviceObject,
+    event_bus::DeviceEventBusHandle, handled_device::HandledDevice, Device, DeviceError,
+    DeviceEvent, DeviceInitError, DeviceObject,
 };
 
 /// It's not uart and probably breaks if you look at it wrong.
@@ -36,7 +37,11 @@ impl DeviceObject for SimpleUart {
 }
 
 impl HandledDevice for SimpleUart {
-    fn update(&mut self, mem: &mut DeviceMemory) -> Result<(), DeviceError> {
+    fn update(
+        &mut self,
+        mem: &mut DeviceMemory,
+        _: &DeviceEventBusHandle,
+    ) -> Result<(), DeviceError> {
         let reg = mem.get_mem()[0];
         if reg != 0 {
             print!("{}", std::str::from_utf8(&[reg])?);
@@ -47,7 +52,12 @@ impl HandledDevice for SimpleUart {
         Ok(())
     }
 
-    fn event(&mut self, mem: &mut DeviceMemory, event: DeviceEvent) -> Result<(), DeviceError> {
+    fn event(
+        &mut self,
+        mem: &mut DeviceMemory,
+        event: DeviceEvent,
+        _: &DeviceEventBusHandle,
+    ) -> Result<(), DeviceError> {
         Ok(())
     }
 }

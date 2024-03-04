@@ -6,14 +6,23 @@ use std::{
 use crate::memory::{registers::MemoryRegisterHandle, DeviceMemory};
 
 use super::{
-    event_bus::{self, DeviceEvent},
+    event_bus::{self, DeviceEvent, DeviceEventBusHandle},
     DeviceError, DeviceInitError, DeviceObject,
 };
 
 pub trait HandledDevice: Debug + DeviceObject {
-    fn update(&mut self, mem: &mut DeviceMemory) -> Result<(), DeviceError>;
+    fn update(
+        &mut self,
+        mem: &mut DeviceMemory,
+        event_bus: &DeviceEventBusHandle,
+    ) -> Result<(), DeviceError>;
 
-    fn event(&mut self, mem: &mut DeviceMemory, event: DeviceEvent) -> Result<(), DeviceError>;
+    fn event(
+        &mut self,
+        mem: &mut DeviceMemory,
+        event: DeviceEvent,
+        event_bus: &DeviceEventBusHandle,
+    ) -> Result<(), DeviceError>;
 }
 
 #[derive(Debug)]
@@ -42,11 +51,15 @@ impl HandledDeviceHolder {
         DeviceObject::init(self.device.as_mut(), mem, registers)
     }
 
-    pub fn update(&mut self, mem: &mut DeviceMemory) -> Result<(), DeviceError> {
-        self.device.update(mem)?;
+    pub fn update(
+        &mut self,
+        mem: &mut DeviceMemory,
+        event_bus: &DeviceEventBusHandle,
+    ) -> Result<(), DeviceError> {
+        self.device.update(mem, event_bus)?;
 
         for e in self.event_bus.try_iter() {
-            self.device.event(mem, e)?
+            self.device.event(mem, e, event_bus)?
         }
 
         Ok(())

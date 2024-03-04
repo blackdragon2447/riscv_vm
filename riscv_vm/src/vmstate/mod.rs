@@ -15,12 +15,12 @@ use crate::{
     decode::{decode, instruction::Instruction},
     devices::{
         async_device::{AsyncDevice, AsyncDeviceHolder},
-        event_bus::{DeviceEvent, DeviceEventBus},
+        event_bus::{DeviceEvent, DeviceEventBus, InterruptPermission},
         handled_device::{HandledDevice, HandledDeviceHolder},
         Device, DeviceError, DeviceId, DeviceInitError,
     },
     execute::{execute_rv64, ExecuteError},
-    hart::{self, privilege::PrivilegeMode, Hart},
+    hart::{self, privilege::PrivilegeMode, trap::InterruptTarget, Hart},
     memory::{self, address::Address, pmp::PMP, DeviceMemory, Memory, MemoryError},
 };
 
@@ -66,11 +66,11 @@ impl VMState {
             harts.push(Hart::new(i, settings));
         }
 
-        let (s, bus) = DeviceEventBus::new();
+        let (se, bus) = DeviceEventBus::new();
 
         Self {
             harts,
-            mem: Memory::new::<MEM_SIZE>(s),
+            mem: Memory::new::<MEM_SIZE>(se),
             sync_devices: HashMap::new(),
             // async_devices: HashMap::new(),
             device_event_bus: bus,
@@ -121,39 +121,29 @@ impl VMState {
         addr: Address,
         id: DeviceId,
         mem_size: u64,
+        is_interupt_controller: bool,
     ) -> Result<(), DeviceInitError> {
         let mut memory = DeviceMemory::new(mem_size, addr);
         dev.1
             .init_device(&mut memory, self.mem.register_handle(id))?;
         self.device_event_bus.add_device(id, dev.0);
         let mem = self.mem.add_device_memory(id, memory)?;
-        dev.1.run(mem);
+        dev.1.run(
+            mem,
+            self.device_event_bus.get_handle(if is_interupt_controller {
+                InterruptPermission::InterruptController
+            } else {
+                InterruptPermission::Normal
+            }),
+        );
         Ok(())
     }
-
-    // pub fn add_sync_device<D: Device + HandledDevice + 'static>(
-    //     &mut self,
-    //     // mem_size: u64,
-    //     addr: Address,
-    // ) -> Result<(), DeviceInitError> {
-    //     let mut memory = DeviceMemory::new(D::MEN_SIZE, addr);
-    //     let device = Box::new(D::init(
-    //         &mut memory,
-    //         self.mem.register_handle(self.next_dev_id),
-    //     )?);
-    //     let (s, holder) = HandledDeviceHolder::new(device);
-    //     self.sync_devices.insert(self.next_dev_id, holder);
-    //     self.mem.add_device_memory(self.next_dev_id, memory)?;
-    //     self.device_event_bus.add_device(self.next_dev_id, s);
-    //     self.next_dev_id += 1;
-    //     Ok(())
-    // }
 
     pub fn step(&mut self, verbose: bool) -> Result<(), VMError> {
         for hart in &mut self.harts {
             hart.step(&mut self.mem, verbose)?;
         }
-        // self.mem.update_devices();
+        self.device_event_bus.distribute();
 
         for dev in &mut self.sync_devices {
             dev.1.update(
@@ -161,7 +151,25 @@ impl VMState {
                     .mem
                     .get_device_memory(dev.0)?
                     .ok_or(VMError::NoDeviceMemory)?,
+                &self
+                    .device_event_bus
+                    .get_handle(InterruptPermission::Normal),
             )?;
+        }
+
+        for i in self.device_event_bus.interrupts() {
+            match i.0 {
+                InterruptTarget::All => {
+                    for h in &mut self.harts {
+                        h.interrupt(i.1);
+                    }
+                }
+                InterruptTarget::Single(h) => {
+                    if let Some(h) = self.harts.get_mut(h) {
+                        h.interrupt(i.1);
+                    }
+                }
+            }
         }
 
         Ok(())
@@ -179,13 +187,33 @@ impl VMState {
                 }
             }
 
+            self.device_event_bus.distribute();
+
             for dev in &mut self.sync_devices {
                 dev.1.update(
                     &mut *self
                         .mem
                         .get_device_memory(dev.0)?
                         .ok_or(VMError::NoDeviceMemory)?,
+                    &self
+                        .device_event_bus
+                        .get_handle(InterruptPermission::Normal),
                 )?;
+            }
+
+            for i in self.device_event_bus.interrupts() {
+                match i.0 {
+                    InterruptTarget::All => {
+                        for h in &mut self.harts {
+                            h.interrupt(i.1);
+                        }
+                    }
+                    InterruptTarget::Single(h) => {
+                        if let Some(h) = self.harts.get_mut(h) {
+                            h.interrupt(i.1);
+                        }
+                    }
+                }
             }
         }
 

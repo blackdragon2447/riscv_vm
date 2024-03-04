@@ -13,7 +13,7 @@ use std::{
 use crate::memory::{registers::MemoryRegisterHandle, DeviceMemory};
 
 use super::{
-    event_bus::{self, DeviceEvent},
+    event_bus::{self, DeviceEvent, DeviceEventBusHandle},
     DeviceError, DeviceInitError, DeviceObject,
 };
 
@@ -39,6 +39,7 @@ pub trait AsyncDevice: Debug + DeviceObject + Send {
         &mut self,
         mem: Arc<RwLock<DeviceMemory>>,
         update: AsyncDeviceUpdate,
+        event_bus: &DeviceEventBusHandle,
     ) -> Result<AsyncDeviceUpdateResult, DeviceError>;
 }
 
@@ -81,21 +82,29 @@ impl AsyncDeviceHolder {
         DeviceObject::init(self.device.as_mut(), mem, registers)
     }
 
-    pub fn run(mut self, mem: Arc<RwLock<DeviceMemory>>) {
+    pub fn run(mut self, mem: Arc<RwLock<DeviceMemory>>, event_bus: DeviceEventBusHandle) {
         std::thread::spawn(move || {
-            let mut result = self.device.update(mem.clone(), AsyncDeviceUpdate::Initial);
+            let mut result =
+                self.device
+                    .update(mem.clone(), AsyncDeviceUpdate::Initial, &event_bus);
             loop {
                 match result {
                     Ok(AsyncDeviceUpdateResult::TimeOut(d)) => match self.event_bus.recv_timeout(d)
                     {
                         Ok(e) => {
-                            result = self
-                                .device
-                                .update(mem.clone(), AsyncDeviceUpdate::DeviceEvent(e))
+                            result = self.device.update(
+                                mem.clone(),
+                                AsyncDeviceUpdate::DeviceEvent(e),
+                                &event_bus,
+                            )
                         }
                         Err(e) => match e {
                             mpsc::RecvTimeoutError::Timeout => {
-                                result = self.device.update(mem.clone(), AsyncDeviceUpdate::TimeOut)
+                                result = self.device.update(
+                                    mem.clone(),
+                                    AsyncDeviceUpdate::TimeOut,
+                                    &event_bus,
+                                )
                             }
                             mpsc::RecvTimeoutError::Disconnected => break,
                         },
@@ -104,14 +113,19 @@ impl AsyncDeviceHolder {
                         let duration = i.saturating_duration_since(Instant::now());
                         match self.event_bus.recv_timeout(duration) {
                             Ok(e) => {
-                                result = self
-                                    .device
-                                    .update(mem.clone(), AsyncDeviceUpdate::DeviceEvent(e))
+                                result = self.device.update(
+                                    mem.clone(),
+                                    AsyncDeviceUpdate::DeviceEvent(e),
+                                    &event_bus,
+                                )
                             }
                             Err(e) => match e {
                                 mpsc::RecvTimeoutError::Timeout => {
-                                    result =
-                                        self.device.update(mem.clone(), AsyncDeviceUpdate::TimeOut)
+                                    result = self.device.update(
+                                        mem.clone(),
+                                        AsyncDeviceUpdate::TimeOut,
+                                        &event_bus,
+                                    )
                                 }
                                 mpsc::RecvTimeoutError::Disconnected => break,
                             },
@@ -119,9 +133,11 @@ impl AsyncDeviceHolder {
                     }
                     Ok(AsyncDeviceUpdateResult::WaitForEvent) => match self.event_bus.recv() {
                         Ok(e) => {
-                            result = self
-                                .device
-                                .update(mem.clone(), AsyncDeviceUpdate::DeviceEvent(e))
+                            result = self.device.update(
+                                mem.clone(),
+                                AsyncDeviceUpdate::DeviceEvent(e),
+                                &event_bus,
+                            )
                         }
                         Err(e) => {
                             eprintln!(
@@ -132,7 +148,8 @@ impl AsyncDeviceHolder {
                         }
                     },
                     Ok(AsyncDeviceUpdateResult::Continue) => {
-                        self.device.update(mem.clone(), AsyncDeviceUpdate::Continue);
+                        self.device
+                            .update(mem.clone(), AsyncDeviceUpdate::Continue, &event_bus);
                     }
                     Err(e) => {
                         eprintln!("Device {:#?} has errored with error {:#?}", self, e);

@@ -43,8 +43,8 @@ impl Exception {
 
 #[repr(u64)]
 #[bitflags]
-#[derive(Clone, Copy, Debug)]
-pub(super) enum Interrupt {
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Ord)]
+pub enum InterruptInternal {
     SupervisorSoftware = 0b1 << 1,
     MachineSoftware = 0b1 << 3,
     SupervisorTimer = 0b1 << 5,
@@ -53,15 +53,79 @@ pub(super) enum Interrupt {
     MachineExternal = 0b1 << 11,
 }
 
-impl Interrupt {
-    pub fn get_code(&self) -> u64 {
+impl PartialOrd for InterruptInternal {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         match self {
-            Interrupt::SupervisorSoftware => 1,
-            Interrupt::MachineSoftware => 3,
-            Interrupt::SupervisorTimer => 5,
-            Interrupt::MachineTimer => 7,
-            Interrupt::SupervisorExternal => 9,
-            Interrupt::MachineExternal => 11,
+            InterruptInternal::MachineExternal => match other {
+                Self::MachineExternal => Some(std::cmp::Ordering::Equal),
+                _ => Some(std::cmp::Ordering::Greater),
+            },
+            InterruptInternal::MachineSoftware => match other {
+                Self::MachineExternal => Some(std::cmp::Ordering::Greater),
+                Self::MachineSoftware => Some(std::cmp::Ordering::Equal),
+                _ => Some(std::cmp::Ordering::Less),
+            },
+            InterruptInternal::MachineTimer => match other {
+                Self::MachineExternal | Self::MachineSoftware => Some(std::cmp::Ordering::Greater),
+                Self::MachineTimer => Some(std::cmp::Ordering::Equal),
+                _ => Some(std::cmp::Ordering::Less),
+            },
+            InterruptInternal::SupervisorExternal => match other {
+                Self::MachineExternal | Self::MachineSoftware | Self::MachineTimer => {
+                    Some(std::cmp::Ordering::Greater)
+                }
+                Self::SupervisorExternal => Some(std::cmp::Ordering::Equal),
+                _ => Some(std::cmp::Ordering::Less),
+            },
+            InterruptInternal::SupervisorSoftware => match other {
+                Self::MachineExternal
+                | Self::MachineSoftware
+                | Self::MachineTimer
+                | InterruptInternal::SupervisorExternal => Some(std::cmp::Ordering::Greater),
+                Self::SupervisorSoftware => Some(std::cmp::Ordering::Equal),
+                _ => Some(std::cmp::Ordering::Less),
+            },
+
+            InterruptInternal::SupervisorTimer => match other {
+                Self::MachineExternal
+                | Self::MachineSoftware
+                | Self::MachineTimer
+                | InterruptInternal::SupervisorExternal
+                | InterruptInternal::SupervisorSoftware => Some(std::cmp::Ordering::Greater),
+                Self::SupervisorTimer => Some(std::cmp::Ordering::Equal),
+                _ => Some(std::cmp::Ordering::Less),
+            },
         }
     }
+}
+
+impl InterruptInternal {
+    pub fn get_code(&self) -> u64 {
+        match self {
+            InterruptInternal::SupervisorSoftware => 1,
+            InterruptInternal::MachineSoftware => 3,
+            InterruptInternal::SupervisorTimer => 5,
+            InterruptInternal::MachineTimer => 7,
+            InterruptInternal::SupervisorExternal => 9,
+            InterruptInternal::MachineExternal => 11,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Interrupt {
+    SSoftware,
+    MSoftware,
+    Timer,
+    External,
+}
+
+pub enum InterruptTarget {
+    All,
+    Single(usize),
+}
+
+pub enum TrapCause {
+    Exception(Exception),
+    Interrupt(InterruptInternal),
 }

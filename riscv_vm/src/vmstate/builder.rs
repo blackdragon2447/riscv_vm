@@ -20,6 +20,10 @@ pub struct VMStateBuilder<const MEM_SIZE: usize> {
     settings: VMSettings,
     handled_devices: IntMap<DeviceId, (u64, Address, (Sender<DeviceEvent>, HandledDeviceHolder))>,
     async_devices: IntMap<DeviceId, (u64, Address, (Sender<DeviceEvent>, AsyncDeviceHolder))>,
+    interrupt_controllder: Option<(
+        DeviceId,
+        (u64, Address, (Sender<DeviceEvent>, AsyncDeviceHolder)),
+    )>,
     next_dev_id: usize,
 }
 
@@ -44,6 +48,18 @@ impl<const MEM_SIZE: usize> VMStateBuilder<MEM_SIZE> {
         self
     }
 
+    pub fn add_interrupt_controllder<D: Device + AsyncDevice + 'static>(
+        mut self,
+        addr: Address,
+    ) -> Self {
+        let device = Box::new(D::new());
+        let dev = AsyncDeviceHolder::new(device);
+        self.interrupt_controllder = Some((self.next_dev_id, (D::MEM_SIZE, addr, dev)));
+        self.next_dev_id += 1;
+
+        self
+    }
+
     pub fn add_sync_device<D: Device + HandledDevice + 'static>(mut self, addr: Address) -> Self {
         let device = Box::new(D::new());
         let dev = HandledDeviceHolder::new(device);
@@ -64,11 +80,14 @@ impl<const MEM_SIZE: usize> VMStateBuilder<MEM_SIZE> {
 
     pub fn build(self) -> Result<VMState, VMInitError> {
         let mut state = VMState::new::<MEM_SIZE>(self.hart_count, self.settings);
+        if let Some((k, v)) = self.interrupt_controllder {
+            state.add_async_device(v.2, v.1, k, v.0, true)?;
+        }
         for (k, v) in self.handled_devices {
             state.add_sync_device(v.2, v.1, k, v.0)?;
         }
         for (k, v) in self.async_devices {
-            state.add_async_device(v.2, v.1, k, v.0)?;
+            state.add_async_device(v.2, v.1, k, v.0, false)?;
         }
         Ok(state)
     }

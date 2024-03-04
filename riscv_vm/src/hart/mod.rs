@@ -8,7 +8,11 @@ pub mod registers;
 mod tests;
 pub mod trap;
 
-use std::{collections::HashMap, time::Instant, usize};
+use std::{
+    collections::{BinaryHeap, HashMap},
+    time::Instant,
+    usize,
+};
 
 use crate::{
     decode::{decode, instruction::Instruction},
@@ -23,7 +27,7 @@ use self::{
     csr_holder::CsrHolder,
     privilege::PrivilegeMode,
     registers::{IntRegister, Registers},
-    trap::Exception,
+    trap::{Exception, Interrupt, InterruptInternal, TrapCause},
 };
 
 #[derive(Debug)]
@@ -34,6 +38,7 @@ pub struct Hart {
     csr: CsrHolder,
     privilege: PrivilegeMode,
     vm_settings: VMSettings,
+    waiting_for_interrupt: bool,
 }
 
 impl Hart {
@@ -45,6 +50,7 @@ impl Hart {
             csr: CsrHolder::new(hart_id),
             privilege: PrivilegeMode::Machine,
             vm_settings,
+            waiting_for_interrupt: false,
         }
     }
 
@@ -88,36 +94,99 @@ impl Hart {
         self.privilege = privilege;
     }
 
+    pub fn interrupt(&mut self, cause: Interrupt) {
+        match cause {
+            Interrupt::SSoftware => self.csr.mip |= InterruptInternal::SupervisorSoftware,
+            Interrupt::MSoftware => self.csr.mip |= InterruptInternal::MachineSoftware,
+            Interrupt::Timer => self.csr.mip |= InterruptInternal::MachineTimer,
+            Interrupt::External => self.csr.mip |= InterruptInternal::MachineExternal,
+        }
+    }
+
     pub fn step(&mut self, mem: &mut Memory, verbose: bool) -> Result<(), VMError> {
+        'interrupt_loop: for i in self
+            .csr
+            .mip
+            .iter()
+            .collect::<BinaryHeap<InterruptInternal>>()
+            .into_sorted_vec()
+        {
+            match i {
+                InterruptInternal::SupervisorSoftware
+                | InterruptInternal::SupervisorTimer
+                | InterruptInternal::SupervisorExternal => {
+                    if self.csr.mideleg.contains(i) {
+                        if (self.privilege < PrivilegeMode::Supervisor
+                            || (self.privilege == PrivilegeMode::Supervisor && self.csr.status.sie))
+                            && self.csr.sie.contains(i)
+                        {
+                            self.trap(TrapCause::Interrupt(i), PrivilegeMode::Supervisor);
+                            break 'interrupt_loop;
+                        }
+                    } else {
+                        if (self.privilege < PrivilegeMode::Machine || self.csr.status.mie)
+                            && self.csr.mie.contains(i)
+                        {
+                            self.trap(TrapCause::Interrupt(i), PrivilegeMode::Machine);
+                            break 'interrupt_loop;
+                        }
+                    }
+                }
+                InterruptInternal::MachineSoftware
+                | InterruptInternal::MachineTimer
+                | InterruptInternal::MachineExternal => {
+                    if (self.privilege < PrivilegeMode::Machine || self.csr.status.mie)
+                        && self.csr.mie.contains(i)
+                    {
+                        self.trap(TrapCause::Interrupt(i), PrivilegeMode::Machine);
+                        break 'interrupt_loop;
+                    }
+                }
+            }
+        }
+
+        if (self.waiting_for_interrupt) {
+            return Ok(());
+        }
+
         let inst = match self.fetch(mem) {
             Ok(inst) => inst,
             Err(err) => match err {
                 MemoryError::PmpDeniedFetch => {
-                    return self.exception(Exception::InstructionAccessFault);
+                    self.exception(Exception::InstructionAccessFault);
+                    return Ok(());
                 }
                 MemoryError::PageFaultFetch => {
-                    return self.exception(Exception::InstructionPageFault);
+                    self.exception(Exception::InstructionPageFault);
+                    return Ok(());
                 }
                 MemoryError::OutOfBoundsRead(_) => {
-                    return self.exception(Exception::InstructionAccessFault);
+                    self.exception(Exception::InstructionAccessFault);
+                    return Ok(());
                 }
                 _ => unreachable!("fetch may not return non fetch errors"),
             },
         };
+
         if verbose {
             println!("{:#?}", &inst);
         }
+
         let result = execute_rv64(self, mem, inst, self.csr.isa());
         match result {
             Ok(ExecuteResult::Continue) => self.inc_pc(),
             Ok(ExecuteResult::Jump(pc)) => self.set_pc(pc),
             Ok(ExecuteResult::CsrUpdate(addr)) => {
                 if addr == 0x180u16.into() && self.csr.status.tvm {
-                    return self.exception(Exception::IllegalInstruction);
+                    self.exception(Exception::IllegalInstruction);
+                    return Ok(());
                 }
                 self.inc_pc();
             }
-            Err(ExecuteError::Exception(e)) => return self.exception(e),
+            Err(ExecuteError::Exception(e)) => {
+                self.exception(e);
+                return Ok(());
+            }
             Err(ExecuteError::Fatal) => return Err(VMError::ExecureError(ExecuteError::Fatal)),
         };
 
@@ -155,40 +224,70 @@ impl Hart {
         self.vm_settings.pmp_enable
     }
 
-    fn exception(&mut self, exception: Exception) -> Result<(), VMError> {
+    fn exception(&mut self, exception: Exception) {
         eprintln!("Exeption hit: {:?} ({:?})", exception, exception.get_code());
-        if self.csr.medeleg.contains(exception) {
+        if self.csr.medeleg.contains(exception) && self.privilege < PrivilegeMode::Machine {
             eprintln!("Delegating exception to S mode");
-            self.csr.scause = exception.get_code();
-            self.csr.sepc = self.get_pc();
-            if 8 <= (exception.get_code()) && (exception.get_code()) <= 11 {
-                // ECALL
-            } else {
-                self.csr.inc_cycle(1);
-                self.csr.inc_instret(1);
-            }
-            self.csr.status.spie = self.csr.status.sie;
-            self.csr.status.sie = false;
-            self.csr.status.spp = self.privilege();
-            self.privilege = PrivilegeMode::Supervisor;
-            self.set_pc(self.csr.stvec.base);
-            Ok(())
+            self.trap(TrapCause::Exception(exception), PrivilegeMode::Supervisor);
         } else {
             eprintln!("Delegating exception to M mode");
-            self.csr.mcause = exception.get_code();
-            self.csr.mepc = self.get_pc();
-            if 8 <= (exception.get_code()) && (exception.get_code()) <= 11 {
-                // ECALL
-            } else {
-                self.csr.inc_cycle(1);
-                self.csr.inc_instret(1);
+            self.trap(TrapCause::Exception(exception), PrivilegeMode::Machine);
+        }
+    }
+
+    fn trap(&mut self, cause: TrapCause, target: PrivilegeMode) {
+        match target {
+            PrivilegeMode::User => unreachable!("User mode cannot handle traps"),
+            PrivilegeMode::Supervisor => {
+                self.csr.sepc = self.get_pc();
+                self.csr.status.spie = self.csr.status.sie;
+                self.csr.status.sie = false;
+                self.csr.status.spp = self.privilege();
+                self.privilege = PrivilegeMode::Supervisor;
+                match cause {
+                    TrapCause::Exception(e) => {
+                        if 8 <= (e.get_code()) && (e.get_code()) <= 11 {
+                            // ECALL
+                        } else {
+                            self.csr.inc_cycle(1);
+                            self.csr.inc_instret(1);
+                        }
+                        self.csr.scause = e.get_code();
+                        self.set_pc(self.csr.stvec.base);
+                    }
+                    TrapCause::Interrupt(i) => {
+                        self.csr.inc_cycle(1);
+                        self.csr.inc_instret(1);
+                        self.csr.scause = i.get_code();
+                        self.set_pc(self.csr.stvec.base + 4 * i.get_code());
+                    }
+                }
             }
-            self.csr.status.mpie = self.csr.status.mie;
-            self.csr.status.mie = false;
-            self.csr.status.mpp = self.privilege();
-            self.privilege = PrivilegeMode::Machine;
-            self.set_pc(self.csr.mtvec.base);
-            Ok(())
+            PrivilegeMode::Machine => {
+                self.csr.mepc = self.get_pc();
+                self.csr.status.mpie = self.csr.status.mie;
+                self.csr.status.mie = false;
+                self.csr.status.mpp = self.privilege();
+                self.privilege = PrivilegeMode::Machine;
+                match cause {
+                    TrapCause::Exception(e) => {
+                        if 8 <= (e.get_code()) && (e.get_code()) <= 11 {
+                            // ECALL
+                        } else {
+                            self.csr.inc_cycle(1);
+                            self.csr.inc_instret(1);
+                        }
+                        self.csr.mcause = e.get_code();
+                        self.set_pc(self.csr.mtvec.base);
+                    }
+                    TrapCause::Interrupt(i) => {
+                        self.csr.inc_cycle(1);
+                        self.csr.inc_instret(1);
+                        self.csr.mcause = i.get_code();
+                        self.set_pc(self.csr.mtvec.base + 4 * i.get_code());
+                    }
+                }
+            }
         }
     }
 }

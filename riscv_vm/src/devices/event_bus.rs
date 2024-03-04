@@ -1,8 +1,12 @@
 use std::sync::mpsc::{self, Receiver, Sender};
 
+use enumflags2::bitflags;
 use nohash_hasher::IntMap;
 
-use crate::memory::address::Address;
+use crate::{
+    hart::trap::{Interrupt, InterruptTarget},
+    memory::address::Address,
+};
 
 use super::DeviceId;
 
@@ -13,18 +17,40 @@ pub enum DeviceEventType {
 pub struct DeviceEvent(pub DeviceId, pub DeviceEventType);
 
 pub struct DeviceEventBus {
-    reciever: Receiver<DeviceEvent>,
+    receiver: Receiver<DeviceEvent>,
     distributor: IntMap<DeviceId, Sender<DeviceEvent>>,
+    interrupter: Sender<(InterruptTarget, Interrupt)>,
+    interrupt_receiver: Receiver<(InterruptTarget, Interrupt)>,
+}
+
+#[repr(u8)]
+#[bitflags]
+#[derive(Clone, Copy)]
+pub enum InterruptPermission {
+    Normal,
+    InterruptController,
+}
+
+pub enum EventBusError {
+    PermissionDenied,
+}
+
+pub struct DeviceEventBusHandle {
+    permission: InterruptPermission,
+    interrupter: Sender<(InterruptTarget, Interrupt)>,
 }
 
 impl DeviceEventBus {
     pub fn new() -> (Sender<DeviceEvent>, Self) {
-        let (s, r) = mpsc::channel();
+        let (se, re) = mpsc::channel();
+        let (si, ri) = mpsc::channel();
         (
-            s,
+            se,
             Self {
-                reciever: r,
+                receiver: re,
                 distributor: IntMap::default(),
+                interrupter: si,
+                interrupt_receiver: ri,
             },
         )
     }
@@ -34,8 +60,42 @@ impl DeviceEventBus {
     }
 
     pub fn distribute(&self) {
-        for e in self.reciever.try_iter() {
+        for e in self.receiver.try_iter() {
             self.distributor.get(&e.0).unwrap().send(e);
+        }
+    }
+
+    pub fn interrupts(&self) -> Vec<(InterruptTarget, Interrupt)> {
+        self.interrupt_receiver.try_iter().collect()
+    }
+
+    pub fn get_handle(&self, permission: InterruptPermission) -> DeviceEventBusHandle {
+        DeviceEventBusHandle {
+            permission,
+            interrupter: self.interrupter.clone(),
+        }
+    }
+}
+
+impl DeviceEventBusHandle {
+    pub fn send_interrupt(
+        &self,
+        target_hart: InterruptTarget,
+        interrupt: Interrupt,
+    ) -> Result<(), EventBusError> {
+        match self.permission {
+            InterruptPermission::Normal => {
+                if interrupt == Interrupt::External {
+                    self.interrupter.send((target_hart, interrupt));
+                    Ok(())
+                } else {
+                    Err(EventBusError::PermissionDenied)
+                }
+            }
+            InterruptPermission::InterruptController => {
+                self.interrupter.send((target_hart, interrupt));
+                Ok(())
+            }
         }
     }
 }
