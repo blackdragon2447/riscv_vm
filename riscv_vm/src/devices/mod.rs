@@ -47,8 +47,6 @@ pub trait DeviceObject {
         mem: &mut DeviceMemory,
         registers: MemoryRegisterHandle,
     ) -> Result<(), DeviceInitError>;
-    // where
-    // Self: Sized;
 }
 
 impl<T: Error + Send + 'static> From<T> for DeviceError {
