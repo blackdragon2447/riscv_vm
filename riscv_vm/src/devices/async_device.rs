@@ -49,19 +49,6 @@ pub struct AsyncDeviceHolder {
     event_bus: Receiver<DeviceEvent>,
 }
 
-// pub struct TimeoutReciever<T>(Receiver<T>);
-//
-// impl<T> Future for TimeoutReciever<T> {
-//     type Output = T;
-//
-//     fn poll(
-//         self: std::pin::Pin<&mut Self>,
-//         cx: &mut std::task::Context<'_>,
-//     ) -> std::task::Poll<Self::Output> {
-//         todo!()
-//     }
-// }
-
 impl AsyncDeviceHolder {
     pub fn new(device: Box<dyn AsyncDevice>) -> (Sender<DeviceEvent>, Self) {
         let (s, r) = mpsc::channel();

@@ -28,7 +28,6 @@ inst!(sc_w(r_mem) for [32, 64]: {
     // 0x00
     *rd = !mem.write_conditional(&(*rs2 as i32).to_le_bytes(), (*rs1).into())? as ixlen;
     Ok(ExecuteResult::Continue)
-
 });
 
 inst!(amoswap_w(r_mem) for [32, 64]: {
