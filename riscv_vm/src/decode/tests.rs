@@ -38,6 +38,7 @@ mod instructions {
     use crate::{
         decode::{decode, Instruction::*},
         hart::registers::IntRegister::*,
+        tests,
     };
 
     #[test]
@@ -191,6 +192,18 @@ mod instructions {
                 rs1: X10,
                 rl: false,
                 aq: false
+            }
+        )
+    }
+
+    #[test]
+    fn srl() {
+        assert_eq!(
+            decode(0x0207d793),
+            SRLI {
+                rd: X15,
+                rs1: X15,
+                shamt: 0x20
             }
         )
     }

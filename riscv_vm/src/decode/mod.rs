@@ -423,14 +423,14 @@ pub fn decode(inst: u32) -> Instruction {
                         }
                     }
                     (0b0010011, 0b101) => {
-                        let shamt = (imm & 0b01_1111);
-                        match (imm & 0b1111_1110_0000) >> 5 {
-                            0b0000000 => Instruction::SRLI {
+                        let shamt = (imm & 0b11_1111);
+                        match (imm & 0b1111_1100_0000) >> 6 {
+                            0b000000 => Instruction::SRLI {
                                 rd: rd.into(),
                                 rs1: rs1.into(),
                                 shamt,
                             },
-                            0b0100000 => Instruction::SRAI {
+                            0b010000 => Instruction::SRAI {
                                 rd: rd.into(),
                                 rs1: rs1.into(),
                                 shamt,
@@ -453,13 +453,13 @@ pub fn decode(inst: u32) -> Instruction {
                     }
                     (0b0011011, 0b101) => {
                         let shamt = (imm & 0b11_1111);
-                        match (imm & 0b1111_1100_0000) >> 5 {
-                            0b0000000 => Instruction::SRLIW {
+                        match (imm & 0b1111_1100_0000) >> 6 {
+                            0b000000 => Instruction::SRLIW {
                                 rd: rd.into(),
                                 rs1: rs1.into(),
                                 shamt,
                             },
-                            0b0100000 => Instruction::SRAIW {
+                            0b010000 => Instruction::SRAIW {
                                 rd: rd.into(),
                                 rs1: rs1.into(),
                                 shamt,
