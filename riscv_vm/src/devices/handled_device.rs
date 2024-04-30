@@ -7,7 +7,7 @@ use crate::memory::{registers::MemoryRegisterHandle, DeviceMemory};
 
 use super::{
     event_bus::{self, DeviceEvent, DeviceEventBusHandle},
-    DeviceError, DeviceInitError, DeviceObject,
+    DeviceData, DeviceError, DeviceInitError, DeviceObject,
 };
 
 pub trait HandledDevice: Debug + DeviceObject {
@@ -29,6 +29,7 @@ pub trait HandledDevice: Debug + DeviceObject {
 pub struct HandledDeviceHolder {
     device: Box<dyn HandledDevice>,
     event_bus: Receiver<DeviceEvent>,
+    data: Option<DeviceData>,
 }
 
 impl HandledDeviceHolder {
@@ -39,6 +40,7 @@ impl HandledDeviceHolder {
             Self {
                 device,
                 event_bus: r,
+                data: None,
             },
         )
     }
@@ -48,7 +50,9 @@ impl HandledDeviceHolder {
         mem: &mut DeviceMemory,
         registers: MemoryRegisterHandle<'_>,
     ) -> Result<(), DeviceInitError> {
-        DeviceObject::init(self.device.as_mut(), mem, registers)
+        let data = DeviceObject::init(self.device.as_mut(), mem, registers)?;
+        self.data = Some(data);
+        Ok(())
     }
 
     pub fn update(

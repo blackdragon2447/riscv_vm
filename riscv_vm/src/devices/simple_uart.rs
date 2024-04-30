@@ -1,11 +1,13 @@
+use std::sync::{Arc, RwLock};
+
 use crate::{
     hart::registers,
     memory::{registers::MemoryRegisterHandle, DeviceMemory},
 };
 
 use super::{
-    event_bus::DeviceEventBusHandle, handled_device::HandledDevice, Device, DeviceError,
-    DeviceEvent, DeviceInitError, DeviceObject,
+    event_bus::DeviceEventBusHandle, handled_device::HandledDevice, Device, DeviceData,
+    DeviceError, DeviceEvent, DeviceInitError, DeviceObject,
 };
 
 /// It's not uart and probably breaks if you look at it wrong.
@@ -26,12 +28,12 @@ impl DeviceObject for SimpleUart {
         &mut self,
         mem: &mut DeviceMemory,
         registers: MemoryRegisterHandle,
-    ) -> Result<(), DeviceInitError> {
+    ) -> Result<DeviceData, DeviceInitError> {
         if mem.size() < 8 {
             Err(DeviceInitError::InsufficientMemory)
         } else {
             mem.get_mem_mut()[5] |= 0x40;
-            Ok(())
+            Ok(Arc::new(RwLock::new(Box::new(()))))
         }
     }
 }

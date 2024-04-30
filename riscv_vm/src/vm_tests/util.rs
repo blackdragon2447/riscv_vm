@@ -1,3 +1,5 @@
+use std::sync::{Arc, RwLock};
+
 use crate::devices::{handled_device::HandledDevice, Device, DeviceObject};
 
 #[derive(Debug)]
@@ -16,8 +18,8 @@ impl DeviceObject for TestOutputDevice {
         &mut self,
         _: &mut crate::memory::DeviceMemory,
         _: crate::memory::registers::MemoryRegisterHandle,
-    ) -> Result<(), crate::devices::DeviceInitError> {
-        Ok(())
+    ) -> Result<crate::devices::DeviceData, crate::devices::DeviceInitError> {
+        Ok(Arc::new(RwLock::new(Box::new(()))))
     }
 }
 

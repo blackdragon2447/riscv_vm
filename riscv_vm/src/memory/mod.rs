@@ -18,7 +18,7 @@ use nohash_hasher::IntMap;
 use crate::{
     devices::{
         event_bus::{DeviceEvent, DeviceEventType},
-        DeviceInitError,
+        DeviceData, DeviceInitError,
     },
     hart::{
         privilege::{self, PrivilegeMode},
@@ -109,12 +109,7 @@ impl Memory {
         }
     }
 
-    pub fn add_timer(
-        &mut self,
-        timer_base: Address,
-        cmp_base: Address,
-        timer_data: Rc<RwLock<Box<dyn Any>>>,
-    ) {
+    pub fn add_timer(&mut self, timer_base: Address, cmp_base: Address, timer_data: DeviceData) {
         // let timer_data: Rc<RwLock<Box<dyn Any>>> = Rc::new(RwLock::new(Box::new(timer)));
         self.add_register(
             usize::MAX,

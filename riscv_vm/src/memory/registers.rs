@@ -1,15 +1,15 @@
 use std::{any::Any, rc::Rc, sync::RwLock};
 
-use crate::hart::privilege::PrivilegeMode;
+use crate::{devices::DeviceData, hart::privilege::PrivilegeMode};
 
 use super::{address::Address, Memory};
 
 pub enum Register {
     Const(u64),
     Poll {
-        data: Rc<RwLock<Box<dyn Any>>>,
-        get: Box<dyn Fn(&Box<dyn Any>) -> u64>,
-        set: Box<dyn Fn(&mut Box<dyn Any>, u64)>,
+        data: DeviceData,
+        get: Box<dyn Fn(&Box<dyn Any + Send + Sync>) -> u64>,
+        set: Box<dyn Fn(&mut Box<dyn Any + Send + Sync>, u64)>,
     },
 }
 

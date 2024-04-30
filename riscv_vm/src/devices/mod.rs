@@ -1,6 +1,8 @@
 use std::{
+    any::Any,
     collections::btree_map::Range,
     error::Error,
+    rc::Rc,
     sync::{
         mpsc::{self, Receiver, Sender},
         Arc, PoisonError, RwLock,
@@ -41,12 +43,14 @@ pub trait Device {
     fn new() -> Self;
 }
 
+pub type DeviceData = Arc<RwLock<Box<dyn Any + Send + Sync>>>;
+
 pub trait DeviceObject {
     fn init(
         &mut self,
         mem: &mut DeviceMemory,
         registers: MemoryRegisterHandle,
-    ) -> Result<(), DeviceInitError>;
+    ) -> Result<DeviceData, DeviceInitError>;
 }
 
 impl<T: Error + Send + 'static> From<T> for DeviceError {

@@ -8,7 +8,7 @@ use std::{
     rc::Rc,
     sync::{
         mpsc::{self, Receiver, Sender},
-        RwLock,
+        Arc, RwLock,
     },
 };
 
@@ -23,7 +23,7 @@ use crate::{
         async_device::{AsyncDevice, AsyncDeviceHolder},
         event_bus::{DeviceEvent, DeviceEventBus, InterruptPermission},
         handled_device::{HandledDevice, HandledDeviceHolder},
-        Device, DeviceError, DeviceId, DeviceInitError,
+        Device, DeviceData, DeviceError, DeviceId, DeviceInitError,
     },
     execute::{execute_rv64, ExecuteError},
     hart::{self, privilege::PrivilegeMode, trap::InterruptTarget, Hart},
@@ -43,7 +43,7 @@ pub struct VMSettings {
 pub struct VMState {
     harts: Vec<Hart>,
     mem: Memory,
-    timer: Rc<RwLock<Box<dyn Any>>>,
+    timer: DeviceData,
     sync_devices: HashMap<usize, HandledDeviceHolder>,
     // async_devices: HashMap<usize, Box<dyn AsyncDevice>>,
     device_event_bus: DeviceEventBus,
@@ -79,7 +79,7 @@ impl VMState {
             hart_count as usize,
             bus.get_handle(InterruptPermission::InterruptController),
         );
-        let timer: Rc<RwLock<Box<dyn Any>>> = Rc::new(RwLock::new(Box::new(timer)));
+        let timer: DeviceData = Arc::new(RwLock::new(Box::new(timer)));
         mem.add_timer(0x1000.into(), 0x1040.into(), timer.clone());
 
         let mut harts = Vec::new();
