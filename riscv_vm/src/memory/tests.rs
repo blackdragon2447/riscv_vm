@@ -4,6 +4,7 @@ use crate::{
     hart::{privilege::PrivilegeMode, Hart},
     memory::{
         pmp::{AddressMatch, PmpCfg, PMP},
+        registers::Register,
         MemoryError,
     },
     vmstate::VMSettings,
@@ -386,6 +387,7 @@ fn read_pmp_denied() {
             pmp_enable: true,
             virt_mem_enable: false,
         },
+        Register::Const(0),
     );
     hart.get_csr_mut().pmp = pmp;
     hart.set_privilege(PrivilegeMode::User);
@@ -436,6 +438,7 @@ fn write_pmp_denied() {
             pmp_enable: true,
             virt_mem_enable: false,
         },
+        Register::Const(0),
     );
     hart.get_csr_mut().pmp = pmp;
     hart.set_privilege(PrivilegeMode::User);
@@ -501,7 +504,7 @@ fn write_oob() {
 #[test]
 fn reservation() {
     let mut mem = Memory::new::<256>(mpsc::channel().0);
-    let hart = Hart::new(0, VMSettings::default());
+    let hart = Hart::new(0, VMSettings::default(), Register::Const(0));
 
     // Populate the memory with random junk
     let to_write = 0xB2F1F0565F2B6A7E47BADB6EE79FE14Au128.to_le_bytes();

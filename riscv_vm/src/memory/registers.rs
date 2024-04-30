@@ -5,7 +5,7 @@ use crate::hart::privilege::PrivilegeMode;
 use super::{address::Address, Memory};
 
 pub enum Register {
-    Value,
+    Const(u64),
     Poll {
         data: Rc<RwLock<Box<dyn Any>>>,
         get: Box<dyn Fn(&Box<dyn Any>) -> u64>,
@@ -21,14 +21,14 @@ pub enum Register {
 impl Register {
     pub fn get(&self) -> u64 {
         match self {
-            Register::Value => todo!(),
+            Register::Const(v) => *v,
             Register::Poll { data, get, .. } => get(&data.read().unwrap()),
         }
     }
 
     pub fn set(&mut self, value: u64) {
         match self {
-            Register::Value => todo!(),
+            Register::Const(v) => {}
             Register::Poll { data, set, .. } => set(&mut data.write().unwrap(), value),
         }
     }

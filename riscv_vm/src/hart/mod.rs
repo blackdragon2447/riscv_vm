@@ -19,7 +19,7 @@ use crate::{
     decode::{decode, instruction::Instruction},
     execute::{execute_rv64, ExecuteError, ExecuteResult},
     hart::csr_holder::TrapMode,
-    memory::{address::Address, Memory, MemoryError},
+    memory::{address::Address, registers::Register, Memory, MemoryError},
     vmstate::{VMError, VMSettings},
 };
 
@@ -44,12 +44,12 @@ pub struct Hart {
 }
 
 impl Hart {
-    pub fn new(hart_id: u64, vm_settings: VMSettings) -> Self {
+    pub fn new(hart_id: u64, vm_settings: VMSettings, timer: Register) -> Self {
         Self {
             hart_id,
             pc: 0x80000000u64.into(),
             registers: Registers::new(),
-            csr: CsrHolder::new(hart_id),
+            csr: CsrHolder::new(hart_id, timer),
             privilege: PrivilegeMode::Machine,
             vm_settings,
             waiting_for_interrupt: false,

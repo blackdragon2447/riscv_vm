@@ -2,7 +2,8 @@ use enumflags2::{make_bitflags, BitFlag, BitFlags};
 
 use crate::{
     execute::ExecuteError,
-    memory::{address::Address, paging::Satp, pmp::PMP},
+    memory::{address::Address, paging::Satp, pmp::PMP, registers::Register},
+    vmstate::timer::MTimer,
 };
 
 use super::{
@@ -13,7 +14,10 @@ use super::{
     trap::{Exception, Interrupt, InterruptInternal},
     CsrAddress,
 };
-use std::{collections::HashMap, fmt::Debug, ops::RangeBounds, time::Instant};
+use std::{
+    any::Any, collections::HashMap, fmt::Debug, ops::RangeBounds, rc::Rc, sync::RwLock,
+    time::Instant,
+};
 
 #[repr(u8)]
 #[derive(Debug, PartialEq, Eq)]
@@ -34,7 +38,7 @@ const TOGGLEABLE_INTERRUPTS: u64 = 0b0000_1010_0010_0000;
 pub struct CsrHolder {
     // UserMode
     // cycle (tied to mcylce)
-    time_started: Instant,
+    timer: Register,
     // instret (tied to minstret)
 
     // SupervisorMode
@@ -159,7 +163,6 @@ pub struct Status {
 impl Debug for CsrHolder {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("CsrHolder")
-            .field("time_started", &self.time_started)
             .field("stvec", &self.stvec)
             .field("scounteren", &self.scounteren)
             .field("senvcfg", &self.senvcfg)
@@ -195,10 +198,10 @@ impl Debug for CsrHolder {
 }
 
 impl CsrHolder {
-    pub fn new(hart_id: u64) -> Self {
+    pub fn new(hart_id: u64, timer: Register) -> Self {
         Self {
             // UserMode
-            time_started: Instant::now(),
+            timer,
 
             // SupervisorMode
             sie: InterruptInternal::empty(),
@@ -306,7 +309,7 @@ impl CsrHolder {
     pub fn get_csr(&self, addr: CsrAddress) -> u64 {
         match addr.into() {
             0xC00u16 => self.mcycle,
-            0xC01 => self.time_started.elapsed().as_micros() as u64,
+            0xC01 => self.timer.get(),
             0xC02 => self.minstret,
 
             0x100 => self.status.to_s_bits(),

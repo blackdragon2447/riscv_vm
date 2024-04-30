@@ -27,7 +27,9 @@ use crate::{
     },
     execute::{execute_rv64, ExecuteError},
     hart::{self, privilege::PrivilegeMode, trap::InterruptTarget, Hart},
-    memory::{self, address::Address, pmp::PMP, DeviceMemory, Memory, MemoryError},
+    memory::{
+        self, address::Address, pmp::PMP, registers::Register, DeviceMemory, Memory, MemoryError,
+    },
 };
 
 use self::timer::MTimer;
@@ -70,11 +72,6 @@ pub enum VMError {
 
 impl VMState {
     fn new<const MEM_SIZE: usize>(hart_count: u64, settings: VMSettings) -> Self {
-        let mut harts = Vec::new();
-        for i in 0..hart_count {
-            harts.push(Hart::new(i, settings));
-        }
-
         let (se, bus) = DeviceEventBus::new();
 
         let mut mem = Memory::new::<MEM_SIZE>(se);
@@ -84,6 +81,25 @@ impl VMState {
         );
         let timer: Rc<RwLock<Box<dyn Any>>> = Rc::new(RwLock::new(Box::new(timer)));
         mem.add_timer(0x1000.into(), 0x1040.into(), timer.clone());
+
+        let mut harts = Vec::new();
+        for i in 0..hart_count {
+            harts.push(Hart::new(
+                i,
+                settings,
+                Register::Poll {
+                    data: timer.clone(),
+                    get: Box::new(|data| {
+                        let data: &MTimer = data.downcast_ref().unwrap();
+                        data.get_time_micros()
+                    }),
+                    set: Box::new(|data, value| {
+                        let data: &mut MTimer = data.downcast_mut().unwrap();
+                        data.set_time_micros(value)
+                    }),
+                },
+            ));
+        }
 
         Self {
             harts,
