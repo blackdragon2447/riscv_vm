@@ -1,24 +1,51 @@
+use std::{any::Any, rc::Rc, sync::RwLock};
+
 use crate::hart::privilege::PrivilegeMode;
 
 use super::{address::Address, Memory};
 
-pub struct Register {
-    value: u64,
-    permission: PrivilegeMode,
+pub enum Register {
+    Value,
+    Poll {
+        data: Rc<RwLock<Box<dyn Any>>>,
+        get: Box<dyn Fn(&Box<dyn Any>) -> u64>,
+        set: Box<dyn Fn(&mut Box<dyn Any>, u64)>,
+    },
 }
 
+// pub struct Register {
+//     value: u64,
+//     permission: PrivilegeMode,
+// }
+
 impl Register {
-    pub(super) fn new(permission: PrivilegeMode) -> Self {
-        Self {
-            value: 0,
-            permission,
+    pub fn get(&self) -> u64 {
+        match self {
+            Register::Value => todo!(),
+            Register::Poll { data, get, .. } => get(&data.read().unwrap()),
         }
     }
 
     pub fn set(&mut self, value: u64) {
-        self.value = value;
+        match self {
+            Register::Value => todo!(),
+            Register::Poll { data, set, .. } => set(&mut data.write().unwrap(), value),
+        }
     }
 }
+
+// impl Register {
+//     pub(super) fn new(permission: PrivilegeMode) -> Self {
+//         Self {
+//             value: 0,
+//             permission,
+//         }
+//     }
+//
+//     pub fn set(&mut self, value: u64) {
+//         self.value = value;
+//     }
+// }
 
 pub struct MemoryRegisterHandle<'a> {
     pub(super) memory_ref: &'a mut Memory,

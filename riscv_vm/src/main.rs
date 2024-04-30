@@ -180,7 +180,7 @@ fn main() {
                                 match vmstate.fetch(index) {
                                     Ok(inst) => println!("{:#?}", inst),
                                     Err(e) => println!(
-                                        "Fetch of instruction for hart {} failed with error{:?}",
+                                        "Fetch of instruction for hart {} failed with error {:?}",
                                         index, e
                                     ),
                                 }
@@ -219,6 +219,9 @@ fn main() {
                     vmstate.dump_mem();
                     println!("Dumped memory to mem.dump");
                 }
+                "mem_map" => {
+                    vmstate.print_mem_map();
+                }
                 "help" | "h" => {
                     println!("step [count]:");
                     println!("\tIf count is given step all hearts that many cycles");
@@ -247,6 +250,9 @@ fn main() {
                     println!("dump_mem:");
                     println!("\tDump the vm's memory to mem.dump for analisys");
                     println!("\tusing meman");
+                    println!();
+                    println!("mem_map:");
+                    println!("\t Print a (crude) map of the vm's memory");
                     println!();
                     println!("run:");
                     println!("\tRun the vm until an mbreak instruction or fatal");

@@ -16,7 +16,7 @@ use super::{
 use std::{collections::HashMap, fmt::Debug, ops::RangeBounds, time::Instant};
 
 #[repr(u8)]
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum TrapMode {
     Direct = 0,
     Vectored = 1,
@@ -176,6 +176,8 @@ impl Debug for CsrHolder {
             .field("misa", &self.misa)
             .field("medeleg", &self.medeleg)
             .field("mideleg", &self.mideleg)
+            .field("mie", &self.mie)
+            .field("mip", &self.mip)
             .field("mtvec", &self.mtvec)
             .field("mcounteren", &self.mcounteren)
             .field("mscratch", &self.mscratch)

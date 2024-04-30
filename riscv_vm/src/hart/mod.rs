@@ -8,6 +8,7 @@ pub mod registers;
 mod tests;
 pub mod trap;
 
+use core::panic;
 use std::{
     collections::{BinaryHeap, HashMap},
     time::Instant,
@@ -17,6 +18,7 @@ use std::{
 use crate::{
     decode::{decode, instruction::Instruction},
     execute::{execute_rv64, ExecuteError, ExecuteResult},
+    hart::csr_holder::TrapMode,
     memory::{address::Address, Memory, MemoryError},
     vmstate::{VMError, VMSettings},
 };
@@ -100,6 +102,15 @@ impl Hart {
             Interrupt::MSoftware => self.csr.mip |= InterruptInternal::MachineSoftware,
             Interrupt::Timer => self.csr.mip |= InterruptInternal::MachineTimer,
             Interrupt::External => self.csr.mip |= InterruptInternal::MachineExternal,
+        }
+    }
+
+    pub fn clear_interrupt(&mut self, cause: Interrupt) {
+        match cause {
+            Interrupt::SSoftware => self.csr.mip &= !InterruptInternal::SupervisorSoftware,
+            Interrupt::MSoftware => self.csr.mip &= !InterruptInternal::MachineSoftware,
+            Interrupt::Timer => self.csr.mip &= !InterruptInternal::MachineTimer,
+            Interrupt::External => self.csr.mip &= !InterruptInternal::MachineExternal,
         }
     }
 
@@ -284,7 +295,11 @@ impl Hart {
                         self.csr.inc_cycle(1);
                         self.csr.inc_instret(1);
                         self.csr.mcause = i.get_code();
-                        self.set_pc(self.csr.mtvec.base + 4 * i.get_code());
+                        if self.csr.mtvec.mode == TrapMode::Direct {
+                            self.set_pc(self.csr.mtvec.base);
+                        } else {
+                            self.set_pc(self.csr.mtvec.base + 4 * i.get_code());
+                        }
                     }
                 }
             }

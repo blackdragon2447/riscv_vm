@@ -120,11 +120,13 @@ pub enum Interrupt {
     External,
 }
 
+#[derive(Debug)]
 pub enum InterruptTarget {
     All,
     Single(usize),
 }
 
+#[derive(Debug)]
 pub enum TrapCause {
     Exception(Exception),
     Interrupt(InterruptInternal),

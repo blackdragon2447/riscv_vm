@@ -1,3 +1,4 @@
+use core::panic;
 use std::sync::mpsc::{self, Receiver, Sender};
 
 use enumflags2::bitflags;
@@ -10,17 +11,25 @@ use crate::{
 
 use super::DeviceId;
 
+#[derive(Debug)]
 pub enum DeviceEventType {
     RegisterWrite(Address),
 }
 
+#[derive(Debug)]
+pub enum InterruptSignal {
+    Set(InterruptTarget, Interrupt),
+    Clear(InterruptTarget, Interrupt),
+}
+
+#[derive(Debug)]
 pub struct DeviceEvent(pub DeviceId, pub DeviceEventType);
 
 pub struct DeviceEventBus {
     receiver: Receiver<DeviceEvent>,
     distributor: IntMap<DeviceId, Sender<DeviceEvent>>,
-    interrupter: Sender<(InterruptTarget, Interrupt)>,
-    interrupt_receiver: Receiver<(InterruptTarget, Interrupt)>,
+    interrupter: Sender<InterruptSignal>,
+    interrupt_receiver: Receiver<InterruptSignal>,
 }
 
 #[repr(u8)]
@@ -31,13 +40,14 @@ pub enum InterruptPermission {
     InterruptController,
 }
 
+#[derive(Debug)]
 pub enum EventBusError {
     PermissionDenied,
 }
 
 pub struct DeviceEventBusHandle {
     permission: InterruptPermission,
-    interrupter: Sender<(InterruptTarget, Interrupt)>,
+    interrupter: Sender<InterruptSignal>,
 }
 
 impl DeviceEventBus {
@@ -61,11 +71,13 @@ impl DeviceEventBus {
 
     pub fn distribute(&self) {
         for e in self.receiver.try_iter() {
-            self.distributor.get(&e.0).unwrap().send(e);
+            if let Some(dev) = self.distributor.get(&e.0) {
+                dev.send(e);
+            }
         }
     }
 
-    pub fn interrupts(&self) -> Vec<(InterruptTarget, Interrupt)> {
+    pub fn interrupts(&self) -> Vec<InterruptSignal> {
         self.interrupt_receiver.try_iter().collect()
     }
 
@@ -86,14 +98,39 @@ impl DeviceEventBusHandle {
         match self.permission {
             InterruptPermission::Normal => {
                 if interrupt == Interrupt::External {
-                    self.interrupter.send((target_hart, interrupt));
+                    self.interrupter
+                        .send(InterruptSignal::Set(target_hart, interrupt));
                     Ok(())
                 } else {
                     Err(EventBusError::PermissionDenied)
                 }
             }
             InterruptPermission::InterruptController => {
-                self.interrupter.send((target_hart, interrupt));
+                self.interrupter
+                    .send(InterruptSignal::Set(target_hart, interrupt));
+                Ok(())
+            }
+        }
+    }
+
+    pub fn clear_interrupt(
+        &self,
+        target_hart: InterruptTarget,
+        interrupt: Interrupt,
+    ) -> Result<(), EventBusError> {
+        match self.permission {
+            InterruptPermission::Normal => {
+                if interrupt == Interrupt::External {
+                    self.interrupter
+                        .send(InterruptSignal::Clear(target_hart, interrupt));
+                    Ok(())
+                } else {
+                    Err(EventBusError::PermissionDenied)
+                }
+            }
+            InterruptPermission::InterruptController => {
+                self.interrupter
+                    .send(InterruptSignal::Clear(target_hart, interrupt));
                 Ok(())
             }
         }

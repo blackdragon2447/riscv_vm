@@ -4,6 +4,7 @@ use crate::devices::DeviceId;
 
 use super::{address::Address, MemoryError};
 
+#[derive(Debug)]
 pub enum MemoryRegion {
     Ram(Range<Address>),
     Rom(Range<Address>),
@@ -17,13 +18,15 @@ impl MemoryRegion {
             MemoryRegion::Ram(r) => r.clone(),
             MemoryRegion::Rom(r) => r.clone(),
             MemoryRegion::IO(_, r) => r.clone(),
-            MemoryRegion::Register(_, a) => (*a..(*a + 8u64).into()),
+            MemoryRegion::Register(_, a) => (*a..(*a + 9u64).into()),
         }
     }
 }
 
+#[derive(Debug)]
 pub struct MemoryMap(Vec<MemoryRegion>);
 
+#[derive(Debug)]
 pub enum MemoryMapError {
     OutOfBounds,
     TooLarge,

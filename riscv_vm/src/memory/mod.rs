@@ -1,11 +1,13 @@
 use core::panic;
 use std::{
+    any::Any,
     collections::HashMap,
     fmt::Debug,
     fs::File,
     io::Write,
     mem,
     ops::{Add, AddAssign, Deref, Range, RangeBounds, Sub},
+    rc::Rc,
     sync::{mpsc::Sender, Arc, PoisonError, RwLock, RwLockWriteGuard},
     u8, usize, vec,
 };
@@ -22,6 +24,7 @@ use crate::{
         privilege::{self, PrivilegeMode},
         Hart,
     },
+    vmstate::timer::MTimer,
 };
 
 use self::{
@@ -106,6 +109,49 @@ impl Memory {
         }
     }
 
+    pub fn add_timer(
+        &mut self,
+        timer_base: Address,
+        cmp_base: Address,
+        timer_data: Rc<RwLock<Box<dyn Any>>>,
+    ) {
+        // let timer_data: Rc<RwLock<Box<dyn Any>>> = Rc::new(RwLock::new(Box::new(timer)));
+        self.add_register(
+            usize::MAX,
+            Register::Poll {
+                data: timer_data.clone(),
+                get: Box::new(|data| {
+                    let data: &MTimer = data.downcast_ref().unwrap();
+                    data.get_time_micros()
+                }),
+                set: Box::new(|data, value| {
+                    let data: &mut MTimer = data.downcast_mut().unwrap();
+                    data.set_time_micros(value)
+                }),
+            },
+            timer_base,
+        );
+        let timer_box = timer_data.read().unwrap();
+        let timer: &MTimer = timer_box.downcast_ref().unwrap();
+        for (i, cmp) in timer.get_cmps().iter().enumerate() {
+            self.add_register(
+                usize::MAX,
+                Register::Poll {
+                    data: timer_data.clone(),
+                    get: Box::new(move |data| {
+                        let data: &MTimer = data.downcast_ref().unwrap();
+                        data.get_cmp_micros(i as u64)
+                    }),
+                    set: Box::new(move |data, value| {
+                        let data: &mut MTimer = data.downcast_mut().unwrap();
+                        data.set_cmp_micros(value, i as u64);
+                    }),
+                },
+                cmp_base + (8 * i) as u64,
+            );
+        }
+    }
+
     /// NOTE, does not do atomic checks, pmp checks or page table walks
     pub fn write_bytes(
         &mut self,
@@ -169,7 +215,12 @@ impl Memory {
                 }
                 MemoryRegion::Rom(r) => todo!(),
                 MemoryRegion::IO(o, r) => self.device_regions[o].read()?.read_bytes(addr, size),
-                MemoryRegion::Register(o, a) => todo!(),
+                MemoryRegion::Register(o, a) => {
+                    let mut bytes: Vec<u8> =
+                        self.registers.get(a).unwrap().get().to_le_bytes().into();
+                    bytes.resize(size, 0);
+                    Ok(bytes)
+                }
             },
             Err(_) => Err(MemoryError::OutOfBoundsRead(addr)),
         }
@@ -276,12 +327,16 @@ impl Memory {
         let mut w = File::create("./mem.dump").unwrap();
         writeln!(&mut w, "{:?}", self);
     }
+
+    pub fn get_map(&self) -> &MemoryMap {
+        &self.memory_map
+    }
 }
 
 impl MemoryRegisterHandle<'_> {
-    pub fn add_register(&mut self, addr: Address, permission: PrivilegeMode) -> bool {
+    pub fn add_register(&mut self, addr: Address, register: Register) -> bool {
         self.memory_ref
-            .add_register(self.dev_id, Register::new(permission), addr)
+            .add_register(self.dev_id, register, addr)
             .is_ok()
     }
 }
