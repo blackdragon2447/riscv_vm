@@ -18,7 +18,9 @@ impl MemoryRegion {
             MemoryRegion::Ram(r) => r.clone(),
             MemoryRegion::Rom(r) => r.clone(),
             MemoryRegion::IO(_, r) => r.clone(),
-            MemoryRegion::Register(_, a) => (*a..(*a + 9u64).into()),
+            // + 9 and not 8 because .. is
+            // exclusivem to +8 would make our range only 7 wide.
+            MemoryRegion::Register(_, a) => *a..(*a + 9u64),
         }
     }
 }
@@ -59,7 +61,7 @@ impl MemoryMap {
         if let MemoryRegion::Ram(_) = region {
             return Err(MemoryMapError::MultipleRamRegions);
         }
-        if let Some(_) = self.0.iter().find(|a| overlap(a.range(), region.range())) {
+        if self.0.iter().any(|a| overlap(a.range(), region.range())) {
             Err(MemoryMapError::RegionOverlap)
         } else {
             self.0.push(region);

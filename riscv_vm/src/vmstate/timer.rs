@@ -20,7 +20,7 @@ impl MTimer {
         let base = Instant::now();
         Self {
             base,
-            time: base.clone(),
+            time: base,
             time_cmp: vec![None; hart_count],
             bus,
         }

@@ -363,10 +363,7 @@ impl CsrHolder {
         if addr.get_type() == CsrType::StandardRO
             || addr.get_type() == CsrType::CustomRO
             || addr.get_privilege() > privilege
-        {
-            Err(ExecuteError::Exception(Exception::IllegalInstruction))
-        } else if (0xC00u16..=0xC1F).contains(&addr.into())
-            && !self.counter_enabled(privilege, addr)
+            || ((0xC00u16..=0xC1F).contains(&addr.into()) && !self.counter_enabled(privilege, addr))
         {
             Err(ExecuteError::Exception(Exception::IllegalInstruction))
         } else {
@@ -536,7 +533,7 @@ impl CsrHolder {
                 }
                 0x144 => {
                     self.mip = BitFlags::<InterruptInternal>::from_bits_truncate(
-                        (self.mip.bits() | (mask & (TOGGLEABLE_INTERRUPTS & S_INTERRUPT_MASK))),
+                        self.mip.bits() | (mask & (TOGGLEABLE_INTERRUPTS & S_INTERRUPT_MASK)),
                     );
                 }
                 0x180 if !self.status.tvm => {
@@ -674,7 +671,7 @@ impl CsrHolder {
                 }
                 0x144 => {
                     self.mip = BitFlags::<InterruptInternal>::from_bits_truncate(
-                        (self.mip.bits() & !(mask & (S_INTERRUPT_MASK & TOGGLEABLE_INTERRUPTS))),
+                        self.mip.bits() & !(mask & (S_INTERRUPT_MASK & TOGGLEABLE_INTERRUPTS)),
                     );
                 }
                 0x180 if !self.status.tvm => {

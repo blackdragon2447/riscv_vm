@@ -1,3 +1,6 @@
+// Most of these warnings are caused ny macro generated code and cannot be avoided.
+#![allow(clippy::unnecessary_cast)]
+
 mod rv32a;
 mod rv32i;
 mod rv32m;

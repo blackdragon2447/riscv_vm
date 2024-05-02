@@ -99,9 +99,7 @@ impl Memory {
         let mem = vec![0u8; SIZE].into_boxed_slice();
         Self {
             mem,
-            memory_map: MemoryMap::new(
-                (0x80000000u64.into()..(0x80000000u64 + SIZE as u64).into()),
-            ),
+            memory_map: MemoryMap::new(0x80000000u64.into()..(0x80000000u64 + SIZE as u64).into()),
             registers: IntMap::default(),
             device_regions: IntMap::default(),
             reservations: IntMap::default(),
@@ -291,7 +289,7 @@ impl Memory {
         }
     }
 
-    pub fn register_handle<'a>(&'a mut self, dev_id: usize) -> MemoryRegisterHandle {
+    pub fn register_handle(&mut self, dev_id: usize) -> MemoryRegisterHandle {
         MemoryRegisterHandle::new(self, dev_id)
     }
 

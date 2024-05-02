@@ -43,7 +43,7 @@ impl Exception {
 
 #[repr(u64)]
 #[bitflags]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum InterruptInternal {
     SupervisorSoftware = 0b1 << 1,
     MachineSoftware = 0b1 << 3,
@@ -53,37 +53,37 @@ pub enum InterruptInternal {
     MachineExternal = 0b1 << 11,
 }
 
-impl PartialOrd for InterruptInternal {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+impl Ord for InterruptInternal {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         match self {
             InterruptInternal::MachineExternal => match other {
-                Self::MachineExternal => Some(std::cmp::Ordering::Equal),
-                _ => Some(std::cmp::Ordering::Greater),
+                Self::MachineExternal => std::cmp::Ordering::Equal,
+                _ => std::cmp::Ordering::Greater,
             },
             InterruptInternal::MachineSoftware => match other {
-                Self::MachineExternal => Some(std::cmp::Ordering::Greater),
-                Self::MachineSoftware => Some(std::cmp::Ordering::Equal),
-                _ => Some(std::cmp::Ordering::Less),
+                Self::MachineExternal => std::cmp::Ordering::Greater,
+                Self::MachineSoftware => std::cmp::Ordering::Equal,
+                _ => std::cmp::Ordering::Less,
             },
             InterruptInternal::MachineTimer => match other {
-                Self::MachineExternal | Self::MachineSoftware => Some(std::cmp::Ordering::Greater),
-                Self::MachineTimer => Some(std::cmp::Ordering::Equal),
-                _ => Some(std::cmp::Ordering::Less),
+                Self::MachineExternal | Self::MachineSoftware => std::cmp::Ordering::Greater,
+                Self::MachineTimer => std::cmp::Ordering::Equal,
+                _ => std::cmp::Ordering::Less,
             },
             InterruptInternal::SupervisorExternal => match other {
                 Self::MachineExternal | Self::MachineSoftware | Self::MachineTimer => {
-                    Some(std::cmp::Ordering::Greater)
+                    std::cmp::Ordering::Greater
                 }
-                Self::SupervisorExternal => Some(std::cmp::Ordering::Equal),
-                _ => Some(std::cmp::Ordering::Less),
+                Self::SupervisorExternal => std::cmp::Ordering::Equal,
+                _ => std::cmp::Ordering::Less,
             },
             InterruptInternal::SupervisorSoftware => match other {
                 Self::MachineExternal
                 | Self::MachineSoftware
                 | Self::MachineTimer
-                | InterruptInternal::SupervisorExternal => Some(std::cmp::Ordering::Greater),
-                Self::SupervisorSoftware => Some(std::cmp::Ordering::Equal),
-                _ => Some(std::cmp::Ordering::Less),
+                | InterruptInternal::SupervisorExternal => std::cmp::Ordering::Greater,
+                Self::SupervisorSoftware => std::cmp::Ordering::Equal,
+                _ => std::cmp::Ordering::Less,
             },
 
             InterruptInternal::SupervisorTimer => match other {
@@ -91,11 +91,17 @@ impl PartialOrd for InterruptInternal {
                 | Self::MachineSoftware
                 | Self::MachineTimer
                 | InterruptInternal::SupervisorExternal
-                | InterruptInternal::SupervisorSoftware => Some(std::cmp::Ordering::Greater),
-                Self::SupervisorTimer => Some(std::cmp::Ordering::Equal),
-                _ => Some(std::cmp::Ordering::Less),
+                | InterruptInternal::SupervisorSoftware => std::cmp::Ordering::Greater,
+                Self::SupervisorTimer => std::cmp::Ordering::Equal,
+                _ => std::cmp::Ordering::Less,
             },
         }
+    }
+}
+
+impl PartialOrd for InterruptInternal {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
     }
 }
 

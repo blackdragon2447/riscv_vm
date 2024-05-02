@@ -14,6 +14,9 @@ use crate::{
     vmstate::VMState,
 };
 
+// The two IntMap which are arguably complex stay completely within this module, so having them be
+// this bad is fine
+#[allow(clippy::type_complexity)]
 #[derive(Default, Debug)]
 pub struct VMStateBuilder<const MEM_SIZE: usize> {
     hart_count: u64, //TODO: Change to vec HartSettings at some point

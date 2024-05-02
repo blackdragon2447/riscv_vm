@@ -4,6 +4,9 @@ use crate::{devices::DeviceData, hart::privilege::PrivilegeMode};
 
 use super::{address::Address, Memory};
 
+// The type inside the box is big, but some indirection wouldnt
+// really help
+#[allow(clippy::type_complexity)]
 pub enum Register {
     Const(u64),
     Poll {

@@ -134,13 +134,11 @@ impl Hart {
                             self.trap(TrapCause::Interrupt(i), PrivilegeMode::Supervisor);
                             break 'interrupt_loop;
                         }
-                    } else {
-                        if (self.privilege < PrivilegeMode::Machine || self.csr.status.mie)
-                            && self.csr.mie.contains(i)
-                        {
-                            self.trap(TrapCause::Interrupt(i), PrivilegeMode::Machine);
-                            break 'interrupt_loop;
-                        }
+                    } else if (self.privilege < PrivilegeMode::Machine || self.csr.status.mie)
+                        && self.csr.mie.contains(i)
+                    {
+                        self.trap(TrapCause::Interrupt(i), PrivilegeMode::Machine);
+                        break 'interrupt_loop;
                     }
                 }
                 InterruptInternal::MachineSoftware
