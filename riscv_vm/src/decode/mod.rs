@@ -1,11 +1,11 @@
-use self::instruction::Instruction;
+pub use self::instruction::Instruction;
 
-pub mod instruction;
+mod instruction;
 #[cfg(test)]
 mod tests;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum InstructionType {
+pub(crate) enum InstructionType {
     R,
     I,
     S,
@@ -14,6 +14,8 @@ pub enum InstructionType {
     J,
 }
 
+/// Decode a single RiscV instruction, Invalid instructions are encoded as a variant of the
+/// `Instruction` enum.
 pub fn decode(inst: u32) -> Instruction {
     if let Some((inst_type, opcode)) = get_type_and_opcode(inst) {
         match inst_type {

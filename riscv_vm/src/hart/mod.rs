@@ -16,7 +16,7 @@ use std::{
 };
 
 use crate::{
-    decode::{decode, instruction::Instruction},
+    decode::{decode, Instruction},
     execute::{execute_rv64, ExecuteError, ExecuteResult},
     hart::csr_holder::TrapMode,
     memory::{address::Address, registers::Register, Memory, MemoryError},

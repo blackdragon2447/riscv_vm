@@ -1,11 +1,14 @@
 #![allow(dead_code)]
 #![allow(unused)]
 
-pub mod decode;
+mod decode;
 pub mod devices;
 mod execute;
 mod hart;
-pub mod memory;
+mod memory;
+
+pub use memory::{KB, MB};
+
 #[cfg(test)]
 mod tests;
 #[cfg(test)]

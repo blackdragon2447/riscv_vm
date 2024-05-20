@@ -17,22 +17,34 @@ use super::{
     DeviceData, DeviceError, DeviceInitError, DeviceObject,
 };
 
+/// Indicates the reason an `AsyncDevice`'s update function was called
 pub enum AsyncDeviceUpdate {
+    /// Initial device update, used to force the device to return an `AsyncDeviceUpdateResult`
     Initial,
+    /// Requested timeout has ended
     TimeOut,
+    /// Immediate continue from last event
     Continue,
+    /// Device recieved an event
     DeviceEvent(DeviceEvent),
 }
 
+/// Allows a async device to indicate when it wants its next update.
 pub enum AsyncDeviceUpdateResult {
     /// Wait for duration or an event whichever is earlier
     TimeOut(Duration),
     /// Wait until instant or an event whichever is earlier
     TimeoutUntil(Instant),
+    /// Wait for event
     WaitForEvent,
+    /// Immedtiately update
     Continue,
 }
 
+/// Part three of an async device, this trait defines the behaviour of the device.
+/// The update function is called once initially and then at the request of the device or
+/// on an event, see `AsyncDeviceUpdate` on update reasons, and `AsyncDeviceUpdateResult` on
+/// possible options for requesting the next event.
 pub trait AsyncDevice: Debug + DeviceObject + Send {
     // TODO: events, maybe handle the eventloop more externally
     fn update(
@@ -45,7 +57,7 @@ pub trait AsyncDevice: Debug + DeviceObject + Send {
 }
 
 #[derive(Debug)]
-pub struct AsyncDeviceHolder {
+pub(crate) struct AsyncDeviceHolder {
     device: Box<dyn AsyncDevice>,
     event_bus: Receiver<DeviceEvent>,
     data: Option<DeviceData>,

@@ -10,13 +10,19 @@ use super::{
     DeviceData, DeviceError, DeviceInitError, DeviceObject,
 };
 
+/// Part three of a handled device, this trait defines the behaviour of a handled device. These
+/// devices run in sync with the main clock and are meant for simple, short, tasks.
 pub trait HandledDevice: Debug + DeviceObject {
+    /// The main way for the device to do logic, this function is called once per clock cycle.
     fn update(
         &mut self,
         mem: &mut DeviceMemory,
         event_bus: &DeviceEventBusHandle,
+        data: DeviceData,
     ) -> Result<(), DeviceError>;
 
+    /// Called when an event occurs which the device needs to be notified of, the device may choose
+    /// to ignore this.
     fn event(
         &mut self,
         mem: &mut DeviceMemory,
@@ -26,14 +32,14 @@ pub trait HandledDevice: Debug + DeviceObject {
 }
 
 #[derive(Debug)]
-pub struct HandledDeviceHolder {
+pub(crate) struct HandledDeviceHolder {
     device: Box<dyn HandledDevice>,
     event_bus: Receiver<DeviceEvent>,
     data: Option<DeviceData>,
 }
 
 impl HandledDeviceHolder {
-    pub fn new(device: Box<dyn HandledDevice>) -> (Sender<DeviceEvent>, Self) {
+    pub(crate) fn new(device: Box<dyn HandledDevice>) -> (Sender<DeviceEvent>, Self) {
         let (s, r) = mpsc::channel();
         (
             s,
@@ -45,7 +51,7 @@ impl HandledDeviceHolder {
         )
     }
 
-    pub fn init_device(
+    pub(crate) fn init_device(
         &mut self,
         mem: &mut DeviceMemory,
         registers: MemoryRegisterHandle<'_>,
@@ -55,12 +61,13 @@ impl HandledDeviceHolder {
         Ok(())
     }
 
-    pub fn update(
+    pub(crate) fn update(
         &mut self,
         mem: &mut DeviceMemory,
         event_bus: &DeviceEventBusHandle,
     ) -> Result<(), DeviceError> {
-        self.device.update(mem, event_bus)?;
+        let data = self.data.clone().expect("Device run before initializing");
+        self.device.update(mem, event_bus, data)?;
 
         for e in self.event_bus.try_iter() {
             self.device.event(mem, e, event_bus)?

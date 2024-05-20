@@ -17,7 +17,7 @@ pub enum DeviceEventType {
 }
 
 #[derive(Debug)]
-pub enum InterruptSignal {
+pub(crate) enum InterruptSignal {
     Set(InterruptTarget, Interrupt),
     Clear(InterruptTarget, Interrupt),
 }
@@ -25,7 +25,7 @@ pub enum InterruptSignal {
 #[derive(Debug)]
 pub struct DeviceEvent(pub DeviceId, pub DeviceEventType);
 
-pub struct DeviceEventBus {
+pub(crate) struct DeviceEventBus {
     receiver: Receiver<DeviceEvent>,
     distributor: IntMap<DeviceId, Sender<DeviceEvent>>,
     interrupter: Sender<InterruptSignal>,
@@ -35,7 +35,7 @@ pub struct DeviceEventBus {
 #[repr(u8)]
 #[bitflags]
 #[derive(Clone, Copy)]
-pub enum InterruptPermission {
+pub(crate) enum InterruptPermission {
     Normal,
     InterruptController,
 }
@@ -45,13 +45,14 @@ pub enum EventBusError {
     PermissionDenied,
 }
 
+/// Device's connection to the event bus, allows a device to send interrupts
 pub struct DeviceEventBusHandle {
     permission: InterruptPermission,
     interrupter: Sender<InterruptSignal>,
 }
 
 impl DeviceEventBus {
-    pub fn new() -> (Sender<DeviceEvent>, Self) {
+    pub(crate) fn new() -> (Sender<DeviceEvent>, Self) {
         let (se, re) = mpsc::channel();
         let (si, ri) = mpsc::channel();
         (
@@ -65,11 +66,11 @@ impl DeviceEventBus {
         )
     }
 
-    pub fn add_device(&mut self, device: DeviceId, sender: Sender<DeviceEvent>) {
+    pub(crate) fn add_device(&mut self, device: DeviceId, sender: Sender<DeviceEvent>) {
         self.distributor.insert(device, sender);
     }
 
-    pub fn distribute(&self) {
+    pub(crate) fn distribute(&self) {
         for e in self.receiver.try_iter() {
             if let Some(dev) = self.distributor.get(&e.0) {
                 dev.send(e);
@@ -77,11 +78,11 @@ impl DeviceEventBus {
         }
     }
 
-    pub fn interrupts(&self) -> Vec<InterruptSignal> {
+    pub(crate) fn interrupts(&self) -> Vec<InterruptSignal> {
         self.interrupt_receiver.try_iter().collect()
     }
 
-    pub fn get_handle(&self, permission: InterruptPermission) -> DeviceEventBusHandle {
+    pub(crate) fn get_handle(&self, permission: InterruptPermission) -> DeviceEventBusHandle {
         DeviceEventBusHandle {
             permission,
             interrupter: self.interrupter.clone(),
@@ -90,6 +91,10 @@ impl DeviceEventBus {
 }
 
 impl DeviceEventBusHandle {
+    /// Send an interrupt to the device, may target a single hart of all harts, see `InterruptTarget` for details.
+    /// Errors is the device does not have permission to send the type of interrupt, unless stated
+    /// otherwise, devices should assume that they only have permission to send External
+    /// interrupts.
     pub fn send_interrupt(
         &self,
         target_hart: InterruptTarget,
@@ -113,6 +118,7 @@ impl DeviceEventBusHandle {
         }
     }
 
+    /// Clean an interrupt, clears the interrupt for all values.
     pub fn clear_interrupt(
         &self,
         target_hart: InterruptTarget,

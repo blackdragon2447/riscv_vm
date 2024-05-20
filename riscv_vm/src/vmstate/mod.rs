@@ -1,5 +1,8 @@
-pub mod builder;
-pub mod timer;
+//! The vmstate is the main  way to interact with the vm, is is created via a [`VMStateBuilder`]
+//! and can than be interacted with directly.
+
+mod builder;
+pub(crate) mod timer;
 
 use std::{
     any::Any,
@@ -18,7 +21,7 @@ use elf_load::{
 };
 
 use crate::{
-    decode::{decode, instruction::Instruction},
+    decode::{decode, Instruction},
     devices::{
         async_device::{AsyncDevice, AsyncDeviceHolder},
         event_bus::{DeviceEvent, DeviceEventBus, InterruptPermission},
@@ -33,6 +36,7 @@ use crate::{
 };
 
 use self::timer::MTimer;
+pub use builder::{VMInitError, VMStateBuilder};
 
 #[derive(Default, Debug, Clone, Copy)]
 pub struct VMSettings {
@@ -40,6 +44,7 @@ pub struct VMSettings {
     pub virt_mem_enable: bool,
 }
 
+/// An actual instance of a riscv vm, with memory, devices and harts
 pub struct VMState {
     harts: Vec<Hart>,
     mem: Memory,
@@ -52,7 +57,7 @@ pub struct VMState {
 }
 
 #[derive(Debug)]
-pub enum KernelError {
+pub enum KernelLoadError {
     InvalidBitness(Bitness),
     InvalidEndianness(Endianess),
     InvalidASI(ASI),
@@ -62,7 +67,7 @@ pub enum KernelError {
 pub enum VMError {
     MemoryError(MemoryError),
     FetchError(MemoryError),
-    InvalidElfKernel(KernelError),
+    InvalidElfKernel(KernelLoadError),
     NoDeviceMemory,
     StepUntilLimit,
     DeviceError(DeviceError),
@@ -113,19 +118,21 @@ impl VMState {
         }
     }
 
+    /// Load a kernel from an elf file and place it at 0x80000000 (bottom of memory)
+    /// The elf must be riscv64 little endian.
     pub fn load_elf_kernel(&mut self, elf: &Elf) -> Result<(), VMError> {
         if elf.header.arch != ASI::RISCV {
-            return Err(VMError::InvalidElfKernel(KernelError::InvalidASI(
+            return Err(VMError::InvalidElfKernel(KernelLoadError::InvalidASI(
                 elf.header.arch,
             )));
         }
         if elf.header.endianess != Endianess::Little {
-            return Err(VMError::InvalidElfKernel(KernelError::InvalidEndianness(
-                elf.header.endianess,
-            )));
+            return Err(VMError::InvalidElfKernel(
+                KernelLoadError::InvalidEndianness(elf.header.endianess),
+            ));
         }
         if elf.header.bitness != Bitness::B64 {
-            return Err(VMError::InvalidElfKernel(KernelError::InvalidBitness(
+            return Err(VMError::InvalidElfKernel(KernelLoadError::InvalidBitness(
                 elf.header.bitness,
             )));
         }
@@ -133,7 +140,7 @@ impl VMState {
         Ok(())
     }
 
-    pub fn add_sync_device(
+    fn add_sync_device(
         &mut self,
         mut dev: (Sender<DeviceEvent>, HandledDeviceHolder),
         addr: Address,
@@ -149,7 +156,7 @@ impl VMState {
         Ok(())
     }
 
-    pub fn add_async_device(
+    fn add_async_device(
         &mut self,
         mut dev: (Sender<DeviceEvent>, AsyncDeviceHolder),
         addr: Address,
@@ -173,6 +180,7 @@ impl VMState {
         Ok(())
     }
 
+    /// Advance all cores one cycle and, if verbose, print the instruction that was executed
     pub fn step(&mut self, verbose: bool) -> Result<(), VMError> {
         for hart in &mut self.harts {
             hart.step(&mut self.mem, verbose)?;
@@ -230,10 +238,14 @@ impl VMState {
         Ok(())
     }
 
+    /// Step a specific hart until its pc hits the given address or it has made 10000 steps,
+    /// whichever happens first
     pub fn step_hart_until(&mut self, hart: usize, target: Address) -> Result<(), VMError> {
         self.harts[hart].step_until(&mut self.mem, target, 10000)
     }
 
+    /// Step all harts until its pc hits the given address or it has made 10000 steps,
+    /// whichever happens first
     pub fn step_all_until(&mut self, target: Address) -> Result<(), VMError> {
         for _ in 0..10000 {
             for hart in &mut self.harts {
@@ -295,6 +307,7 @@ impl VMState {
         Ok(())
     }
 
+    /// Run the vm until it errors or forever, whichever happens first.
     pub fn run(&mut self) -> Result<(), VMError> {
         loop {
             self.step(false)?
@@ -302,22 +315,26 @@ impl VMState {
     }
 
     #[cfg(test)]
-    pub fn mem(&self) -> &Memory {
+    pub(crate) fn mem(&self) -> &Memory {
         &self.mem
     }
 
+    /// Attempt to fetch on a specific hart and return the decoded instruction
     pub fn fetch(&mut self, hart: usize) -> Result<Instruction, MemoryError> {
         self.harts[hart].fetch(&mut self.mem)
     }
 
+    #[deprecated]
     pub fn dump_mem(&self) {
         self.mem.dump();
     }
 
+    #[deprecated]
     pub fn print_mem_map(&self) {
         println!("{:#?}", self.mem.get_map());
     }
 
+    /// Get an immutable refierence to a specific hart, if it exists.
     pub fn get_hart(&self, hart: usize) -> Option<&Hart> {
         self.harts.get(hart)
     }

@@ -7,7 +7,7 @@ use std::{
 use elf_load::Elf;
 #[cfg(feature = "vga_text_buf")]
 use riscv_vm::devices::vga_text_mode::VgaTextMode;
-use riscv_vm::{devices::simple_uart::SimpleUart, memory::MB, vmstate::builder::VMStateBuilder};
+use riscv_vm::{devices::simple_uart::SimpleUart, vmstate::VMStateBuilder, MB};
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();

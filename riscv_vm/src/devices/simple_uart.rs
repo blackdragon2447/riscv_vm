@@ -43,6 +43,7 @@ impl HandledDevice for SimpleUart {
         &mut self,
         mem: &mut DeviceMemory,
         _: &DeviceEventBusHandle,
+        _: DeviceData,
     ) -> Result<(), DeviceError> {
         let reg = mem.get_mem()[0];
         if reg != 0 {

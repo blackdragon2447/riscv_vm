@@ -12,7 +12,7 @@ mod rv64zicsr;
 use enumflags2::BitFlags;
 
 use crate::{
-    decode::instruction::{Instruction, Instruction::*},
+    decode::{Instruction, Instruction::*},
     hart::{
         isa::Isa, privilege::PrivilegeMode, registers::IntRegister, trap::Exception, CsrAddress,
         Hart,

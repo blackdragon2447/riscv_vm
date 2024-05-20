@@ -88,7 +88,7 @@ impl Debug for Memory {
             for b in c {
                 write!(f, "{:02X} ", b)?;
             }
-            writeln!(f);
+            writeln!(f)?;
         }
         Ok(())
     }

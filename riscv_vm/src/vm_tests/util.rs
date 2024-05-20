@@ -1,6 +1,6 @@
 use std::sync::{Arc, RwLock};
 
-use crate::devices::{handled_device::HandledDevice, Device, DeviceObject};
+use crate::devices::{handled_device::HandledDevice, Device, DeviceData, DeviceObject};
 
 #[derive(Debug)]
 pub struct TestOutputDevice;
@@ -28,6 +28,7 @@ impl HandledDevice for TestOutputDevice {
         &mut self,
         _: &mut crate::memory::DeviceMemory,
         _: &crate::devices::event_bus::DeviceEventBusHandle,
+        _: DeviceData,
     ) -> Result<(), crate::devices::DeviceError> {
         Ok(())
     }
