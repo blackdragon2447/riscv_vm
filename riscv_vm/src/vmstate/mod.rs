@@ -92,17 +92,18 @@ impl VMState {
             harts.push(Hart::new(
                 i,
                 settings,
-                Register::Poll {
-                    data: timer.clone(),
-                    get: Box::new(|data| {
+                Register::new_poll(
+                    memory::registers::RegisterLength::U64,
+                    timer.clone(),
+                    Box::new(|data| {
                         let data: &MTimer = data.downcast_ref().unwrap();
-                        data.get_time_micros()
+                        data.get_time_micros() as u128
                     }),
-                    set: Box::new(|data, value| {
+                    Box::new(|data, value| {
                         let data: &mut MTimer = data.downcast_mut().unwrap();
-                        data.set_time_micros(value)
+                        data.set_time_micros(value as u64)
                     }),
-                },
+                ),
             ));
         }
 

@@ -309,7 +309,7 @@ impl CsrHolder {
     pub fn get_csr(&self, addr: CsrAddress) -> u64 {
         match addr.into() {
             0xC00u16 => self.mcycle,
-            0xC01 => self.timer.get(),
+            0xC01 => self.timer.get() as u64, // Timer is u64 internal so this doesnt drop any data
             0xC02 => self.minstret,
 
             0x100 => self.status.to_s_bits(),

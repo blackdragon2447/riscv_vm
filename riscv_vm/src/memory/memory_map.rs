@@ -2,14 +2,14 @@ use std::ops::Range;
 
 use crate::devices::DeviceId;
 
-use super::{address::Address, MemoryError};
+use super::{address::Address, registers::RegisterLength, MemoryError};
 
 #[derive(Debug)]
 pub enum MemoryRegion {
     Ram(Range<Address>),
     Rom(Range<Address>),
     IO(DeviceId, Range<Address>),
-    Register(DeviceId, Address),
+    Register(DeviceId, RegisterLength, Address),
 }
 
 impl MemoryRegion {
@@ -20,7 +20,7 @@ impl MemoryRegion {
             MemoryRegion::IO(_, r) => r.clone(),
             // + 9 and not 8 because .. is
             // exclusivem to +8 would make our range only 7 wide.
-            MemoryRegion::Register(_, a) => *a..(*a + 9u64),
+            MemoryRegion::Register(_, l, a) => *a..(*a + (*l as u64) + 1u64),
         }
     }
 }

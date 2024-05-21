@@ -4,15 +4,70 @@ use crate::{devices::DeviceData, hart::privilege::PrivilegeMode};
 
 use super::{address::Address, Memory};
 
+pub struct Register {
+    internal: RegisterType,
+    pub length: RegisterLength,
+}
+
+impl Register {
+    pub fn new_const(length: RegisterLength, value: u128) -> Self {
+        Self {
+            internal: RegisterType::Const(value),
+            length,
+        }
+    }
+
+    pub fn new_poll(
+        length: RegisterLength,
+        data: DeviceData,
+        get: Box<dyn Fn(&Box<dyn Any + Send + Sync>) -> u128>,
+        set: Box<dyn Fn(&mut Box<dyn Any + Send + Sync>, u128)>,
+    ) -> Self {
+        Self {
+            internal: RegisterType::Poll { data, get, set },
+            length,
+        }
+    }
+
+    pub fn get(&self) -> u128 {
+        match self.length {
+            RegisterLength::U8 => self.internal.get() as u8 as u128,
+            RegisterLength::U16 => self.internal.get() as u16 as u128,
+            RegisterLength::U32 => self.internal.get() as u32 as u128,
+            RegisterLength::U64 => self.internal.get() as u16 as u128,
+            RegisterLength::U128 => self.internal.get(),
+        }
+    }
+
+    pub fn set(&mut self, value: u128) {
+        match self.length {
+            RegisterLength::U8 => self.internal.set(value as u8 as u128),
+            RegisterLength::U16 => self.internal.set(value as u16 as u128),
+            RegisterLength::U32 => self.internal.set(value as u32 as u128),
+            RegisterLength::U64 => self.internal.set(value as u64 as u128),
+            RegisterLength::U128 => self.internal.set(value),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum RegisterLength {
+    U8 = 1,
+    U16 = 2,
+    U32 = 4,
+    U64 = 8,
+    U128 = 16,
+}
+
 // The type inside the box is big, but some indirection wouldnt
 // really help
 #[allow(clippy::type_complexity)]
-pub enum Register {
-    Const(u64),
+enum RegisterType {
+    Const(u128),
     Poll {
         data: DeviceData,
-        get: Box<dyn Fn(&Box<dyn Any + Send + Sync>) -> u64>,
-        set: Box<dyn Fn(&mut Box<dyn Any + Send + Sync>, u64)>,
+        get: Box<dyn Fn(&Box<dyn Any + Send + Sync>) -> u128>,
+        set: Box<dyn Fn(&mut Box<dyn Any + Send + Sync>, u128)>,
     },
 }
 
@@ -21,18 +76,18 @@ pub enum Register {
 //     permission: PrivilegeMode,
 // }
 
-impl Register {
-    pub fn get(&self) -> u64 {
+impl RegisterType {
+    pub fn get(&self) -> u128 {
         match self {
-            Register::Const(v) => *v,
-            Register::Poll { data, get, .. } => get(&data.read().unwrap()),
+            RegisterType::Const(v) => *v,
+            RegisterType::Poll { data, get, .. } => get(&data.read().unwrap()),
         }
     }
 
-    pub fn set(&mut self, value: u64) {
+    pub fn set(&mut self, value: u128) {
         match self {
-            Register::Const(v) => {}
-            Register::Poll { data, set, .. } => set(&mut data.write().unwrap(), value),
+            RegisterType::Const(v) => {}
+            RegisterType::Poll { data, set, .. } => set(&mut data.write().unwrap(), value),
         }
     }
 }
