@@ -7,7 +7,8 @@ mod execute;
 mod hart;
 mod memory;
 
-pub use memory::{KB, MB};
+pub use crate::hart::trap;
+pub use memory::{address::Address, KB, MB};
 
 #[cfg(test)]
 mod tests;

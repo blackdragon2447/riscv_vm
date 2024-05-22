@@ -4,6 +4,10 @@ use crate::{devices::DeviceData, hart::privilege::PrivilegeMode};
 
 use super::{address::Address, Memory};
 
+/// A memory mapped register, may be used by a devices to place constant or dynamic value in memory
+/// outside its assigned [`crate::memory::DeviceMemory`] range, constants are set once and then unchangable,
+/// dynamic (called poll) registers define functions for getting and setting them and are provided
+/// with some data shared with the device.
 pub struct Register {
     internal: RegisterType,
     pub length: RegisterLength,
@@ -111,7 +115,7 @@ pub struct MemoryRegisterHandle<'a> {
 }
 
 impl<'a> MemoryRegisterHandle<'a> {
-    pub fn new(memory: &'a mut Memory, dev_id: usize) -> MemoryRegisterHandle<'a> {
+    pub(crate) fn new(memory: &'a mut Memory, dev_id: usize) -> MemoryRegisterHandle<'a> {
         Self {
             memory_ref: memory,
             dev_id,

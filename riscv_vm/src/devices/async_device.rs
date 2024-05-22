@@ -17,9 +17,9 @@ use super::{
     DeviceData, DeviceError, DeviceInitError, DeviceObject,
 };
 
-/// Indicates the reason an `AsyncDevice`'s update function was called
+/// Indicates the reason an [`AsyncDevice`]'s update function was called
 pub enum AsyncDeviceUpdate {
-    /// Initial device update, used to force the device to return an `AsyncDeviceUpdateResult`
+    /// Initial device update, used to force the device to return an [`AsyncDeviceUpdateResult`]
     Initial,
     /// Requested timeout has ended
     TimeOut,
@@ -43,7 +43,7 @@ pub enum AsyncDeviceUpdateResult {
 
 /// Part three of an async device, this trait defines the behaviour of the device.
 /// The update function is called once initially and then at the request of the device or
-/// on an event, see `AsyncDeviceUpdate` on update reasons, and `AsyncDeviceUpdateResult` on
+/// on an event, see [`AsyncDeviceUpdate`] on update reasons, and [`AsyncDeviceUpdateResult`] on
 /// possible options for requesting the next event.
 pub trait AsyncDevice: Debug + DeviceObject + Send {
     // TODO: events, maybe handle the eventloop more externally

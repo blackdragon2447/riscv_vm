@@ -14,8 +14,8 @@ use crate::{
     vmstate::VMState,
 };
 
-/// Used to setup a VM, create a builder using `default()`, see the methods below for available
-/// options, use `build()` to turn into a usable VMState.
+/// Used to setup a VM, create a builder using [`Default::default()`] or [`VMStateBuilder::new()`], see the methods below for available
+/// options, use [`VMStateBuilder::build()`] to turn into a usable VMState.
 // The two IntMap which are arguably complex stay completely within this module, so having them be
 // this bad is fine
 #[allow(clippy::type_complexity)]

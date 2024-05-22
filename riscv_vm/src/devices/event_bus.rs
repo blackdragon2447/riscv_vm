@@ -91,7 +91,7 @@ impl DeviceEventBus {
 }
 
 impl DeviceEventBusHandle {
-    /// Send an interrupt to the device, may target a single hart of all harts, see `InterruptTarget` for details.
+    /// Send an interrupt to the device, may target a single hart of all harts, see [`InterruptTarget`] for details.
     /// Errors is the device does not have permission to send the type of interrupt, unless stated
     /// otherwise, devices should assume that they only have permission to send External
     /// interrupts.
