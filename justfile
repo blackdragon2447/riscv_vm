@@ -4,8 +4,14 @@ build:
 build-release:
     cargo build --release
 
-run:
-    # "Use cargo commands directly fur running"
+run binary:
+	cargo run --bin riscv_vm -- {{binary}}
+
+docs:
+	cargo doc --no-deps
+	rm -rf ./docs
+	echo "<meta http-equiv=\"refresh\" content=\"0; url=riscv_vm\">" > target/doc/index.html
+	cp -r target/doc ./docs
 
 setup-tests:
     cd ./vm_tests/official_tests/ && autoconf

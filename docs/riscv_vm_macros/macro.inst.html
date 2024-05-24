@@ -1,0 +1,33 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Syntax:"><title>inst in riscv_vm_macros - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-5bc39a1768837dd0.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="riscv_vm_macros" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.2 (25ef9e3d8 2024-04-09)" data-channel="1.77.2" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-4c98445ec4002617.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc macro"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../riscv_vm_macros/index.html">riscv_vm_macros</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"></div></nav><div class="sidebar-resizer"></div>
+    <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../riscv_vm_macros/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Macro <a href="index.html">riscv_vm_macros</a>::<wbr><a class="macro" href="#">inst</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../src/riscv_vm_macros/lib.rs.html#47-49">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>inst!() { <span class="comment">/* proc-macro */</span> }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="syntax"><a class="doc-anchor" href="#syntax">§</a>Syntax:</h2>
+<p><code>inst!($name($type) for [$lengths]: {$impl})</code></p>
+<h3 id="name"><a class="doc-anchor" href="#name">§</a>$name:</h3>
+<p>The name of the instruction, gets expanded
+with $length for the length it is generated for</p>
+<h3 id="type"><a class="doc-anchor" href="#type">§</a>$type:</h3>
+<p>The type of the instruction maps more or less onto
+the riscv inst types, B and J are folded into S and U
+respectively. For instructions that need access to
+memory there are <code>_mem</code> types.</p>
+<ul>
+<li>r</li>
+<li>i</li>
+<li>i_mem</li>
+<li>s</li>
+<li>s_mem</li>
+<li>u</li>
+</ul>
+<h3 id="lengths"><a class="doc-anchor" href="#lengths">§</a>$lengths:</h3>
+<p>The lengths for which this instruction must be
+implemented, may contain 32, 64, 128. 128 will panic
+with a not implemented error.</p>
+<h3 id="impl"><a class="doc-anchor" href="#impl">§</a>$impl:</h3>
+<p>the implementation of the instruction, it has
+access to any registers the instruction has
+access to (<code>rd</code> as <code>mut</code>), the <code>pc</code>, and if it is
+of type <code>i_mem</code> or <code>s_mem</code> to the memory,
+it also has access to the types <code>ixlen</code> and <code>uxlen</code>
+which are signed and unsigned integers of length xlen,
+and <code>iexlen</code> and <code>uexlen</code> which are integers of double
+<code>xlen</code> length and the <code>xlen</code> variable.</p>
+</div></details></section></div></main></body></html>
