@@ -37,7 +37,7 @@ use std::{
 use self::event_bus::DeviceEvent;
 
 pub use crate::memory::{
-    registers::{MemoryRegisterHandle, Register, RegisterLength},
+    registers::{MemoryRegisterHandle, Register},
     DeviceMemory,
 };
 

@@ -32,7 +32,7 @@ use self::{
     memory_map::{MemoryMap, MemoryMapError, MemoryRegion},
     paging::{walk_page_table, AccessContext, AddressTranslationMode, PageError, Satp},
     pmp::{AccessMode, PmpCfg, PMP},
-    registers::{MemoryRegisterHandle, Register, RegisterLength},
+    registers::{MemoryRegisterHandle, Register},
 };
 
 pub mod address;
@@ -111,18 +111,17 @@ impl Memory {
         // let timer_data: Rc<RwLock<Box<dyn Any>>> = Rc::new(RwLock::new(Box::new(timer)));
         self.add_register(
             usize::MAX,
-            Register::new_poll(
-                RegisterLength::U64,
-                timer_data.clone(),
-                Box::new(|data| {
+            Register::Poll {
+                data: timer_data.clone(),
+                get: Box::new(|data| {
                     let data: &MTimer = data.downcast_ref().unwrap();
-                    data.get_time_micros() as u128
+                    data.get_time_micros()
                 }),
-                Box::new(|data, value| {
+                set: Box::new(|data, value| {
                     let data: &mut MTimer = data.downcast_mut().unwrap();
-                    data.set_time_micros(value as u64)
+                    data.set_time_micros(value)
                 }),
-            ),
+            },
             timer_base,
         );
         let timer_box = timer_data.read().unwrap();
@@ -130,18 +129,17 @@ impl Memory {
         for (i, cmp) in timer.get_cmps().iter().enumerate() {
             self.add_register(
                 usize::MAX,
-                Register::new_poll(
-                    RegisterLength::U64,
-                    timer_data.clone(),
-                    Box::new(move |data| {
+                Register::Poll {
+                    data: timer_data.clone(),
+                    get: Box::new(move |data| {
                         let data: &MTimer = data.downcast_ref().unwrap();
-                        data.get_cmp_micros(i as u64) as u128
+                        data.get_cmp_micros(i as u64)
                     }),
-                    Box::new(move |data, value| {
+                    set: Box::new(move |data, value| {
                         let data: &mut MTimer = data.downcast_mut().unwrap();
-                        data.set_cmp_micros(value as u64, i as u64);
+                        data.set_cmp_micros(value, i as u64);
                     }),
-                ),
+                },
                 cmp_base + (8 * i) as u64,
             );
         }
@@ -165,78 +163,24 @@ impl Memory {
                 }
                 MemoryRegion::Rom(r) => todo!(),
                 MemoryRegion::IO(o, r) => self.device_regions[o].write()?.write_bytes(bytes, addr),
-                MemoryRegion::Register(o, l, a) => {
-                    let value = match l {
-                        RegisterLength::U8 => match bytes.len() {
-                            0 => [0; 16],
-                            i @ 1..=1 => {
-                                let mut value = [0u8; 16];
-                                value[0..i].copy_from_slice(bytes);
-                                value
-                            }
-                            _ => {
-                                let mut value = [0u8; 16];
-                                value[0..1].copy_from_slice(&bytes[0..1]);
-                                value
-                            }
-                        },
-                        RegisterLength::U16 => match bytes.len() {
-                            0 => [0; 16],
-                            i @ 1..=2 => {
-                                let mut value = [0u8; 16];
-                                value[0..i].copy_from_slice(bytes);
-                                value
-                            }
-                            _ => {
-                                let mut value = [0u8; 16];
-                                value[0..2].copy_from_slice(&bytes[0..2]);
-                                value
-                            }
-                        },
-                        RegisterLength::U32 => match bytes.len() {
-                            0 => [0; 16],
-                            i @ 1..=4 => {
-                                let mut value = [0u8; 16];
-                                value[0..i].copy_from_slice(bytes);
-                                value
-                            }
-                            _ => {
-                                let mut value = [0u8; 16];
-                                value[0..4].copy_from_slice(&bytes[0..4]);
-                                value
-                            }
-                        },
-                        RegisterLength::U64 => match bytes.len() {
-                            0 => [0; 16],
-                            i @ 1..=8 => {
-                                let mut value = [0u8; 16];
-                                value[0..i].copy_from_slice(bytes);
-                                value
-                            }
-                            _ => {
-                                let mut value = [0u8; 16];
-                                value[0..8].copy_from_slice(&bytes[0..8]);
-                                value
-                            }
-                        },
-                        RegisterLength::U128 => match bytes.len() {
-                            0 => [0; 16],
-                            i @ 1..=16 => {
-                                let mut value = [0u8; 16];
-                                value[0..i].copy_from_slice(bytes);
-                                value
-                            }
-                            _ => {
-                                let mut value = [0u8; 16];
-                                value[0..16].copy_from_slice(&bytes[0..16]);
-                                value
-                            }
-                        },
+                MemoryRegion::Register(o, a) => {
+                    let value = match bytes.len() {
+                        0 => [0; 8],
+                        i @ 1..=8 => {
+                            let mut value = [0u8; 8];
+                            value[0..i].copy_from_slice(bytes);
+                            value
+                        }
+                        i => {
+                            let mut value = [0u8; 8];
+                            value[0..8].copy_from_slice(&bytes[0..8]);
+                            value
+                        }
                     };
                     self.registers
                         .get_mut(a)
                         .unwrap()
-                        .set(u128::from_le_bytes(value));
+                        .set(u64::from_le_bytes(value));
                     self.device_event_bus
                         .send(DeviceEvent(*o, DeviceEventType::RegisterWrite(*a)));
                     Ok(())
@@ -264,7 +208,7 @@ impl Memory {
                 }
                 MemoryRegion::Rom(r) => todo!(),
                 MemoryRegion::IO(o, r) => self.device_regions[o].read()?.read_bytes(addr, size),
-                MemoryRegion::Register(o, l, a) => {
+                MemoryRegion::Register(o, a) => {
                     let mut bytes: Vec<u8> =
                         self.registers.get(a).unwrap().get().to_le_bytes().into();
                     bytes.resize(size, 0);
@@ -303,7 +247,7 @@ impl Memory {
                         .try_into()
                         .unwrap(),
                 )),
-                MemoryRegion::Register(o, l, a) => todo!(),
+                MemoryRegion::Register(o, a) => todo!(),
             },
             Err(_) => Err(MemoryError::OutOfBoundsRead(addr)),
         }
@@ -356,7 +300,7 @@ impl Memory {
         addr: Address,
     ) -> Result<(), MemoryMapError> {
         self.memory_map
-            .add_region(MemoryRegion::Register(owner, reg.length, addr))?;
+            .add_region(MemoryRegion::Register(owner, addr))?;
         self.registers.insert(addr, reg);
         Ok(())
     }
