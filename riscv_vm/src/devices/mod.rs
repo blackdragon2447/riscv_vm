@@ -5,7 +5,8 @@
 //!
 //! There devices come in two forms, handled devices and async devices, handled devices
 //! are updated each clock cycle and are intended for simple short jobs while async devices
-//! run independently of the main thread/clock and are intended for anything else.
+//! run independently of the main thread/clock and are intended for anything else, they have to
+//! request their next update by returning a [`AsyncDeviceUpdateResult`][crate::devices::async_device::AsyncDeviceUpdateResult].
 //!
 //! ## Data Storage
 //!
