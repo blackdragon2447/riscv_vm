@@ -19,7 +19,7 @@
       };
     in {
       devShells.default = pkgs.mkShell {
-        buildInputs = [pkgs.pkgsCross.riscv64-embedded.buildPackages.gcc];
+        buildInputs = with pkgs.pkgsCross.riscv64-embedded.buildPackages; [gcc clang lld llvm];
       };
     });
 }
