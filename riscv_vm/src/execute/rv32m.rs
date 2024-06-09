@@ -1,4 +1,5 @@
 #![allow(non_camel_case_types)]
+
 use riscv_vm_macros::inst;
 
 use crate::{
