@@ -4,8 +4,10 @@ ENTRY( _start )
 
 MEMORY
 {
-  test_out (wa!ri) : ORIGIN = 0x70000000, LENGTH = 128
-  ram   (wxa!ri) : ORIGIN = 0x80000000, LENGTH = 128K
+  /* test_out (wa!ri) : ORIGIN = 0x70000000, LENGTH = 128 */
+  /* ram   (wxa!ri) : ORIGIN = 0x80000000, LENGTH = 128K */
+  test_out (wa) : ORIGIN = 0x70000000, LENGTH = 128
+  ram   (wxa) : ORIGIN = 0x80000000, LENGTH = 128K
 }
 
 PHDRS

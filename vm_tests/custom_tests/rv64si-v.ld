@@ -4,7 +4,9 @@ ENTRY( _start )
 
 MEMORY
 {
-  ram   (wxa!ri) : ORIGIN = 0x80000000, LENGTH = 128M
+  /* ram   (wxa!ri) : ORIGIN = 0x80000000, LENGTH = 128M */
+  test_out (wa) : ORIGIN = 0x70000000, LENGTH = 128
+  ram   (wxa) : ORIGIN = 0x80000000, LENGTH = 128M
 }
 
 PHDRS
@@ -52,5 +54,6 @@ SECTIONS
   PROVIDE(_memory_start = ORIGIN(ram));
   PROVIDE(_memory_end = ORIGIN(ram) + LENGTH(ram));
 
+  PROVIDE(_test_out = ORIGIN(test_out));
 }
 

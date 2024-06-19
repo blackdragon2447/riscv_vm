@@ -1,18 +1,21 @@
 #riscv64-elf-gcc -nostdlib -fno-builtin -mcmodel=medany -march=rv64im -mabi=lp64 rv64ui-p-hello_world.S -T link.ld -o rv64ui-p-hello_world
 
-riscv_prefix := env_var_or_default('RISCV_PREFIX', 'riscv-unknown-elf-')
+#riscv_prefix := env_var_or_default('RISCV_PREFIX', 'riscv-unknown-elf-')
+cc := env_var_or_default('RISCV_CC', 'riscv-unknown-elf-gcc')
 cflags := "-nostdlib -fno-builtin -mcmodel=medany -march=rv64im_zicsr -mabi=lp64 -T $tests.ld"
 
 build:
     #!/usr/bin/env sh
+    mkdir out/
     for tests in rv64ui-p rv64si-v; do 
     	for test in $(ls $tests); do 
     		echo $(echo $tests-$test | sed -e 's/.S$//')
-    		echo "  "{{ riscv_prefix }}gcc {{ cflags }} $tests/$test -o $(echo $tests-$test | sed -e 's/.S$//')
-    		{{ riscv_prefix }}gcc {{ cflags }} $tests/$test -o $(echo $tests-$test | sed -e 's/.S$//')
+    		echo "  "{{ cc }} {{ cflags }} $tests/$test -o out/$(echo $tests-$test | sed -e 's/.S$//')
+    		{{ cc }} {{ cflags }} $tests/$test -o out/$(echo $tests-$test | sed -e 's/.S$//')
     		echo ""
     	done
     done
 
 clean:
-    fd -t x . -x "rm"
+    rm ./out/*
+    rmdir out/

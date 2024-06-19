@@ -182,7 +182,7 @@ macro_rules! isa_test {
         #[test]
         fn $name() -> Result<(), u32> {
             let bytes = fs::read(format!(
-                "../vm_tests/custom_tests/{}",
+                "../vm_tests/custom_tests/out/{}",
                 stringify!($name).replace("_", "-")
             ))
             .unwrap();
@@ -219,7 +219,7 @@ macro_rules! isa_test {
         #[test]
         fn $name() -> Result<(), u32> {
             let bytes = fs::read(format!(
-                "../vm_tests/custom_tests/{}",
+                "../vm_tests/custom_tests/out/{}",
                 stringify!($name).replace("_", "-")
             ))
             .unwrap();
@@ -256,7 +256,7 @@ macro_rules! isa_test {
     (custom: $name:ident, $file:expr) => {
         #[test]
         fn $name() -> Result<(), u32> {
-            let bytes = fs::read(format!("../vm_tests/custom_tests/{}", $file)).unwrap();
+            let bytes = fs::read(format!("../vm_tests/custom_tests/out/{}", $file)).unwrap();
             let elf = Elf::from_bytes(bytes).unwrap();
 
             let mut vmstate = VMStateBuilder::<{ (4 * KB) + 128 }>::default()
@@ -290,7 +290,7 @@ macro_rules! isa_test {
     (custom: $name:ident, $file:expr, $mem:block) => {
         #[test]
         fn $name() -> Result<(), u32> {
-            let bytes = fs::read(format!("../vm_tests/custom_tests/{}", $file)).unwrap();
+            let bytes = fs::read(format!("../vm_tests/custom_tests/out/{}", $file)).unwrap();
             let elf = Elf::from_bytes(bytes).unwrap();
 
             let mut vmstate = VMStateBuilder::<$mem>::default()

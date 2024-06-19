@@ -216,10 +216,12 @@ fn main() {
                     }
                 }
                 "dump_mem" => {
+                    #[allow(deprecated)]
                     vmstate.dump_mem();
                     println!("Dumped memory to mem.dump");
                 }
                 "mem_map" => {
+                    #[allow(deprecated)]
                     vmstate.print_mem_map();
                 }
                 "help" | "h" => {
