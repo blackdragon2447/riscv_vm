@@ -354,7 +354,7 @@ mod paging {
 #[test]
 fn read() {
     let mem = Memory::new::<256>(mpsc::channel().0);
-    let result = mem.read_bytes(0x8000000Fu64.into(), 4, PrivilegeMode::Machine, None);
+    let result = mem.read_bytes(0x8000000Fu64.into(), 4);
     let expected_read = vec![0; 4];
     assert!(matches!(result, Ok(expected_read)));
 }
@@ -367,8 +367,20 @@ fn read_pmp() {
         PmpCfg::new_configured(true, false, false, AddressMatch::TOR, false).to_bits() as u64,
     );
     pmp.write_addr_rv64(0, (0x90000000u64 >> 2));
-    let mem = Memory::new::<256>(mpsc::channel().0);
-    let result = mem.read_bytes(0x8000000Fu64.into(), 4, PrivilegeMode::User, Some(&pmp));
+    let mut mem = Memory::new::<256>(mpsc::channel().0);
+    let mut hart = Hart::new(
+        0,
+        VMSettings {
+            pmp_enable: true,
+            virt_mem_enable: false,
+        },
+        Register::Const(0),
+    );
+    hart.get_csr_mut().pmp = pmp;
+    hart.set_privilege(PrivilegeMode::User);
+
+    let mut window = mem.window(&hart);
+    let result = window.read_bytes(0x8000000Fu64.into(), 4);
     assert!(matches!(result, Ok(expected_read)));
 }
 
@@ -393,7 +405,6 @@ fn read_pmp_denied() {
     hart.set_privilege(PrivilegeMode::User);
 
     let mut window = mem.window(&hart);
-
     let result = window.read_bytes(0x8000000Fu64.into(), 4);
     assert!(matches!(result, Err(MemoryError::PmpDeniedRead)));
 }
@@ -401,7 +412,7 @@ fn read_pmp_denied() {
 #[test]
 fn read_oob() {
     let mem = Memory::new::<256>(mpsc::channel().0);
-    let result = mem.read_bytes(0x800000FFu64.into(), 4, PrivilegeMode::Machine, None);
+    let result = mem.read_bytes(0x800000FFu64.into(), 4);
     assert!(matches!(result, Err(MemoryError::OutOfBoundsRead(_))));
 }
 
@@ -409,16 +420,10 @@ fn read_oob() {
 fn write() {
     let mut mem = Memory::new::<256>(mpsc::channel().0);
     let to_write = [37; 4];
-    let result = mem.write_bytes(
-        &to_write,
-        0x8000000Fu64.into(),
-        PrivilegeMode::Machine,
-        None,
-    );
+    let result = mem.write_bytes(&to_write, 0x8000000Fu64.into());
     assert!(matches!(result, Ok(())));
     assert_eq!(
-        mem.read_bytes(0x8000000Fu64.into(), 4, PrivilegeMode::Machine, None)
-            .unwrap(),
+        mem.read_bytes(0x8000000Fu64.into(), 4).unwrap(),
         vec![37; 4]
     )
 }
@@ -460,17 +465,24 @@ fn write_pmp() {
     );
     pmp.write_addr_rv64(0, (0x90000000u64 >> 2));
     let mut mem = Memory::new::<256>(mpsc::channel().0);
-    let to_write = [37; 4];
-    let result = mem.write_bytes(
-        &to_write,
-        0x8000000Fu64.into(),
-        PrivilegeMode::User,
-        Some(&pmp),
+    let mut hart = Hart::new(
+        0,
+        VMSettings {
+            pmp_enable: true,
+            virt_mem_enable: false,
+        },
+        Register::Const(0),
     );
+    hart.get_csr_mut().pmp = pmp;
+    hart.set_privilege(PrivilegeMode::User);
+
+    let mut window = mem.window(&hart);
+
+    let to_write = [37; 4];
+    let result = window.write_bytes(&to_write, 0x8000000Fu64.into());
     assert!(matches!(result, Ok(())));
     assert_eq!(
-        mem.read_bytes(0x8000000Fu64.into(), 4, PrivilegeMode::User, Some(&pmp))
-            .unwrap(),
+        mem.read_bytes(0x8000000Fu64.into(), 4).unwrap(),
         vec![37; 4]
     )
 }
@@ -479,12 +491,7 @@ fn write_pmp() {
 fn write_oom() {
     let mut mem = Memory::new::<256>(mpsc::channel().0);
     let to_write = [37; 4];
-    let result = mem.write_bytes(
-        &to_write,
-        0x800000FFu64.into(),
-        PrivilegeMode::Machine,
-        None,
-    );
+    let result = mem.write_bytes(&to_write, 0x800000FFu64.into());
     assert!(matches!(result, Err(MemoryError::OutOfMemory)));
 }
 
@@ -492,12 +499,7 @@ fn write_oom() {
 fn write_oob() {
     let mut mem = Memory::new::<256>(mpsc::channel().0);
     let to_write = [37; 4];
-    let result = mem.write_bytes(
-        &to_write,
-        0x800001FFu64.into(),
-        PrivilegeMode::Machine,
-        None,
-    );
+    let result = mem.write_bytes(&to_write, 0x800001FFu64.into());
     assert!(matches!(result, Err(MemoryError::OutOfBoundsWrite(_))));
 }
 
@@ -508,21 +510,9 @@ fn reservation() {
 
     // Populate the memory with random junk
     let to_write = 0xB2F1F0565F2B6A7E47BADB6EE79FE14Au128.to_le_bytes();
-    mem.write_bytes(
-        &to_write,
-        0x80000000u64.into(),
-        PrivilegeMode::Machine,
-        None,
-    )
-    .unwrap();
+    mem.write_bytes(&to_write, 0x80000000u64.into()).unwrap();
     let to_write = 0xEEE79FB2F1F051DB665F2B6A7E47BA4Au128.to_le_bytes();
-    mem.write_bytes(
-        &to_write,
-        0x80000010u64.into(),
-        PrivilegeMode::Machine,
-        None,
-    )
-    .unwrap();
+    mem.write_bytes(&to_write, 0x80000010u64.into()).unwrap();
 
     let mut window = mem.window(&hart);
 

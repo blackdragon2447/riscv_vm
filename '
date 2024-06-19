@@ -1,0 +1,31 @@
+use crate::Address;
+
+use super::MemoryError;
+
+pub trait MemoryBuffer {
+    fn write_bytes(&mut self, bytes: &[u8], addr: Address) -> Result<(), MemoryError>;
+
+    fn read_bytes(&mut self, addr: Address, size: usize) -> Result<Vec<u8>, MemoryError>;
+
+    fn write_conditional(&mut self, bytes: &[u8], addr: Address) -> Result<bool, MemoryError> {
+        Err(MemoryError::AtomicsUnsupported)
+    }
+
+    fn read_reserve(&mut self, addr: Address, size: usize) -> Result<Vec<u8>, MemoryError> {
+        Err(MemoryError::AtomicsUnsupported)
+    }
+
+    #[inline]
+    fn atomic_operation_w(
+        &mut self,
+        addr: Address,
+        rs: i32,
+        op: fn(orig: i32, rs: i32) -> i32,
+    ) -> Result<i32, MemoryError> {
+        Err(MemoryError::AtomicsUnsupported)
+    }
+
+    fn fetch(&mut self, addr: Address) -> Result<u32, MemoryError> {
+        Err(MemoryError::FetchUnsupported)
+    }
+}

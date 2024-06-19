@@ -66,7 +66,7 @@ macro_rules! isa_test {
                 let bytes = u32::from_le_bytes(
                     vmstate
                         .mem()
-                        .read_bytes(0x80001000u64.into(), 4, PrivilegeMode::Machine, None)
+                        .read_bytes(0x80001000u64.into(), 4)
                         .unwrap()
                         .try_into()
                         .unwrap(),
@@ -101,7 +101,7 @@ macro_rules! isa_test {
                 let bytes = u32::from_le_bytes(
                     vmstate
                         .mem()
-                        .read_bytes(0x80001000u64.into(), 4, PrivilegeMode::Machine, None)
+                        .read_bytes(0x80001000u64.into(), 4)
                         .unwrap()
                         .try_into()
                         .unwrap(),
@@ -163,7 +163,7 @@ macro_rules! isa_test {
                 let bytes = u32::from_le_bytes(
                     vmstate
                         .mem()
-                        .read_bytes(0x80001000u64.into(), 4, PrivilegeMode::Machine, None)
+                        .read_bytes(0x80001000u64.into(), 4)
                         .unwrap()
                         .try_into()
                         .unwrap(),
@@ -201,7 +201,7 @@ macro_rules! isa_test {
                 let bytes = u32::from_le_bytes(
                     vmstate
                         .mem()
-                        .read_bytes(0x70000000u64.into(), 4, PrivilegeMode::Machine, None)
+                        .read_bytes(0x70000000u64.into(), 4)
                         .unwrap()
                         .try_into()
                         .unwrap(),
@@ -238,7 +238,7 @@ macro_rules! isa_test {
                 let bytes = u32::from_le_bytes(
                     vmstate
                         .mem()
-                        .read_bytes(0x70000000u64.into(), 4, PrivilegeMode::Machine, None)
+                        .read_bytes(0x70000000u64.into(), 4)
                         .unwrap()
                         .try_into()
                         .unwrap(),

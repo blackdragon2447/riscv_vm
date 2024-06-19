@@ -29,6 +29,7 @@ use crate::{
 
 use self::{
     address::{Address, VirtAddress},
+    memory_buffer::{MemoryBuffer, MemoryBufferError},
     memory_map::{MemoryMap, MemoryMapError, MemoryRegion},
     paging::{walk_page_table, AccessContext, AddressTranslationMode, PageError, Satp},
     pmp::{AccessMode, PmpCfg, PMP},
@@ -36,6 +37,7 @@ use self::{
 };
 
 pub mod address;
+mod memory_buffer;
 mod memory_map;
 pub mod paging;
 pub mod pmp;
@@ -49,13 +51,15 @@ pub const MB: usize = 1024 * KB;
 pub struct DeviceMemory(Range<Address>, Vec<u8>);
 
 pub struct Memory {
-    mem: Box<[u8]>,
+    main_buffer: MainMemoryBuffer,
     memory_map: MemoryMap,
     registers: IntMap<Address, Register>,
     device_regions: IntMap<usize, Arc<RwLock<DeviceMemory>>>,
     reservations: IntMap<u64, Range<Address>>,
     device_event_bus: Sender<DeviceEvent>,
 }
+
+pub struct MainMemoryBuffer(Box<[u8]>);
 
 pub struct MemoryWindow<'a> {
     mem: &'a mut Memory,
@@ -79,18 +83,38 @@ pub enum MemoryError {
     PageFaultWrite,
     PageFaultFetch,
     DeviceMemoryPoison,
+    LoadAtomicsUnsupported,
+    StoreAtomicsUnsupported,
+    FetchUnsupported,
 }
 
-impl Debug for Memory {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // writeln!(f, "range: {:?}", self.mem_range);
-        for c in self.mem.chunks(32) {
-            for b in c {
-                write!(f, "{:02X} ", b)?;
-            }
-            writeln!(f)?;
-        }
+// impl Debug for Memory {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         // writeln!(f, "range: {:?}", self.mem_range);
+//         for c in self.mem.chunks(32) {
+//             for b in c {
+//                 write!(f, "{:02X} ", b)?;
+//             }
+//             writeln!(f)?;
+//         }
+//         Ok(())
+//     }
+// }
+
+impl MainMemoryBuffer {
+    pub fn new<const SIZE: usize>() -> Self {
+        Self(vec![0u8; SIZE].into_boxed_slice())
+    }
+}
+
+impl MemoryBuffer for MainMemoryBuffer {
+    fn write_bytes(&mut self, bytes: &[u8], addr: Address) -> Result<(), MemoryBufferError> {
+        self.0[addr.into()..(addr + bytes.len() as u64).into()].copy_from_slice(bytes);
         Ok(())
+    }
+
+    fn read_bytes(&self, addr: Address, size: usize) -> Result<Vec<u8>, MemoryBufferError> {
+        Ok(self.0.deref().get_bytes(addr.into(), size as u64).to_vec())
     }
 }
 
@@ -98,7 +122,7 @@ impl Memory {
     pub fn new<const SIZE: usize>(device_event_bus: Sender<DeviceEvent>) -> Self {
         let mem = vec![0u8; SIZE].into_boxed_slice();
         Self {
-            mem,
+            main_buffer: MainMemoryBuffer::new::<SIZE>(),
             memory_map: MemoryMap::new(0x80000000u64.into()..(0x80000000u64 + SIZE as u64).into()),
             registers: IntMap::default(),
             device_regions: IntMap::default(),
@@ -146,19 +170,11 @@ impl Memory {
     }
 
     /// NOTE, does not do atomic checks, pmp checks or page table walks
-    pub fn write_bytes(
-        &mut self,
-        bytes: &[u8],
-        addr: Address,
-        privilege: PrivilegeMode,
-        pmp: Option<&PMP>,
-    ) -> Result<(), MemoryError> {
+    pub fn write_bytes(&mut self, bytes: &[u8], addr: Address) -> Result<(), MemoryError> {
         match self.memory_map.fit(addr..(addr + bytes.len() as u64)) {
             Ok(r) => match r {
                 MemoryRegion::Ram(r) => {
-                    let idx = addr - r.start;
-                    self.mem[idx.into()..(<Address as Into<usize>>::into(idx) + bytes.len())]
-                        .copy_from_slice(bytes);
+                    self.main_buffer.write_bytes(bytes, addr - r.start);
                     Ok(())
                 }
                 MemoryRegion::Rom(r) => todo!(),
@@ -193,19 +209,10 @@ impl Memory {
     }
 
     /// NOTE, does not do atomic checks, pmp checks or page table walks
-    pub fn read_bytes(
-        &self,
-        addr: Address,
-        size: usize,
-        privilege: PrivilegeMode,
-        pmp: Option<&PMP>,
-    ) -> Result<Vec<u8>, MemoryError> {
+    pub fn read_bytes(&self, addr: Address, size: usize) -> Result<Vec<u8>, MemoryError> {
         match self.memory_map.fit(addr..(addr + size as u64)) {
             Ok(r) => match r {
-                MemoryRegion::Ram(r) => {
-                    let idx = addr - r.start;
-                    Ok(self.mem.deref().get_bytes(idx.into(), size as u64).to_vec())
-                }
+                MemoryRegion::Ram(r) => Ok(self.main_buffer.read_bytes(addr - r.start, size)?),
                 MemoryRegion::Rom(r) => todo!(),
                 MemoryRegion::IO(o, r) => self.device_regions[o].read()?.read_bytes(addr, size),
                 MemoryRegion::Register(o, a) => {
@@ -220,20 +227,14 @@ impl Memory {
     }
 
     /// NOTE, does not do atomic checks, pmp checks or page table walks
-    pub fn fetch(
-        &self,
-        addr: Address,
-        privilege: PrivilegeMode,
-        pmp: Option<&PMP>,
-    ) -> Result<u32, MemoryError> {
+    pub fn fetch(&self, addr: Address, privilege: PrivilegeMode) -> Result<u32, MemoryError> {
         match self.memory_map.fit(addr..(addr + 4u64)) {
             Ok(r) => match r {
                 MemoryRegion::Ram(r) => {
                     let idx = addr - r.start;
                     Ok(u32::from_le_bytes(
-                        self.mem
-                            .deref()
-                            .get_bytes(idx.into(), 4)
+                        self.main_buffer
+                            .read_bytes(addr - r.start, 4)?
                             .try_into()
                             .unwrap(),
                     ))
@@ -317,8 +318,9 @@ impl Memory {
     }
 
     pub fn dump(&self) {
-        let mut w = File::create("./mem.dump").unwrap();
-        writeln!(&mut w, "{:?}", self);
+        unimplemented!()
+        // let mut w = File::create("./mem.dump").unwrap();
+        // writeln!(&mut w, "{:?}", self);
     }
 
     pub fn get_map(&self) -> &MemoryMap {
@@ -356,8 +358,8 @@ impl MemoryWindow<'_> {
             }) {
                 Ok(a) => a,
                 Err(e) => {
-                    let mut w = File::create("./mem.dump").unwrap();
-                    writeln!(&mut w, "{:?}", &self.mem);
+                    // let mut w = File::create("./mem.dump").unwrap();
+                    // writeln!(&mut w, "{:?}", &self.mem);
                     return Err(e);
                 }
             }
@@ -376,7 +378,7 @@ impl MemoryWindow<'_> {
             let range = addr..(addr + bytes.len() as u64);
             v.start >= range.end || range.start >= v.end
         });
-        self.mem.write_bytes(bytes, addr, self.privilege, self.pmp)
+        self.mem.write_bytes(bytes, addr)
     }
 
     pub fn read_bytes(&mut self, addr: Address, size: usize) -> Result<Vec<u8>, MemoryError> {
@@ -413,7 +415,7 @@ impl MemoryWindow<'_> {
             let range = addr..(addr + size as u64);
             v.start >= range.end || range.start >= v.end
         });
-        self.mem.read_bytes(addr, size, self.privilege, self.pmp)
+        self.mem.read_bytes(addr, size)
     }
 
     pub fn write_conditional(&mut self, bytes: &[u8], addr: Address) -> Result<bool, MemoryError> {
@@ -486,8 +488,8 @@ impl MemoryWindow<'_> {
             }) {
                 Ok(a) => a,
                 Err(e) => {
-                    let mut w = File::create("./mem.dump").unwrap();
-                    writeln!(&mut w, "{:?}", &self.mem);
+                    // let mut w = File::create("./mem.dump").unwrap();
+                    // writeln!(&mut w, "{:?}", &self.mem);
                     return Err(e);
                 }
             }
@@ -506,11 +508,12 @@ impl MemoryWindow<'_> {
             let range = addr..(addr + 4);
             v.start >= range.end || range.start >= v.end
         });
-        self.mem.fetch(addr, self.privilege, self.pmp)
+        self.mem.fetch(addr, self.privilege)
     }
 
+    #[deprecated]
     pub(self) fn read_phys(&self, addr: Address, size: usize) -> Result<Vec<u8>, MemoryError> {
-        self.mem.read_bytes(addr, size, self.privilege, self.pmp)
+        self.mem.read_bytes(addr, size)
     }
 }
 
