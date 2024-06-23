@@ -41,6 +41,10 @@ pub use crate::memory::{
     registers::{MemoryRegisterHandle, Register},
     DeviceMemory,
 };
+use crate::{
+    memory::{memory_buffer::MemoryBuffer, Memory},
+    Address,
+};
 
 pub mod async_device;
 pub mod event_bus;
@@ -49,6 +53,7 @@ pub mod simple_uart;
 #[cfg(feature = "vga_text_buf")]
 pub mod vga_text_mode;
 
+#[deprecated]
 pub(crate) type DeviceId = usize;
 
 #[derive(Debug)]
@@ -63,6 +68,24 @@ pub enum DeviceInitError {
 pub enum DeviceError {
     MemoryOverlap,
     UpdateError(Box<dyn Error + Send>),
+}
+
+pub struct DeviceMemHandle<'a> {
+    mem: &'a mut Memory,
+}
+
+impl<'a> DeviceMemHandle<'a> {
+    pub(crate) fn new(mem: &'a mut Memory) -> Self {
+        Self { mem }
+    }
+
+    pub fn add_memory_buffer<M: MemoryBuffer + 'static>(
+        &mut self,
+        base: Address,
+        buf: M,
+    ) -> Result<Arc<RwLock<M>>, DeviceInitError> {
+        self.mem.add_device_memory(base, buf)
+    }
 }
 
 /// Part one of the trifecta of traits that make up a device, defines the size of memory shared
@@ -80,6 +103,7 @@ pub trait Device {
 /// type as the data created by the device before being cast to an [`Any`].
 ///
 /// NOTE: May at some point be converted to to a wrapper type, breaking current implementations.
+#[deprecated]
 pub type DeviceData = Arc<RwLock<Box<dyn Any + Send + Sync>>>;
 
 /// Part two of the trifecta of traits that make up a device. The init functions is ran when
@@ -88,11 +112,7 @@ pub type DeviceData = Arc<RwLock<Box<dyn Any + Send + Sync>>>;
 /// registers, this initialization is allowed to error, these errors should be passed up as
 /// [`DeviceInitError::Other`].
 pub trait DeviceObject {
-    fn init(
-        &mut self,
-        mem: &mut DeviceMemory,
-        registers: MemoryRegisterHandle,
-    ) -> Result<DeviceData, DeviceInitError>;
+    fn init(&mut self, mem: DeviceMemHandle) -> Result<(), DeviceInitError>;
 }
 
 impl<T: Error + Send + 'static> From<T> for DeviceError {

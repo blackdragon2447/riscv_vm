@@ -7,6 +7,7 @@ use super::{address::Address, Memory};
 // The type inside the box is big, but some indirection wouldnt
 // really help
 #[allow(clippy::type_complexity)]
+#[deprecated]
 pub enum Register {
     Const(u64),
     Poll {
@@ -50,6 +51,7 @@ impl Register {
 //     }
 // }
 
+#[deprecated]
 pub struct MemoryRegisterHandle<'a> {
     pub(super) memory_ref: &'a mut Memory,
     pub(super) dev_id: usize,

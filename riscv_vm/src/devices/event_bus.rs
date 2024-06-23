@@ -23,6 +23,7 @@ pub(crate) enum InterruptSignal {
 }
 
 #[derive(Debug)]
+#[deprecated]
 pub struct DeviceEvent(pub DeviceId, pub DeviceEventType);
 
 pub(crate) struct DeviceEventBus {
@@ -46,6 +47,7 @@ pub enum EventBusError {
 }
 
 /// Device's connection to the event bus, allows a device to send interrupts
+#[deprecated]
 pub struct DeviceEventBusHandle {
     permission: InterruptPermission,
     interrupter: Sender<InterruptSignal>,

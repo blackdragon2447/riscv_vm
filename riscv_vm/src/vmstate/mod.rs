@@ -49,7 +49,7 @@ pub struct VMState {
     harts: Vec<Hart>,
     mem: Memory,
     timer: DeviceData,
-    sync_devices: HashMap<usize, HandledDeviceHolder>,
+    sync_devices: Vec<HandledDeviceHolder>,
     // async_devices: HashMap<usize, Box<dyn AsyncDevice>>,
     device_event_bus: DeviceEventBus,
     next_dev_id: usize,
@@ -110,7 +110,7 @@ impl VMState {
             harts,
             mem,
             timer,
-            sync_devices: HashMap::new(),
+            sync_devices: Vec::new(),
             // async_devices: HashMap::new(),
             device_event_bus: bus,
             next_dev_id: 0,
@@ -140,20 +140,17 @@ impl VMState {
         Ok(())
     }
 
-    fn add_sync_device(
-        &mut self,
-        mut dev: (Sender<DeviceEvent>, HandledDeviceHolder),
-        addr: Address,
-        id: DeviceId,
-        mem_size: u64,
-    ) -> Result<(), DeviceInitError> {
-        let mut memory = DeviceMemory::new(mem_size, addr);
-        dev.1
-            .init_device(&mut memory, self.mem.register_handle(id))?;
-        self.sync_devices.insert(id, dev.1);
-        self.mem.add_device_memory(id, memory);
-        self.device_event_bus.add_device(id, dev.0);
+    fn add_sync_device(&mut self, mut dev: HandledDeviceHolder) -> Result<(), DeviceInitError> {
+        dev.init_device(&mut self.mem);
+        self.sync_devices.push(dev);
         Ok(())
+        // let mut memory = DeviceMemory::new(mem_size, addr);
+        // dev.1
+        //     .init_device(&mut memory, self.mem.register_handle(id))?;
+        // self.sync_devices.insert(id, dev.1);
+        // self.mem.add_device_memory(id, memory);
+        // self.device_event_bus.add_device(id, dev.0);
+        // Ok(())
     }
 
     fn add_async_device(
@@ -164,20 +161,21 @@ impl VMState {
         mem_size: u64,
         is_interupt_controller: bool,
     ) -> Result<(), DeviceInitError> {
-        let mut memory = DeviceMemory::new(mem_size, addr);
-        dev.1
-            .init_device(&mut memory, self.mem.register_handle(id))?;
-        self.device_event_bus.add_device(id, dev.0);
-        let mem = self.mem.add_device_memory(id, memory)?;
-        dev.1.run(
-            mem,
-            self.device_event_bus.get_handle(if is_interupt_controller {
-                InterruptPermission::InterruptController
-            } else {
-                InterruptPermission::Normal
-            }),
-        );
-        Ok(())
+        todo!()
+        // let mut memory = DeviceMemory::new(mem_size, addr);
+        // dev.1
+        //     .init_device(&mut memory, self.mem.register_handle(id))?;
+        // self.device_event_bus.add_device(id, dev.0);
+        // let mem = self.mem.add_device_memory(id, memory)?;
+        // dev.1.run(
+        //     mem,
+        //     self.device_event_bus.get_handle(if is_interupt_controller {
+        //         InterruptPermission::InterruptController
+        //     } else {
+        //         InterruptPermission::Normal
+        //     }),
+        // );
+        // Ok(())
     }
 
     /// Advance all cores one cycle and, if verbose, print the instruction that was executed
@@ -187,17 +185,18 @@ impl VMState {
         }
         self.device_event_bus.distribute();
 
-        for dev in &mut self.sync_devices {
-            dev.1.update(
-                &mut *self
-                    .mem
-                    .get_device_memory(dev.0)?
-                    .ok_or(VMError::NoDeviceMemory)?,
-                &self
-                    .device_event_bus
-                    .get_handle(InterruptPermission::Normal),
-            )?;
-        }
+        // TODO
+        // for dev in &mut self.sync_devices {
+        //     dev.1.update(
+        //         &mut *self
+        //             .mem
+        //             .get_device_memory(dev.0)?
+        //             .ok_or(VMError::NoDeviceMemory)?,
+        //         &self
+        //             .device_event_bus
+        //             .get_handle(InterruptPermission::Normal),
+        //     )?;
+        // }
 
         let timer_box = self.timer.read().unwrap();
         let timer: &MTimer = timer_box.downcast_ref().unwrap();
@@ -256,17 +255,18 @@ impl VMState {
 
             self.device_event_bus.distribute();
 
-            for dev in &mut self.sync_devices {
-                dev.1.update(
-                    &mut *self
-                        .mem
-                        .get_device_memory(dev.0)?
-                        .ok_or(VMError::NoDeviceMemory)?,
-                    &self
-                        .device_event_bus
-                        .get_handle(InterruptPermission::Normal),
-                )?;
-            }
+            // TODO
+            // for dev in &mut self.sync_devices {
+            //     dev.1.update(
+            //         &mut *self
+            //             .mem
+            //             .get_device_memory(dev.0)?
+            //             .ok_or(VMError::NoDeviceMemory)?,
+            //         &self
+            //             .device_event_bus
+            //             .get_handle(InterruptPermission::Normal),
+            //     )?;
+            // }
 
             for i in self.device_event_bus.interrupts() {
                 match i {

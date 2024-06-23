@@ -10,11 +10,11 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::memory::{registers::MemoryRegisterHandle, DeviceMemory};
+use crate::memory::{registers::MemoryRegisterHandle, DeviceMemory, Memory};
 
 use super::{
     event_bus::{self, DeviceEvent, DeviceEventBusHandle},
-    DeviceData, DeviceError, DeviceInitError, DeviceObject,
+    DeviceData, DeviceError, DeviceInitError, DeviceMemHandle, DeviceObject,
 };
 
 /// Indicates the reason an [`AsyncDevice`]'s update function was called
@@ -26,6 +26,7 @@ pub enum AsyncDeviceUpdate {
     /// Immediate continue from last event
     Continue,
     /// Device recieved an event
+    #[deprecated]
     DeviceEvent(DeviceEvent),
 }
 
@@ -36,6 +37,7 @@ pub enum AsyncDeviceUpdateResult {
     /// Wait until instant or an event whichever is earlier
     TimeoutUntil(Instant),
     /// Wait for event
+    #[deprecated]
     WaitForEvent,
     /// Immedtiately update
     Continue,
@@ -76,13 +78,8 @@ impl AsyncDeviceHolder {
         )
     }
 
-    pub fn init_device(
-        &mut self,
-        mem: &mut DeviceMemory,
-        registers: MemoryRegisterHandle<'_>,
-    ) -> Result<(), DeviceInitError> {
-        let data = DeviceObject::init(self.device.as_mut(), mem, registers)?;
-        self.data = Some(data);
+    pub fn init_device(&mut self, mem: &mut Memory) -> Result<(), DeviceInitError> {
+        DeviceObject::init(self.device.as_mut(), DeviceMemHandle::new(mem))?;
         Ok(())
     }
 

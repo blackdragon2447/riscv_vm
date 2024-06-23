@@ -2,17 +2,23 @@ use std::sync::{Arc, RwLock};
 
 use crate::{
     hart::registers,
-    memory::{registers::MemoryRegisterHandle, DeviceMemory},
+    memory::{
+        memory_buffer::{MemoryBuffer, NaiveBuffer},
+        registers::MemoryRegisterHandle,
+        DeviceMemory,
+    },
 };
 
 use super::{
     event_bus::DeviceEventBusHandle, handled_device::HandledDevice, Device, DeviceData,
-    DeviceError, DeviceEvent, DeviceInitError, DeviceObject,
+    DeviceError, DeviceEvent, DeviceInitError, DeviceMemHandle, DeviceObject,
 };
 
 /// It's not uart and probably breaks if you look at it wrong.
 #[derive(Debug)]
 pub struct SimpleUart;
+
+// struct UartMem([u8; 8]);
 
 impl Device for SimpleUart {
     /// Hint for vm's using this device, a vm may give more/less memory.
@@ -24,17 +30,15 @@ impl Device for SimpleUart {
 }
 
 impl DeviceObject for SimpleUart {
-    fn init(
-        &mut self,
-        mem: &mut DeviceMemory,
-        registers: MemoryRegisterHandle,
-    ) -> Result<DeviceData, DeviceInitError> {
-        if mem.size() < 8 {
-            Err(DeviceInitError::InsufficientMemory)
-        } else {
-            mem.get_mem_mut()[5] |= 0x40;
-            Ok(Arc::new(RwLock::new(Box::new(()))))
-        }
+    fn init(&mut self, mut mem: DeviceMemHandle) -> Result<(), DeviceInitError> {
+        let mut dev_mem = NaiveBuffer::<8>::new();
+        // dev_mem.0[5] |= 0x40;
+        dev_mem.write_bytes(
+            &[dev_mem.read_bytes(5u64.into(), 1).unwrap()[0] | 0x40],
+            5u64.into(),
+        );
+        mem.add_memory_buffer(0x10000000u64.into(), dev_mem)?;
+        Ok(())
     }
 }
 

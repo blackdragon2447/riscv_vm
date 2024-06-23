@@ -37,7 +37,7 @@ use self::{
 };
 
 pub mod address;
-mod memory_buffer;
+pub mod memory_buffer;
 mod memory_map;
 pub mod paging;
 pub mod pmp;
@@ -50,13 +50,17 @@ pub const MB: usize = 1024 * KB;
 
 pub struct DeviceMemory(Range<Address>, Vec<u8>);
 
+type DeviceRegionId = usize;
+
 pub struct Memory {
     main_buffer: MainMemoryBuffer,
     memory_map: MemoryMap,
     registers: IntMap<Address, Register>,
-    device_regions: IntMap<usize, Arc<RwLock<DeviceMemory>>>,
+    // device_regions: IntMap<usize, Arc<RwLock<DeviceMemory>>>,
+    device_regions: IntMap<DeviceRegionId, Arc<RwLock<dyn MemoryBuffer>>>,
     reservations: IntMap<u64, Range<Address>>,
     device_event_bus: Sender<DeviceEvent>,
+    next_region_id: DeviceRegionId,
 }
 
 pub struct MainMemoryBuffer(Box<[u8]>);
@@ -108,6 +112,10 @@ impl MainMemoryBuffer {
 }
 
 impl MemoryBuffer for MainMemoryBuffer {
+    fn size(&self) -> u64 {
+        self.0.len() as u64
+    }
+
     fn write_bytes(&mut self, bytes: &[u8], addr: Address) -> Result<(), MemoryBufferError> {
         self.0[addr.into()..(addr + bytes.len() as u64).into()].copy_from_slice(bytes);
         Ok(())
@@ -128,6 +136,7 @@ impl Memory {
             device_regions: IntMap::default(),
             reservations: IntMap::default(),
             device_event_bus,
+            next_region_id: 0,
         }
     }
 
@@ -178,7 +187,10 @@ impl Memory {
                     Ok(())
                 }
                 MemoryRegion::Rom(r) => todo!(),
-                MemoryRegion::IO(o, r) => self.device_regions[o].write()?.write_bytes(bytes, addr),
+                MemoryRegion::IO(o, r) => self.device_regions[o]
+                    .write()?
+                    .write_bytes(bytes, addr - r.start)
+                    .map_err(Into::into),
                 MemoryRegion::Register(o, a) => {
                     let value = match bytes.len() {
                         0 => [0; 8],
@@ -214,7 +226,10 @@ impl Memory {
             Ok(r) => match r {
                 MemoryRegion::Ram(r) => Ok(self.main_buffer.read_bytes(addr - r.start, size)?),
                 MemoryRegion::Rom(r) => todo!(),
-                MemoryRegion::IO(o, r) => self.device_regions[o].read()?.read_bytes(addr, size),
+                MemoryRegion::IO(o, r) => self.device_regions[o]
+                    .read()?
+                    .read_bytes(addr - r.start, size)
+                    .map_err(Into::into),
                 MemoryRegion::Register(o, a) => {
                     let mut bytes: Vec<u8> =
                         self.registers.get(a).unwrap().get().to_le_bytes().into();
@@ -254,17 +269,19 @@ impl Memory {
         }
     }
 
-    pub fn add_device_memory(
+    pub fn add_device_memory<M: MemoryBuffer + 'static>(
         &mut self,
-        id: usize,
-        mem: DeviceMemory,
-    ) -> Result<Arc<RwLock<DeviceMemory>>, DeviceInitError> {
+        base: Address,
+        buf: M,
+    ) -> Result<Arc<RwLock<M>>, DeviceInitError> {
+        let id = self.next_region_id;
+        self.next_region_id += 1;
         match self
             .memory_map
-            .add_region(MemoryRegion::IO(id, mem.0.clone()))
+            .add_region(MemoryRegion::IO(id, base..(base + buf.size())))
         {
             Ok(_) => {
-                let mem = Arc::new(RwLock::new(mem));
+                let mem = Arc::new(RwLock::new(buf));
                 self.device_regions.insert(id, mem.clone());
                 Ok(mem)
             }
@@ -290,10 +307,12 @@ impl Memory {
         }
     }
 
+    #[deprecated]
     pub fn register_handle(&mut self, dev_id: usize) -> MemoryRegisterHandle {
         MemoryRegisterHandle::new(self, dev_id)
     }
 
+    #[deprecated]
     fn add_register(
         &mut self,
         owner: usize,
@@ -306,16 +325,16 @@ impl Memory {
         Ok(())
     }
 
-    pub fn get_device_memory(
-        &mut self,
-        id: &usize,
-    ) -> Result<Option<RwLockWriteGuard<DeviceMemory>>, MemoryError> {
-        if let Some(mem) = self.device_regions.get_mut(id) {
-            Ok(Some(mem.write()?))
-        } else {
-            Ok(None)
-        }
-    }
+    // pub fn get_device_memory(
+    //     &mut self,
+    //     id: &usize,
+    // ) -> Result<Option<RwLockWriteGuard<dyn MemoryBuffer + '_>>, MemoryError> {
+    //     if let Some(mem) = self.device_regions.get_mut(id) {
+    //         Ok(Some(mem.write()?))
+    //     } else {
+    //         Ok(None)
+    //     }
+    // }
 
     pub fn dump(&self) {
         unimplemented!()

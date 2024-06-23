@@ -2,13 +2,14 @@ use std::ops::Range;
 
 use crate::devices::DeviceId;
 
-use super::{address::Address, MemoryError};
+use super::{address::Address, DeviceRegionId, MemoryError};
 
 #[derive(Debug)]
 pub enum MemoryRegion {
     Ram(Range<Address>),
     Rom(Range<Address>),
-    IO(DeviceId, Range<Address>),
+    IO(DeviceRegionId, Range<Address>),
+    #[deprecated]
     Register(DeviceId, Address),
 }
 

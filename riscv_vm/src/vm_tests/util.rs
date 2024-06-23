@@ -1,6 +1,9 @@
 use std::sync::{Arc, RwLock};
 
-use crate::devices::{handled_device::HandledDevice, Device, DeviceData, DeviceObject};
+use crate::{
+    devices::{handled_device::HandledDevice, Device, DeviceData, DeviceObject},
+    memory::memory_buffer::{MemoryBuffer, NaiveBuffer},
+};
 
 #[derive(Debug)]
 pub struct TestOutputDevice;
@@ -14,12 +17,20 @@ impl Device for TestOutputDevice {
 }
 
 impl DeviceObject for TestOutputDevice {
+    // fn init(
+    //     &mut self,
+    //     _: &mut crate::memory::DeviceMemory,
+    //     _: crate::memory::registers::MemoryRegisterHandle,
+    // ) -> Result<crate::devices::DeviceData, crate::devices::DeviceInitError> {
+    //     Ok(Arc::new(RwLock::new(Box::new(()))))
+    // }
+
     fn init(
         &mut self,
-        _: &mut crate::memory::DeviceMemory,
-        _: crate::memory::registers::MemoryRegisterHandle,
-    ) -> Result<crate::devices::DeviceData, crate::devices::DeviceInitError> {
-        Ok(Arc::new(RwLock::new(Box::new(()))))
+        mut mem: crate::devices::DeviceMemHandle,
+    ) -> Result<(), crate::devices::DeviceInitError> {
+        mem.add_memory_buffer(0x70000000u64.into(), NaiveBuffer::<128>::new());
+        Ok(())
     }
 }
 

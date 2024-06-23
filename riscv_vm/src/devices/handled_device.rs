@@ -3,11 +3,11 @@ use std::{
     sync::mpsc::{self, Receiver, Sender},
 };
 
-use crate::memory::{registers::MemoryRegisterHandle, DeviceMemory};
+use crate::memory::{registers::MemoryRegisterHandle, DeviceMemory, Memory};
 
 use super::{
     event_bus::{self, DeviceEvent, DeviceEventBusHandle},
-    DeviceData, DeviceError, DeviceInitError, DeviceObject,
+    DeviceData, DeviceError, DeviceInitError, DeviceMemHandle, DeviceObject,
 };
 
 /// Part three of a handled device, this trait defines the behaviour of a handled device. These
@@ -23,6 +23,7 @@ pub trait HandledDevice: Debug + DeviceObject {
 
     /// Called when an event occurs which the device needs to be notified of, the device may choose
     /// to ignore this.
+    #[deprecated]
     fn event(
         &mut self,
         mem: &mut DeviceMemory,
@@ -51,13 +52,8 @@ impl HandledDeviceHolder {
         )
     }
 
-    pub(crate) fn init_device(
-        &mut self,
-        mem: &mut DeviceMemory,
-        registers: MemoryRegisterHandle<'_>,
-    ) -> Result<(), DeviceInitError> {
-        let data = DeviceObject::init(self.device.as_mut(), mem, registers)?;
-        self.data = Some(data);
+    pub(crate) fn init_device(&mut self, mem: &mut Memory) -> Result<(), DeviceInitError> {
+        DeviceObject::init(self.device.as_mut(), DeviceMemHandle::new(mem))?;
         Ok(())
     }
 
