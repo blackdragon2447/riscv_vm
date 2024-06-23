@@ -35,19 +35,13 @@ use std::{
     time::{Duration, Instant},
 };
 
-use self::event_bus::DeviceEvent;
-
-pub use crate::memory::{
-    registers::{MemoryRegisterHandle, Register},
-    DeviceMemory,
-};
+pub use crate::memory::DeviceMemory;
 use crate::{
     memory::{memory_buffer::MemoryBuffer, Memory},
     Address,
 };
 
 pub mod async_device;
-pub mod event_bus;
 pub mod handled_device;
 pub mod simple_uart;
 #[cfg(feature = "vga_text_buf")]

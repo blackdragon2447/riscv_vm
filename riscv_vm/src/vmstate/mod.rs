@@ -24,9 +24,8 @@ use crate::{
     decode::{decode, Instruction},
     devices::{
         async_device::{AsyncDevice, AsyncDeviceHolder},
-        event_bus::{DeviceEvent, DeviceEventBus, InterruptPermission},
         handled_device::{HandledDevice, HandledDeviceHolder},
-        Device, DeviceData, DeviceError, DeviceId, DeviceInitError,
+        Device, DeviceError, DeviceInitError,
     },
     execute::{execute_rv64, ExecuteError},
     hart::{self, privilege::PrivilegeMode, trap::InterruptTarget, Hart},
@@ -48,10 +47,8 @@ pub struct VMSettings {
 pub struct VMState {
     harts: Vec<Hart>,
     mem: Memory,
-    timer: DeviceData,
     sync_devices: Vec<HandledDeviceHolder>,
     // async_devices: HashMap<usize, Box<dyn AsyncDevice>>,
-    device_event_bus: DeviceEventBus,
     next_dev_id: usize,
     settings: VMSettings,
 }
@@ -77,42 +74,24 @@ pub enum VMError {
 
 impl VMState {
     fn new<const MEM_SIZE: usize>(hart_count: u64, settings: VMSettings) -> Self {
-        let (se, bus) = DeviceEventBus::new();
-
-        let mut mem = Memory::new::<MEM_SIZE>(se);
-        let timer = MTimer::new(
-            hart_count as usize,
-            bus.get_handle(InterruptPermission::InterruptController),
-        );
-        let timer: DeviceData = Arc::new(RwLock::new(Box::new(timer)));
-        mem.add_timer(0x1000.into(), 0x1040.into(), timer.clone());
+        let mut mem = Memory::new::<MEM_SIZE>();
+        // let timer = MTimer::new(
+        //     hart_count as usize,
+        //     bus.get_handle(InterruptPermission::InterruptController),
+        // );
+        // let timer: DeviceData = Arc::new(RwLock::new(Box::new(timer)));
+        // mem.add_timer(0x1000.into(), 0x1040.into(), timer.clone());
 
         let mut harts = Vec::new();
         for i in 0..hart_count {
-            harts.push(Hart::new(
-                i,
-                settings,
-                Register::Poll {
-                    data: timer.clone(),
-                    get: Box::new(|data| {
-                        let data: &MTimer = data.downcast_ref().unwrap();
-                        data.get_time_micros()
-                    }),
-                    set: Box::new(|data, value| {
-                        let data: &mut MTimer = data.downcast_mut().unwrap();
-                        data.set_time_micros(value)
-                    }),
-                },
-            ));
+            harts.push(Hart::new(i, settings, Register::Const(0)));
         }
 
         Self {
             harts,
             mem,
-            timer,
             sync_devices: Vec::new(),
             // async_devices: HashMap::new(),
-            device_event_bus: bus,
             next_dev_id: 0,
             settings,
         }
@@ -153,14 +132,7 @@ impl VMState {
         // Ok(())
     }
 
-    fn add_async_device(
-        &mut self,
-        mut dev: (Sender<DeviceEvent>, AsyncDeviceHolder),
-        addr: Address,
-        id: DeviceId,
-        mem_size: u64,
-        is_interupt_controller: bool,
-    ) -> Result<(), DeviceInitError> {
+    fn add_async_device(&mut self, mut dev: AsyncDeviceHolder) -> Result<(), DeviceInitError> {
         todo!()
         // let mut memory = DeviceMemory::new(mem_size, addr);
         // dev.1
@@ -183,7 +155,6 @@ impl VMState {
         for hart in &mut self.harts {
             hart.step(&mut self.mem, verbose)?;
         }
-        self.device_event_bus.distribute();
 
         // TODO
         // for dev in &mut self.sync_devices {
@@ -198,41 +169,41 @@ impl VMState {
         //     )?;
         // }
 
-        let timer_box = self.timer.read().unwrap();
-        let timer: &MTimer = timer_box.downcast_ref().unwrap();
-        timer.generate_interrupts(
-            self.device_event_bus
-                .get_handle(InterruptPermission::InterruptController),
-        );
+        // let timer_box = self.timer.read().unwrap();
+        // let timer: &MTimer = timer_box.downcast_ref().unwrap();
+        // timer.generate_interrupts(
+        //     self.device_event_bus
+        //         .get_handle(InterruptPermission::InterruptController),
+        // );
 
-        for i in self.device_event_bus.interrupts() {
-            match i {
-                crate::devices::event_bus::InterruptSignal::Set(t, i) => match t {
-                    InterruptTarget::All => {
-                        for h in &mut self.harts {
-                            h.interrupt(i);
-                        }
-                    }
-                    InterruptTarget::Single(h) => {
-                        if let Some(h) = self.harts.get_mut(h) {
-                            h.interrupt(i);
-                        }
-                    }
-                },
-                crate::devices::event_bus::InterruptSignal::Clear(t, i) => match t {
-                    InterruptTarget::All => {
-                        for h in &mut self.harts {
-                            h.clear_interrupt(i);
-                        }
-                    }
-                    InterruptTarget::Single(h) => {
-                        if let Some(h) = self.harts.get_mut(h) {
-                            h.clear_interrupt(i);
-                        }
-                    }
-                },
-            }
-        }
+        // for i in self.device_event_bus.interrupts() {
+        //     match i {
+        //         crate::devices::event_bus::InterruptSignal::Set(t, i) => match t {
+        //             InterruptTarget::All => {
+        //                 for h in &mut self.harts {
+        //                     h.interrupt(i);
+        //                 }
+        //             }
+        //             InterruptTarget::Single(h) => {
+        //                 if let Some(h) = self.harts.get_mut(h) {
+        //                     h.interrupt(i);
+        //                 }
+        //             }
+        //         },
+        //         crate::devices::event_bus::InterruptSignal::Clear(t, i) => match t {
+        //             InterruptTarget::All => {
+        //                 for h in &mut self.harts {
+        //                     h.clear_interrupt(i);
+        //                 }
+        //             }
+        //             InterruptTarget::Single(h) => {
+        //                 if let Some(h) = self.harts.get_mut(h) {
+        //                     h.clear_interrupt(i);
+        //                 }
+        //             }
+        //         },
+        //     }
+        // }
 
         Ok(())
     }
@@ -253,7 +224,7 @@ impl VMState {
                 }
             }
 
-            self.device_event_bus.distribute();
+            // self.device_event_bus.distribute();
 
             // TODO
             // for dev in &mut self.sync_devices {
@@ -268,34 +239,34 @@ impl VMState {
             //     )?;
             // }
 
-            for i in self.device_event_bus.interrupts() {
-                match i {
-                    crate::devices::event_bus::InterruptSignal::Set(t, i) => match t {
-                        InterruptTarget::All => {
-                            for h in &mut self.harts {
-                                h.interrupt(i);
-                            }
-                        }
-                        InterruptTarget::Single(h) => {
-                            if let Some(h) = self.harts.get_mut(h) {
-                                h.interrupt(i);
-                            }
-                        }
-                    },
-                    crate::devices::event_bus::InterruptSignal::Clear(t, i) => match t {
-                        InterruptTarget::All => {
-                            for h in &mut self.harts {
-                                h.clear_interrupt(i);
-                            }
-                        }
-                        InterruptTarget::Single(h) => {
-                            if let Some(h) = self.harts.get_mut(h) {
-                                h.clear_interrupt(i);
-                            }
-                        }
-                    },
-                }
-            }
+            // for i in self.device_event_bus.interrupts() {
+            //     match i {
+            //         crate::devices::event_bus::InterruptSignal::Set(t, i) => match t {
+            //             InterruptTarget::All => {
+            //                 for h in &mut self.harts {
+            //                     h.interrupt(i);
+            //                 }
+            //             }
+            //             InterruptTarget::Single(h) => {
+            //                 if let Some(h) = self.harts.get_mut(h) {
+            //                     h.interrupt(i);
+            //                 }
+            //             }
+            //         },
+            //         crate::devices::event_bus::InterruptSignal::Clear(t, i) => match t {
+            //             InterruptTarget::All => {
+            //                 for h in &mut self.harts {
+            //                     h.clear_interrupt(i);
+            //                 }
+            //             }
+            //             InterruptTarget::Single(h) => {
+            //                 if let Some(h) = self.harts.get_mut(h) {
+            //                     h.clear_interrupt(i);
+            //                 }
+            //             }
+            //         },
+            //     }
+            // }
         }
 
         for hart in &self.harts {

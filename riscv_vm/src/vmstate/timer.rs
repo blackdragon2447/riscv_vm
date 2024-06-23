@@ -1,28 +1,23 @@
 use std::time::{Duration, Instant};
 
-use crate::{
-    devices::event_bus::DeviceEventBusHandle,
-    hart::{
-        self,
-        trap::{Interrupt, InterruptTarget},
-    },
+use crate::hart::{
+    self,
+    trap::{Interrupt, InterruptTarget},
 };
 
 pub struct MTimer {
     base: Instant,
     time: Instant,
     time_cmp: Vec<Option<u64>>,
-    bus: DeviceEventBusHandle,
 }
 
 impl MTimer {
-    pub fn new(hart_count: usize, bus: DeviceEventBusHandle) -> Self {
+    pub fn new(hart_count: usize) -> Self {
         let base = Instant::now();
         Self {
             base,
             time: base,
             time_cmp: vec![None; hart_count],
-            bus,
         }
     }
 
@@ -53,18 +48,18 @@ impl MTimer {
         }
 
         if (micros as u128) > self.time.elapsed().as_micros() {
-            self.bus
-                .clear_interrupt(InterruptTarget::Single(hartid as usize), Interrupt::Timer)
-                .unwrap();
+            // self.bus
+            //     .clear_interrupt(InterruptTarget::Single(hartid as usize), Interrupt::Timer)
+            //     .unwrap();
         }
     }
 
-    pub fn generate_interrupts(&self, bus: DeviceEventBusHandle) {
-        for (i, t) in self.time_cmp.iter().enumerate() {
-            if t.is_some_and(|t| (t as u128) < self.time.elapsed().as_micros()) {
-                bus.send_interrupt(InterruptTarget::Single(i), Interrupt::Timer)
-                    .unwrap();
-            }
-        }
+    pub fn generate_interrupts(&self) {
+        // for (i, t) in self.time_cmp.iter().enumerate() {
+        //     if t.is_some_and(|t| (t as u128) < self.time.elapsed().as_micros()) {
+        //         bus.send_interrupt(InterruptTarget::Single(i), Interrupt::Timer)
+        //             .unwrap();
+        //     }
+        // }
     }
 }

@@ -16,10 +16,7 @@ use elf_load::ByteRanges;
 use nohash_hasher::IntMap;
 
 use crate::{
-    devices::{
-        event_bus::{DeviceEvent, DeviceEventType},
-        DeviceData, DeviceInitError,
-    },
+    devices::DeviceInitError,
     hart::{
         privilege::{self, PrivilegeMode},
         Hart,
@@ -33,7 +30,6 @@ use self::{
     memory_map::{MemoryMap, MemoryMapError, MemoryRegion},
     paging::{walk_page_table, AccessContext, AddressTranslationMode, PageError, Satp},
     pmp::{AccessMode, PmpCfg, PMP},
-    registers::{MemoryRegisterHandle, Register},
 };
 
 pub mod address;
@@ -55,11 +51,9 @@ type DeviceRegionId = usize;
 pub struct Memory {
     main_buffer: MainMemoryBuffer,
     memory_map: MemoryMap,
-    registers: IntMap<Address, Register>,
     // device_regions: IntMap<usize, Arc<RwLock<DeviceMemory>>>,
     device_regions: IntMap<DeviceRegionId, Arc<RwLock<dyn MemoryBuffer>>>,
     reservations: IntMap<u64, Range<Address>>,
-    device_event_bus: Sender<DeviceEvent>,
     next_region_id: DeviceRegionId,
 }
 
@@ -127,55 +121,55 @@ impl MemoryBuffer for MainMemoryBuffer {
 }
 
 impl Memory {
-    pub fn new<const SIZE: usize>(device_event_bus: Sender<DeviceEvent>) -> Self {
+    pub fn new<const SIZE: usize>() -> Self {
         let mem = vec![0u8; SIZE].into_boxed_slice();
         Self {
             main_buffer: MainMemoryBuffer::new::<SIZE>(),
             memory_map: MemoryMap::new(0x80000000u64.into()..(0x80000000u64 + SIZE as u64).into()),
-            registers: IntMap::default(),
             device_regions: IntMap::default(),
             reservations: IntMap::default(),
-            device_event_bus,
             next_region_id: 0,
         }
     }
 
-    pub fn add_timer(&mut self, timer_base: Address, cmp_base: Address, timer_data: DeviceData) {
+    #[deprecated]
+    pub fn add_timer(&mut self, timer_base: Address, cmp_base: Address, timer_data: ()) {
         // let timer_data: Rc<RwLock<Box<dyn Any>>> = Rc::new(RwLock::new(Box::new(timer)));
-        self.add_register(
-            usize::MAX,
-            Register::Poll {
-                data: timer_data.clone(),
-                get: Box::new(|data| {
-                    let data: &MTimer = data.downcast_ref().unwrap();
-                    data.get_time_micros()
-                }),
-                set: Box::new(|data, value| {
-                    let data: &mut MTimer = data.downcast_mut().unwrap();
-                    data.set_time_micros(value)
-                }),
-            },
-            timer_base,
-        );
-        let timer_box = timer_data.read().unwrap();
-        let timer: &MTimer = timer_box.downcast_ref().unwrap();
-        for (i, cmp) in timer.get_cmps().iter().enumerate() {
-            self.add_register(
-                usize::MAX,
-                Register::Poll {
-                    data: timer_data.clone(),
-                    get: Box::new(move |data| {
-                        let data: &MTimer = data.downcast_ref().unwrap();
-                        data.get_cmp_micros(i as u64)
-                    }),
-                    set: Box::new(move |data, value| {
-                        let data: &mut MTimer = data.downcast_mut().unwrap();
-                        data.set_cmp_micros(value, i as u64);
-                    }),
-                },
-                cmp_base + (8 * i) as u64,
-            );
-        }
+        // self.add_register(
+        //     usize::MAX,
+        //     Register::Poll {
+        //         data: timer_data.clone(),
+        //         get: Box::new(|data| {
+        //             let data: &MTimer = data.downcast_ref().unwrap();
+        //             data.get_time_micros()
+        //         }),
+        //         set: Box::new(|data, value| {
+        //             let data: &mut MTimer = data.downcast_mut().unwrap();
+        //             data.set_time_micros(value)
+        //         }),
+        //     },
+        //     timer_base,
+        // );
+        // let timer_box = timer_data.read().unwrap();
+        // let timer: &MTimer = timer_box.downcast_ref().unwrap();
+        // for (i, cmp) in timer.get_cmps().iter().enumerate() {
+        //     self.add_register(
+        //         usize::MAX,
+        //         Register::Poll {
+        //             data: timer_data.clone(),
+        //             get: Box::new(move |data| {
+        //                 let data: &MTimer = data.downcast_ref().unwrap();
+        //                 data.get_cmp_micros(i as u64)
+        //             }),
+        //             set: Box::new(move |data, value| {
+        //                 let data: &mut MTimer = data.downcast_mut().unwrap();
+        //                 data.set_cmp_micros(value, i as u64);
+        //             }),
+        //         },
+        //         cmp_base + (8 * i) as u64,
+        //     );
+        // }
+        unimplemented!()
     }
 
     /// NOTE, does not do atomic checks, pmp checks or page table walks
@@ -192,26 +186,27 @@ impl Memory {
                     .write_bytes(bytes, addr - r.start)
                     .map_err(Into::into),
                 MemoryRegion::Register(o, a) => {
-                    let value = match bytes.len() {
-                        0 => [0; 8],
-                        i @ 1..=8 => {
-                            let mut value = [0u8; 8];
-                            value[0..i].copy_from_slice(bytes);
-                            value
-                        }
-                        i => {
-                            let mut value = [0u8; 8];
-                            value[0..8].copy_from_slice(&bytes[0..8]);
-                            value
-                        }
-                    };
-                    self.registers
-                        .get_mut(a)
-                        .unwrap()
-                        .set(u64::from_le_bytes(value));
-                    self.device_event_bus
-                        .send(DeviceEvent(*o, DeviceEventType::RegisterWrite(*a)));
-                    Ok(())
+                    unimplemented!()
+                    // let value = match bytes.len() {
+                    //     0 => [0; 8],
+                    //     i @ 1..=8 => {
+                    //         let mut value = [0u8; 8];
+                    //         value[0..i].copy_from_slice(bytes);
+                    //         value
+                    //     }
+                    //     i => {
+                    //         let mut value = [0u8; 8];
+                    //         value[0..8].copy_from_slice(&bytes[0..8]);
+                    //         value
+                    //     }
+                    // };
+                    // self.registers
+                    //     .get_mut(a)
+                    //     .unwrap()
+                    //     .set(u64::from_le_bytes(value));
+                    // self.device_event_bus
+                    //     .send(DeviceEvent(*o, DeviceEventType::RegisterWrite(*a)));
+                    // Ok(())
                 }
             },
             Err(MemoryMapError::TooLarge) => Err(MemoryError::OutOfMemory),
@@ -231,10 +226,11 @@ impl Memory {
                     .read_bytes(addr - r.start, size)
                     .map_err(Into::into),
                 MemoryRegion::Register(o, a) => {
-                    let mut bytes: Vec<u8> =
-                        self.registers.get(a).unwrap().get().to_le_bytes().into();
-                    bytes.resize(size, 0);
-                    Ok(bytes)
+                    unimplemented!()
+                    // let mut bytes: Vec<u8> =
+                    //     self.registers.get(a).unwrap().get().to_le_bytes().into();
+                    // bytes.resize(size, 0);
+                    // Ok(bytes)
                 }
             },
             Err(_) => Err(MemoryError::OutOfBoundsRead(addr)),
@@ -308,21 +304,18 @@ impl Memory {
     }
 
     #[deprecated]
-    pub fn register_handle(&mut self, dev_id: usize) -> MemoryRegisterHandle {
-        MemoryRegisterHandle::new(self, dev_id)
+    pub fn register_handle(&mut self, dev_id: usize) -> () {
+        unimplemented!()
+        // MemoryRegisterHandle::new(self, dev_id)
     }
 
     #[deprecated]
-    fn add_register(
-        &mut self,
-        owner: usize,
-        reg: Register,
-        addr: Address,
-    ) -> Result<(), MemoryMapError> {
-        self.memory_map
-            .add_region(MemoryRegion::Register(owner, addr))?;
-        self.registers.insert(addr, reg);
-        Ok(())
+    fn add_register(&mut self, owner: usize, reg: (), addr: Address) -> Result<(), MemoryMapError> {
+        unimplemented!()
+        // self.memory_map
+        //     .add_region(MemoryRegion::Register(owner, addr))?;
+        // self.registers.insert(addr, reg);
+        // Ok(())
     }
 
     // pub fn get_device_memory(
@@ -344,14 +337,6 @@ impl Memory {
 
     pub fn get_map(&self) -> &MemoryMap {
         &self.memory_map
-    }
-}
-
-impl MemoryRegisterHandle<'_> {
-    pub fn add_register(&mut self, addr: Address, register: Register) -> bool {
-        self.memory_ref
-            .add_register(self.dev_id, register, addr)
-            .is_ok()
     }
 }
 

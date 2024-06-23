@@ -35,21 +35,7 @@ impl DeviceObject for TestOutputDevice {
 }
 
 impl HandledDevice for TestOutputDevice {
-    fn update(
-        &mut self,
-        _: &mut crate::memory::DeviceMemory,
-        _: &crate::devices::event_bus::DeviceEventBusHandle,
-        _: DeviceData,
-    ) -> Result<(), crate::devices::DeviceError> {
-        Ok(())
-    }
-
-    fn event(
-        &mut self,
-        _: &mut crate::memory::DeviceMemory,
-        _: crate::devices::event_bus::DeviceEvent,
-        _: &crate::devices::event_bus::DeviceEventBusHandle,
-    ) -> Result<(), crate::devices::DeviceError> {
+    fn update(&mut self) -> Result<(), crate::devices::DeviceError> {
         Ok(())
     }
 }

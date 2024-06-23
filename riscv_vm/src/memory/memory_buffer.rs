@@ -18,6 +18,7 @@ pub trait MemoryBuffer {
     fn read_bytes(&self, addr: Address, size: usize) -> Result<Vec<u8>, MemoryBufferError>;
 }
 
+#[derive(Debug)]
 pub(crate) struct NaiveBuffer<const SIZE: usize>([u8; SIZE]);
 
 impl<const SIZE: usize> NaiveBuffer<SIZE> {

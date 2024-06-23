@@ -4,19 +4,18 @@ use crate::{
     hart::registers,
     memory::{
         memory_buffer::{MemoryBuffer, NaiveBuffer},
-        registers::MemoryRegisterHandle,
         DeviceMemory,
     },
 };
 
 use super::{
-    event_bus::DeviceEventBusHandle, handled_device::HandledDevice, Device, DeviceData,
-    DeviceError, DeviceEvent, DeviceInitError, DeviceMemHandle, DeviceObject,
+    handled_device::HandledDevice, Device, DeviceError, DeviceInitError, DeviceMemHandle,
+    DeviceObject,
 };
 
 /// It's not uart and probably breaks if you look at it wrong.
 #[derive(Debug)]
-pub struct SimpleUart;
+pub struct SimpleUart(Option<Arc<RwLock<NaiveBuffer<8>>>>);
 
 // struct UartMem([u8; 8]);
 
@@ -25,7 +24,7 @@ impl Device for SimpleUart {
     const MEM_SIZE: u64 = 8;
 
     fn new() -> Self {
-        Self
+        Self(None)
     }
 }
 
@@ -43,28 +42,16 @@ impl DeviceObject for SimpleUart {
 }
 
 impl HandledDevice for SimpleUart {
-    fn update(
-        &mut self,
-        mem: &mut DeviceMemory,
-        _: &DeviceEventBusHandle,
-        _: DeviceData,
-    ) -> Result<(), DeviceError> {
-        let reg = mem.get_mem()[0];
+    fn update(&mut self) -> Result<(), DeviceError> {
+        let mut mem = self.0.as_ref().unwrap().write().unwrap();
+        let reg = mem.read_bytes(0u64.into(), 1).unwrap()[0];
         if reg != 0 {
             print!("{}", std::str::from_utf8(&[reg])?);
-            mem.get_mem_mut()[0] = 0;
-            mem.get_mem_mut()[5] |= 0x40;
+            mem.write_bytes(&[0], 0u64.into());
+            let byte = mem.read_bytes(0u64.into(), 1).unwrap()[0] | 0x40;
+            mem.write_bytes(&[byte], 0u64.into()).unwrap();
         }
 
-        Ok(())
-    }
-
-    fn event(
-        &mut self,
-        mem: &mut DeviceMemory,
-        event: DeviceEvent,
-        _: &DeviceEventBusHandle,
-    ) -> Result<(), DeviceError> {
         Ok(())
     }
 }
