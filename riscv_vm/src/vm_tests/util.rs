@@ -1,6 +1,9 @@
 use std::sync::{Arc, RwLock};
 
-use crate::devices::{handled_device::HandledDevice, Device, DeviceData, DeviceObject};
+use crate::{
+    devices::{handled_device::HandledDevice, Device, DeviceObject},
+    memory::memory_buffer::{MemoryBuffer, NaiveBuffer},
+};
 
 #[derive(Debug)]
 pub struct TestOutputDevice;
@@ -16,29 +19,15 @@ impl Device for TestOutputDevice {
 impl DeviceObject for TestOutputDevice {
     fn init(
         &mut self,
-        _: &mut crate::memory::DeviceMemory,
-        _: crate::memory::registers::MemoryRegisterHandle,
-    ) -> Result<crate::devices::DeviceData, crate::devices::DeviceInitError> {
-        Ok(Arc::new(RwLock::new(Box::new(()))))
+        mut mem: crate::devices::DeviceMemHandle,
+    ) -> Result<(), crate::devices::DeviceInitError> {
+        mem.add_memory_buffer(0x70000000u64.into(), NaiveBuffer::<128>::new());
+        Ok(())
     }
 }
 
 impl HandledDevice for TestOutputDevice {
-    fn update(
-        &mut self,
-        _: &mut crate::memory::DeviceMemory,
-        _: &crate::devices::event_bus::DeviceEventBusHandle,
-        _: DeviceData,
-    ) -> Result<(), crate::devices::DeviceError> {
-        Ok(())
-    }
-
-    fn event(
-        &mut self,
-        _: &mut crate::memory::DeviceMemory,
-        _: crate::devices::event_bus::DeviceEvent,
-        _: &crate::devices::event_bus::DeviceEventBusHandle,
-    ) -> Result<(), crate::devices::DeviceError> {
+    fn update(&mut self) -> Result<(), crate::devices::DeviceError> {
         Ok(())
     }
 }
@@ -66,7 +55,7 @@ macro_rules! isa_test {
                 let bytes = u32::from_le_bytes(
                     vmstate
                         .mem()
-                        .read_bytes(0x80001000u64.into(), 4, PrivilegeMode::Machine, None)
+                        .read_bytes(0x80001000u64.into(), 4)
                         .unwrap()
                         .try_into()
                         .unwrap(),
@@ -101,7 +90,7 @@ macro_rules! isa_test {
                 let bytes = u32::from_le_bytes(
                     vmstate
                         .mem()
-                        .read_bytes(0x80001000u64.into(), 4, PrivilegeMode::Machine, None)
+                        .read_bytes(0x80001000u64.into(), 4)
                         .unwrap()
                         .try_into()
                         .unwrap(),
@@ -163,7 +152,7 @@ macro_rules! isa_test {
                 let bytes = u32::from_le_bytes(
                     vmstate
                         .mem()
-                        .read_bytes(0x80001000u64.into(), 4, PrivilegeMode::Machine, None)
+                        .read_bytes(0x80001000u64.into(), 4)
                         .unwrap()
                         .try_into()
                         .unwrap(),
@@ -201,7 +190,7 @@ macro_rules! isa_test {
                 let bytes = u32::from_le_bytes(
                     vmstate
                         .mem()
-                        .read_bytes(0x70000000u64.into(), 4, PrivilegeMode::Machine, None)
+                        .read_bytes(0x70000000u64.into(), 4)
                         .unwrap()
                         .try_into()
                         .unwrap(),
@@ -238,7 +227,7 @@ macro_rules! isa_test {
                 let bytes = u32::from_le_bytes(
                     vmstate
                         .mem()
-                        .read_bytes(0x70000000u64.into(), 4, PrivilegeMode::Machine, None)
+                        .read_bytes(0x70000000u64.into(), 4)
                         .unwrap()
                         .try_into()
                         .unwrap(),

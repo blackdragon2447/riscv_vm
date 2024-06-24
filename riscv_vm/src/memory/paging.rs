@@ -377,6 +377,11 @@ impl From<MemoryError> for PageError {
             MemoryError::DeviceMemoryPoison => panic!("DeviceMemoryPoison"),
             MemoryError::PmpDeniedFetch => Self::AccessFault,
             MemoryError::PageFaultFetch => Self::PageFault,
+            MemoryError::LoadAtomicsUnsupported => Self::AccessFault,
+            MemoryError::StoreAtomicsUnsupported => Self::AccessFault,
+            MemoryError::FetchUnsupported => Self::AccessFault,
+            MemoryError::UnalignedWrite(_) => Self::AccessFault,
+            MemoryError::UnalignedRead(_) => Self::AccessFault,
         }
     }
 }

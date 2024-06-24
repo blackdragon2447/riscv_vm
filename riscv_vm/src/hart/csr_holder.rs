@@ -2,8 +2,8 @@ use enumflags2::{make_bitflags, BitFlag, BitFlags};
 
 use crate::{
     execute::ExecuteError,
-    memory::{address::Address, paging::Satp, pmp::PMP, registers::Register},
-    vmstate::timer::MTimer,
+    memory::{address::Address, paging::Satp, pmp::PMP},
+    vmstate::timer::{MTimer, TimerRef},
 };
 
 use super::{
@@ -15,7 +15,12 @@ use super::{
     CsrAddress,
 };
 use std::{
-    any::Any, collections::HashMap, fmt::Debug, ops::RangeBounds, rc::Rc, sync::RwLock,
+    any::Any,
+    collections::HashMap,
+    fmt::Debug,
+    ops::RangeBounds,
+    rc::Rc,
+    sync::{Mutex, RwLock},
     time::Instant,
 };
 
@@ -38,7 +43,7 @@ const TOGGLEABLE_INTERRUPTS: u64 = 0b0000_1010_0010_0000;
 pub struct CsrHolder {
     // UserMode
     // cycle (tied to mcylce)
-    timer: Register,
+    timer: TimerRef,
     // instret (tied to minstret)
 
     // SupervisorMode
@@ -73,7 +78,7 @@ pub struct CsrHolder {
     pub(in crate::hart) mepc: Address,
     pub(in crate::hart) mcause: u64,
     pub(in crate::hart) mtval: u64,
-    pub(in crate::hart) mip: BitFlags<InterruptInternal>,
+    pub(in crate::hart) mip: Rc<Mutex<BitFlags<InterruptInternal>>>,
     menvcfg: u64,
     mseccfg: u64,
 
@@ -198,7 +203,7 @@ impl Debug for CsrHolder {
 }
 
 impl CsrHolder {
-    pub fn new(hart_id: u64, timer: Register) -> Self {
+    pub fn new(hart_id: u64, timer: TimerRef) -> Self {
         Self {
             // UserMode
             timer,
@@ -238,7 +243,7 @@ impl CsrHolder {
             mepc: 0u64.into(),
             mcause: 0,
             mtval: 0,
-            mip: InterruptInternal::empty(),
+            mip: Rc::new(Mutex::new(InterruptInternal::empty())),
             menvcfg: 0,
             mseccfg: 0,
             mcycle: 0,
@@ -309,7 +314,7 @@ impl CsrHolder {
     pub fn get_csr(&self, addr: CsrAddress) -> u64 {
         match addr.into() {
             0xC00u16 => self.mcycle,
-            0xC01 => self.timer.get(),
+            0xC01 => self.timer.get_time(),
             0xC02 => self.minstret,
 
             0x100 => self.status.to_s_bits(),
@@ -321,7 +326,7 @@ impl CsrHolder {
             0x141 => self.sepc.into(),
             0x142 => self.scause,
             0x143 => self.stval,
-            0x144 => (self.mip & self.mideleg).bits(),
+            0x144 => (*self.mip.lock().unwrap() & self.mideleg).bits(),
             0x180 => self.satp.to_bits(),
             0xF11 => self.mvendorid,
             0xF12 => self.marchid,
@@ -340,7 +345,7 @@ impl CsrHolder {
             0x341 => self.mepc.into(),
             0x342 => self.mcause,
             0x343 => self.mtval,
-            0x344 => self.mip.bits(),
+            0x344 => self.mip.lock().unwrap().bits(),
             0x30A => self.menvcfg,
             i @ 0x3A0..=0x3AF if i % 2 == 0 => self.pmp.read_cfg_rv64((i - 0x3A0) as usize),
             i @ 0x3B0..=0x3EF => self.pmp.read_addr_rv64((i - 0x3B0) as usize),
@@ -399,8 +404,9 @@ impl CsrHolder {
                     self.stval = value;
                 }
                 0x144 => {
-                    self.mip = BitFlags::<InterruptInternal>::from_bits_truncate(
-                        (self.mip.bits() & !(TOGGLEABLE_INTERRUPTS & S_INTERRUPT_MASK))
+                    let mut mip = *self.mip.lock().unwrap();
+                    mip = BitFlags::<InterruptInternal>::from_bits_truncate(
+                        (mip.bits() & !(TOGGLEABLE_INTERRUPTS & S_INTERRUPT_MASK))
                             | (value & (TOGGLEABLE_INTERRUPTS & S_INTERRUPT_MASK)),
                     );
                 }
@@ -450,9 +456,9 @@ impl CsrHolder {
                 }
                 0x344 => {
                     // TODO: not all interrupts can be set/cleared via mip
-                    self.mip = BitFlags::<InterruptInternal>::from_bits_truncate(
-                        (self.mip.bits() & !TOGGLEABLE_INTERRUPTS)
-                            | (value & TOGGLEABLE_INTERRUPTS),
+                    let mut mip = *self.mip.lock().unwrap();
+                    mip = BitFlags::<InterruptInternal>::from_bits_truncate(
+                        (mip.bits() & !TOGGLEABLE_INTERRUPTS) | (value & TOGGLEABLE_INTERRUPTS),
                     );
                 }
                 0x30A => {
@@ -532,8 +538,9 @@ impl CsrHolder {
                     self.stval |= mask;
                 }
                 0x144 => {
-                    self.mip = BitFlags::<InterruptInternal>::from_bits_truncate(
-                        self.mip.bits() | (mask & (TOGGLEABLE_INTERRUPTS & S_INTERRUPT_MASK)),
+                    let mut mip = *self.mip.lock().unwrap();
+                    mip = BitFlags::<InterruptInternal>::from_bits_truncate(
+                        mip.bits() | (mask & (TOGGLEABLE_INTERRUPTS & S_INTERRUPT_MASK)),
                     );
                 }
                 0x180 if !self.status.tvm => {
@@ -588,7 +595,8 @@ impl CsrHolder {
                 }
                 0x344 => {
                     // TODO: not all interrupts can be set/cleared via mip
-                    self.mip = BitFlags::<InterruptInternal>::from_bits_truncate(
+                    let mut mip = *self.mip.lock().unwrap();
+                    mip = BitFlags::<InterruptInternal>::from_bits_truncate(
                         self.mie.bits() | (mask & TOGGLEABLE_INTERRUPTS),
                     );
                 }
@@ -670,8 +678,9 @@ impl CsrHolder {
                     self.stval &= !mask;
                 }
                 0x144 => {
-                    self.mip = BitFlags::<InterruptInternal>::from_bits_truncate(
-                        self.mip.bits() & !(mask & (S_INTERRUPT_MASK & TOGGLEABLE_INTERRUPTS)),
+                    let mut mip = *self.mip.lock().unwrap();
+                    mip = BitFlags::<InterruptInternal>::from_bits_truncate(
+                        mip.bits() & !(mask & (S_INTERRUPT_MASK & TOGGLEABLE_INTERRUPTS)),
                     );
                 }
                 0x180 if !self.status.tvm => {
@@ -726,7 +735,8 @@ impl CsrHolder {
                 }
                 0x344 => {
                     // TODO: not all interrupts can be set/cleared via mip
-                    self.mip = BitFlags::<InterruptInternal>::from_bits_truncate(
+                    let mut mip = *self.mip.lock().unwrap();
+                    mip = BitFlags::<InterruptInternal>::from_bits_truncate(
                         self.mie.bits() | (mask & TOGGLEABLE_INTERRUPTS),
                     );
                 }

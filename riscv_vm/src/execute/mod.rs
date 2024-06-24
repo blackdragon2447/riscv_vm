@@ -45,6 +45,11 @@ impl From<MemoryError> for ExecuteError {
             MemoryError::DeviceMemoryPoison => Self::Fatal,
             MemoryError::PmpDeniedFetch => Self::Exception(Exception::InstructionAccessFault),
             MemoryError::PageFaultFetch => Self::Exception(Exception::InstructionPageFault),
+            MemoryError::LoadAtomicsUnsupported => Self::Exception(Exception::LoadAccessFault),
+            MemoryError::StoreAtomicsUnsupported => Self::Exception(Exception::StoreAccessFault),
+            MemoryError::FetchUnsupported => Self::Exception(Exception::InstructionAccessFault),
+            MemoryError::UnalignedWrite(_) => Self::Exception(Exception::StoreAddressMisaligned),
+            MemoryError::UnalignedRead(_) => Self::Exception(Exception::LoadAddressMisaligned),
         }
     }
 }
