@@ -48,6 +48,8 @@ impl From<MemoryError> for ExecuteError {
             MemoryError::LoadAtomicsUnsupported => Self::Exception(Exception::LoadAccessFault),
             MemoryError::StoreAtomicsUnsupported => Self::Exception(Exception::StoreAccessFault),
             MemoryError::FetchUnsupported => Self::Exception(Exception::InstructionAccessFault),
+            MemoryError::UnalignedWrite(_) => Self::Exception(Exception::StoreAddressMisaligned),
+            MemoryError::UnalignedRead(_) => Self::Exception(Exception::LoadAddressMisaligned),
         }
     }
 }

@@ -1,27 +1,20 @@
-use std::ops::Range;
-
-use crate::devices::DeviceId;
+use std::ops::{Range, RangeInclusive};
 
 use super::{address::Address, DeviceRegionId, MemoryError};
 
 #[derive(Debug)]
 pub enum MemoryRegion {
-    Ram(Range<Address>),
-    Rom(Range<Address>),
-    IO(DeviceRegionId, Range<Address>),
-    #[deprecated]
-    Register(DeviceId, Address),
+    Ram(RangeInclusive<Address>),
+    Rom(RangeInclusive<Address>),
+    IO(DeviceRegionId, RangeInclusive<Address>),
 }
 
 impl MemoryRegion {
-    pub(super) fn range(&self) -> Range<Address> {
+    pub(super) fn range(&self) -> RangeInclusive<Address> {
         match self {
             MemoryRegion::Ram(r) => r.clone(),
             MemoryRegion::Rom(r) => r.clone(),
             MemoryRegion::IO(_, r) => r.clone(),
-            // + 9 and not 8 because .. is
-            // exclusivem to +8 would make our range only 7 wide.
-            MemoryRegion::Register(_, a) => *a..(*a + 9u64),
         }
     }
 }
@@ -38,7 +31,7 @@ pub enum MemoryMapError {
 }
 
 impl MemoryMap {
-    pub(super) fn new(ram: Range<Address>) -> Self {
+    pub(super) fn new(ram: RangeInclusive<Address>) -> Self {
         Self(vec![MemoryRegion::Ram(ram)])
     }
 
@@ -71,6 +64,6 @@ impl MemoryMap {
     }
 }
 
-fn overlap<T: Ord>(a: Range<T>, b: Range<T>) -> bool {
-    a.start <= b.end && b.start <= a.end
+fn overlap<T: Ord>(a: RangeInclusive<T>, b: RangeInclusive<T>) -> bool {
+    a.start() <= b.end() && b.start() <= a.end()
 }

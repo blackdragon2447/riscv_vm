@@ -47,9 +47,6 @@ pub mod simple_uart;
 #[cfg(feature = "vga_text_buf")]
 pub mod vga_text_mode;
 
-#[deprecated]
-pub(crate) type DeviceId = usize;
-
 #[derive(Debug)]
 pub enum DeviceInitError {
     InsufficientMemory,
@@ -90,15 +87,6 @@ pub trait Device {
 
     fn new() -> Self;
 }
-
-/// Alias for the wrapper around the simple data shared between devices and their memory mapped
-/// registers, this type is given to the vm by the device upon init and is passed back to the
-/// devices and registers on any event, the [`dyn Any + Send + Sync`] is guarenteed to be of the same
-/// type as the data created by the device before being cast to an [`Any`].
-///
-/// NOTE: May at some point be converted to to a wrapper type, breaking current implementations.
-#[deprecated]
-pub type DeviceData = Arc<RwLock<Box<dyn Any + Send + Sync>>>;
 
 /// Part two of the trifecta of traits that make up a device. The init functions is ran when
 /// the vm and devices are initializing but before any code is ran, this is the time when the

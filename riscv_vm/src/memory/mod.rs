@@ -37,7 +37,6 @@ pub mod memory_buffer;
 mod memory_map;
 pub mod paging;
 pub mod pmp;
-pub mod registers;
 #[cfg(test)]
 mod tests;
 
@@ -73,6 +72,8 @@ pub struct MemoryWindow<'a> {
 pub enum MemoryError {
     OutOfBoundsWrite(Address),
     OutOfBoundsRead(Address),
+    UnalignedWrite(Address),
+    UnalignedRead(Address),
     OutOfMemory,
     PmpDeniedRead,
     PmpDeniedWrite,
@@ -125,7 +126,7 @@ impl Memory {
         let mem = vec![0u8; SIZE].into_boxed_slice();
         Self {
             main_buffer: MainMemoryBuffer::new::<SIZE>(),
-            memory_map: MemoryMap::new(0x80000000u64.into()..(0x80000000u64 + SIZE as u64).into()),
+            memory_map: MemoryMap::new(0x80000000u64.into()..=(0x80000000u64 + SIZE as u64).into()),
             device_regions: IntMap::default(),
             reservations: IntMap::default(),
             next_region_id: 0,
@@ -177,37 +178,14 @@ impl Memory {
         match self.memory_map.fit(addr..(addr + bytes.len() as u64)) {
             Ok(r) => match r {
                 MemoryRegion::Ram(r) => {
-                    self.main_buffer.write_bytes(bytes, addr - r.start);
+                    self.main_buffer.write_bytes(bytes, addr - *r.start());
                     Ok(())
                 }
                 MemoryRegion::Rom(r) => todo!(),
                 MemoryRegion::IO(o, r) => self.device_regions[o]
                     .write()?
-                    .write_bytes(bytes, addr - r.start)
+                    .write_bytes(bytes, addr - *r.start())
                     .map_err(Into::into),
-                MemoryRegion::Register(o, a) => {
-                    unimplemented!()
-                    // let value = match bytes.len() {
-                    //     0 => [0; 8],
-                    //     i @ 1..=8 => {
-                    //         let mut value = [0u8; 8];
-                    //         value[0..i].copy_from_slice(bytes);
-                    //         value
-                    //     }
-                    //     i => {
-                    //         let mut value = [0u8; 8];
-                    //         value[0..8].copy_from_slice(&bytes[0..8]);
-                    //         value
-                    //     }
-                    // };
-                    // self.registers
-                    //     .get_mut(a)
-                    //     .unwrap()
-                    //     .set(u64::from_le_bytes(value));
-                    // self.device_event_bus
-                    //     .send(DeviceEvent(*o, DeviceEventType::RegisterWrite(*a)));
-                    // Ok(())
-                }
             },
             Err(MemoryMapError::TooLarge) => Err(MemoryError::OutOfMemory),
             Err(MemoryMapError::OutOfBounds) => Err(MemoryError::OutOfBoundsWrite(addr)),
@@ -219,19 +197,12 @@ impl Memory {
     pub fn read_bytes(&self, addr: Address, size: usize) -> Result<Vec<u8>, MemoryError> {
         match self.memory_map.fit(addr..(addr + size as u64)) {
             Ok(r) => match r {
-                MemoryRegion::Ram(r) => Ok(self.main_buffer.read_bytes(addr - r.start, size)?),
+                MemoryRegion::Ram(r) => Ok(self.main_buffer.read_bytes(addr - *r.start(), size)?),
                 MemoryRegion::Rom(r) => todo!(),
                 MemoryRegion::IO(o, r) => self.device_regions[o]
                     .read()?
-                    .read_bytes(addr - r.start, size)
+                    .read_bytes(addr - *r.start(), size)
                     .map_err(Into::into),
-                MemoryRegion::Register(o, a) => {
-                    unimplemented!()
-                    // let mut bytes: Vec<u8> =
-                    //     self.registers.get(a).unwrap().get().to_le_bytes().into();
-                    // bytes.resize(size, 0);
-                    // Ok(bytes)
-                }
             },
             Err(_) => Err(MemoryError::OutOfBoundsRead(addr)),
         }
@@ -242,10 +213,10 @@ impl Memory {
         match self.memory_map.fit(addr..(addr + 4u64)) {
             Ok(r) => match r {
                 MemoryRegion::Ram(r) => {
-                    let idx = addr - r.start;
+                    let idx = addr - *r.start();
                     Ok(u32::from_le_bytes(
                         self.main_buffer
-                            .read_bytes(addr - r.start, 4)?
+                            .read_bytes(addr - *r.start(), 4)?
                             .try_into()
                             .unwrap(),
                     ))
@@ -259,7 +230,6 @@ impl Memory {
                         .try_into()
                         .unwrap(),
                 )),
-                MemoryRegion::Register(o, a) => todo!(),
             },
             Err(_) => Err(MemoryError::OutOfBoundsRead(addr)),
         }
@@ -274,7 +244,7 @@ impl Memory {
         self.next_region_id += 1;
         match self
             .memory_map
-            .add_region(MemoryRegion::IO(id, base..(base + buf.size())))
+            .add_region(MemoryRegion::IO(id, base..=(base + buf.size())))
         {
             Ok(_) => {
                 let mem = Arc::new(RwLock::new(buf));
@@ -515,8 +485,7 @@ impl MemoryWindow<'_> {
         self.mem.fetch(addr, self.privilege)
     }
 
-    #[deprecated]
-    pub(self) fn read_phys(&self, addr: Address, size: usize) -> Result<Vec<u8>, MemoryError> {
+    fn read_phys(&self, addr: Address, size: usize) -> Result<Vec<u8>, MemoryError> {
         self.mem.read_bytes(addr, size)
     }
 }

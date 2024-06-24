@@ -6,6 +6,8 @@ use super::MemoryError;
 pub enum MemoryBufferError {
     OutOfBoundsWrite(Address),
     OutOfBoundsRead(Address),
+    UnalignedWrite(Address),
+    UnalignedRead(Address),
     OutOfMemory,
 }
 
@@ -56,6 +58,8 @@ impl From<MemoryBufferError> for MemoryError {
         match value {
             MemoryBufferError::OutOfBoundsWrite(a) => MemoryError::OutOfBoundsWrite(a),
             MemoryBufferError::OutOfBoundsRead(a) => MemoryError::OutOfBoundsRead(a),
+            MemoryBufferError::UnalignedWrite(a) => MemoryError::UnalignedWrite(a),
+            MemoryBufferError::UnalignedRead(a) => MemoryError::UnalignedRead(a),
             MemoryBufferError::OutOfMemory => MemoryError::OutOfMemory,
         }
     }

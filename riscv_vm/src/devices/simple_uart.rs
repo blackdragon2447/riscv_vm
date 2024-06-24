@@ -1,4 +1,8 @@
-use std::sync::{Arc, RwLock};
+use core::panic;
+use std::{
+    io::{stdout, Write},
+    sync::{Arc, RwLock},
+};
 
 use crate::{
     hart::registers,
@@ -36,7 +40,7 @@ impl DeviceObject for SimpleUart {
             &[dev_mem.read_bytes(5u64.into(), 1).unwrap()[0] | 0x40],
             5u64.into(),
         );
-        mem.add_memory_buffer(0x10000000u64.into(), dev_mem)?;
+        self.0 = Some(mem.add_memory_buffer(0x10000000u64.into(), dev_mem)?);
         Ok(())
     }
 }
@@ -47,9 +51,10 @@ impl HandledDevice for SimpleUart {
         let reg = mem.read_bytes(0u64.into(), 1).unwrap()[0];
         if reg != 0 {
             print!("{}", std::str::from_utf8(&[reg])?);
+            stdout().flush();
             mem.write_bytes(&[0], 0u64.into());
-            let byte = mem.read_bytes(0u64.into(), 1).unwrap()[0] | 0x40;
-            mem.write_bytes(&[byte], 0u64.into()).unwrap();
+            let byte = mem.read_bytes(5u64.into(), 1).unwrap()[0] | 0x40;
+            mem.write_bytes(&[byte], 5u64.into()).unwrap();
         }
 
         Ok(())

@@ -1,7 +1,7 @@
 use std::sync::{Arc, RwLock};
 
 use crate::{
-    devices::{handled_device::HandledDevice, Device, DeviceData, DeviceObject},
+    devices::{handled_device::HandledDevice, Device, DeviceObject},
     memory::memory_buffer::{MemoryBuffer, NaiveBuffer},
 };
 
@@ -17,14 +17,6 @@ impl Device for TestOutputDevice {
 }
 
 impl DeviceObject for TestOutputDevice {
-    // fn init(
-    //     &mut self,
-    //     _: &mut crate::memory::DeviceMemory,
-    //     _: crate::memory::registers::MemoryRegisterHandle,
-    // ) -> Result<crate::devices::DeviceData, crate::devices::DeviceInitError> {
-    //     Ok(Arc::new(RwLock::new(Box::new(()))))
-    // }
-
     fn init(
         &mut self,
         mut mem: crate::devices::DeviceMemHandle,

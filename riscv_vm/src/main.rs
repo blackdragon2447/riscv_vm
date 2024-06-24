@@ -36,7 +36,9 @@ fn main() {
         let mut buf = String::new();
         stdout().flush().unwrap();
         stdin().read_line(&mut buf).unwrap();
-        let buf = buf.strip_suffix('\n').unwrap();
+        let Some(buf) = buf.strip_suffix('\n') else {
+            return;
+        };
 
         let args: Vec<&str> = buf.split(' ').collect();
         if let Some(cmd) = args.first() {

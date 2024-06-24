@@ -11,6 +11,8 @@ pub mod trap;
 use core::panic;
 use std::{
     collections::{BinaryHeap, HashMap},
+    rc::Rc,
+    sync::Mutex,
     time::Instant,
     usize,
 };
@@ -19,11 +21,12 @@ use crate::{
     decode::{decode, Instruction},
     execute::{execute_rv64, ExecuteError, ExecuteResult},
     hart::csr_holder::TrapMode,
-    memory::{address::Address, registers::Register, Memory, MemoryError},
-    vmstate::{VMError, VMSettings},
+    memory::{address::Address, Memory, MemoryError},
+    vmstate::{timer::TimerRef, VMError, VMSettings},
 };
 
 pub use csr_address::CsrAddress;
+use enumflags2::BitFlags;
 
 use self::{
     csr_holder::CsrHolder,
@@ -44,7 +47,7 @@ pub struct Hart {
 }
 
 impl Hart {
-    pub fn new(hart_id: u64, vm_settings: VMSettings, timer: Register) -> Self {
+    pub fn new(hart_id: u64, vm_settings: VMSettings, timer: TimerRef) -> Self {
         Self {
             hart_id,
             pc: 0x80000000u64.into(),
@@ -88,6 +91,10 @@ impl Hart {
         &self.csr
     }
 
+    pub fn get_mip_ref(&self) -> Rc<Mutex<BitFlags<InterruptInternal>>> {
+        self.csr.mip.clone()
+    }
+
     pub fn privilege(&self) -> PrivilegeMode {
         self.privilege
     }
@@ -96,63 +103,50 @@ impl Hart {
         self.privilege = privilege;
     }
 
-    pub fn interrupt(&mut self, cause: Interrupt) {
-        match cause {
-            Interrupt::SSoftware => self.csr.mip |= InterruptInternal::SupervisorSoftware,
-            Interrupt::MSoftware => self.csr.mip |= InterruptInternal::MachineSoftware,
-            Interrupt::Timer => self.csr.mip |= InterruptInternal::MachineTimer,
-            Interrupt::External => self.csr.mip |= InterruptInternal::MachineExternal,
-        }
-    }
-
-    pub fn clear_interrupt(&mut self, cause: Interrupt) {
-        match cause {
-            Interrupt::SSoftware => self.csr.mip &= !InterruptInternal::SupervisorSoftware,
-            Interrupt::MSoftware => self.csr.mip &= !InterruptInternal::MachineSoftware,
-            Interrupt::Timer => self.csr.mip &= !InterruptInternal::MachineTimer,
-            Interrupt::External => self.csr.mip &= !InterruptInternal::MachineExternal,
-        }
-    }
-
     pub fn step(&mut self, mem: &mut Memory, verbose: bool) -> Result<(), VMError> {
-        'interrupt_loop: for i in self
-            .csr
-            .mip
-            .iter()
-            .collect::<BinaryHeap<InterruptInternal>>()
-            .into_sorted_vec()
-        {
-            match i {
-                InterruptInternal::SupervisorSoftware
-                | InterruptInternal::SupervisorTimer
-                | InterruptInternal::SupervisorExternal => {
-                    if self.csr.mideleg.contains(i) {
-                        if (self.privilege < PrivilegeMode::Supervisor
-                            || (self.privilege == PrivilegeMode::Supervisor && self.csr.status.sie))
-                            && self.csr.sie.contains(i)
+        let mip_ref = self.get_mip_ref();
+        let mip = mip_ref.lock().unwrap();
+        if mip.bits() != 0 {
+            'interrupt_loop: for i in mip
+                .iter()
+                .collect::<BinaryHeap<InterruptInternal>>()
+                .into_sorted_vec()
+            {
+                match i {
+                    InterruptInternal::SupervisorSoftware
+                    | InterruptInternal::SupervisorTimer
+                    | InterruptInternal::SupervisorExternal => {
+                        if self.csr.mideleg.contains(i) {
+                            if (self.privilege < PrivilegeMode::Supervisor
+                                || (self.privilege == PrivilegeMode::Supervisor
+                                    && self.csr.status.sie))
+                                && self.csr.sie.contains(i)
+                            {
+                                self.trap(TrapCause::Interrupt(i), PrivilegeMode::Supervisor);
+                                break 'interrupt_loop;
+                            }
+                        } else if (self.privilege < PrivilegeMode::Machine || self.csr.status.mie)
+                            && self.csr.mie.contains(i)
                         {
-                            self.trap(TrapCause::Interrupt(i), PrivilegeMode::Supervisor);
+                            self.trap(TrapCause::Interrupt(i), PrivilegeMode::Machine);
                             break 'interrupt_loop;
                         }
-                    } else if (self.privilege < PrivilegeMode::Machine || self.csr.status.mie)
-                        && self.csr.mie.contains(i)
-                    {
-                        self.trap(TrapCause::Interrupt(i), PrivilegeMode::Machine);
-                        break 'interrupt_loop;
                     }
-                }
-                InterruptInternal::MachineSoftware
-                | InterruptInternal::MachineTimer
-                | InterruptInternal::MachineExternal => {
-                    if (self.privilege < PrivilegeMode::Machine || self.csr.status.mie)
-                        && self.csr.mie.contains(i)
-                    {
-                        self.trap(TrapCause::Interrupt(i), PrivilegeMode::Machine);
-                        break 'interrupt_loop;
+                    InterruptInternal::MachineSoftware
+                    | InterruptInternal::MachineTimer
+                    | InterruptInternal::MachineExternal => {
+                        if (self.privilege < PrivilegeMode::Machine || self.csr.status.mie)
+                            && self.csr.mie.contains(i)
+                        {
+                            self.trap(TrapCause::Interrupt(i), PrivilegeMode::Machine);
+                            break 'interrupt_loop;
+                        }
                     }
                 }
             }
         }
+        drop(mip);
+        drop(mip_ref);
 
         if (self.waiting_for_interrupt) {
             return Ok(());
