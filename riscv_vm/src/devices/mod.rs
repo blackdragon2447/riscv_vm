@@ -8,20 +8,10 @@
 //! run independently of the main thread/clock and are intended for anything else, they have to
 //! request their next update by returning a [`AsyncDeviceUpdateResult`][crate::devices::async_device::AsyncDeviceUpdateResult].
 //!
-//! ## Data Storage
-//!
-//! Devices are offered 3 forms of data storage. The first is the object that implements the
-//! device traits, this form of data storage is internal to the device and not accessible to
-//! the vm. Second there is [`DeviceMemory`], this is memory shared between the device and the vm,
-//! the size of this memory is requested by setting the MEM_SIZE constant in the [`Device`] trait,
-//! the location of this memory in the device's memory map is determined when instantating the
-//! device, this memory may allow data races and non exclusive write access, devices may define
-//! their own ways of communicating with the vm would they want to avoid this. The third form
-//! of data is available as `DeviceData` returned when initializing a device, this data is given
-//! back to the device on update and is also given to poll memory registers, not that this data is
-//! given as a reference to a [`Box<dyn Any>`], the user is responsible for casting to the right
-//! type.
-//!
+//! ## Memory
+//! Devices are permitted to add memory regions to the vm's memory, the behavour of this
+//! memory is completely up to the device, with the only requirement being that these regions
+//! implement [`MemoryBuffer`].
 
 use std::{
     any::Any,
@@ -35,7 +25,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub use crate::memory::DeviceMemory;
+pub use crate::memory::memory_buffer;
 use crate::{
     memory::{memory_buffer::MemoryBuffer, Memory},
     Address,
@@ -61,6 +51,8 @@ pub enum DeviceError {
     UpdateError(Box<dyn Error + Send>),
 }
 
+/// Gives devices access to memory during their initialization, allows for the registering of
+/// device memory regions.
 pub struct DeviceMemHandle<'a> {
     mem: &'a mut Memory,
 }
@@ -70,11 +62,17 @@ impl<'a> DeviceMemHandle<'a> {
         Self { mem }
     }
 
-    pub fn add_memory_buffer<M: MemoryBuffer + 'static>(
+    /// Register a memory region to live at `base`, the buffer is consumed, but
+    /// unless it could not be added, a refecence is given back, it is up to the device
+    /// to store this refrence for later usage (read/writing data).
+    pub fn add_memory_buffer<M>(
         &mut self,
         base: Address,
         buf: M,
-    ) -> Result<Arc<RwLock<M>>, DeviceInitError> {
+    ) -> Result<Arc<RwLock<M>>, DeviceInitError>
+    where
+        M: MemoryBuffer + 'static,
+    {
         self.mem.add_device_memory(base, buf)
     }
 }
@@ -90,9 +88,8 @@ pub trait Device {
 
 /// Part two of the trifecta of traits that make up a device. The init functions is ran when
 /// the vm and devices are initializing but before any code is ran, this is the time when the
-/// device can register any memory mapped registers and return sync data to be shared with its
-/// registers, this initialization is allowed to error, these errors should be passed up as
-/// [`DeviceInitError::Other`].
+/// device can register any memory regions, this initialization is allowed to error, these
+/// errors should be passed up as [`DeviceInitError::Other`].
 pub trait DeviceObject {
     fn init(&mut self, mem: DeviceMemHandle) -> Result<(), DeviceInitError>;
 }

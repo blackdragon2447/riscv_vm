@@ -6,10 +6,7 @@ use std::{
 
 use crate::{
     hart::registers,
-    memory::{
-        memory_buffer::{MemoryBuffer, NaiveBuffer},
-        DeviceMemory,
-    },
+    memory::memory_buffer::{MemoryBuffer, NaiveBuffer},
 };
 
 use super::{

@@ -43,8 +43,6 @@ mod tests;
 pub const KB: usize = 1024;
 pub const MB: usize = 1024 * KB;
 
-pub struct DeviceMemory(Range<Address>, Vec<u8>);
-
 type DeviceRegionId = usize;
 
 pub struct Memory {
@@ -131,46 +129,6 @@ impl Memory {
             reservations: IntMap::default(),
             next_region_id: 0,
         }
-    }
-
-    #[deprecated]
-    pub fn add_timer(&mut self, timer_base: Address, cmp_base: Address, timer_data: ()) {
-        // let timer_data: Rc<RwLock<Box<dyn Any>>> = Rc::new(RwLock::new(Box::new(timer)));
-        // self.add_register(
-        //     usize::MAX,
-        //     Register::Poll {
-        //         data: timer_data.clone(),
-        //         get: Box::new(|data| {
-        //             let data: &MTimer = data.downcast_ref().unwrap();
-        //             data.get_time_micros()
-        //         }),
-        //         set: Box::new(|data, value| {
-        //             let data: &mut MTimer = data.downcast_mut().unwrap();
-        //             data.set_time_micros(value)
-        //         }),
-        //     },
-        //     timer_base,
-        // );
-        // let timer_box = timer_data.read().unwrap();
-        // let timer: &MTimer = timer_box.downcast_ref().unwrap();
-        // for (i, cmp) in timer.get_cmps().iter().enumerate() {
-        //     self.add_register(
-        //         usize::MAX,
-        //         Register::Poll {
-        //             data: timer_data.clone(),
-        //             get: Box::new(move |data| {
-        //                 let data: &MTimer = data.downcast_ref().unwrap();
-        //                 data.get_cmp_micros(i as u64)
-        //             }),
-        //             set: Box::new(move |data, value| {
-        //                 let data: &mut MTimer = data.downcast_mut().unwrap();
-        //                 data.set_cmp_micros(value, i as u64);
-        //             }),
-        //         },
-        //         cmp_base + (8 * i) as u64,
-        //     );
-        // }
-        unimplemented!()
     }
 
     /// NOTE, does not do atomic checks, pmp checks or page table walks
@@ -487,58 +445,6 @@ impl MemoryWindow<'_> {
 
     fn read_phys(&self, addr: Address, size: usize) -> Result<Vec<u8>, MemoryError> {
         self.mem.read_bytes(addr, size)
-    }
-}
-
-impl DeviceMemory {
-    pub fn size(&self) -> u64 {
-        (self.0.end - self.0.start).into()
-    }
-
-    pub fn get_mem(&self) -> &[u8] {
-        &self.1
-    }
-
-    pub fn get_mem_mut(&mut self) -> &mut [u8] {
-        &mut self.1
-    }
-
-    pub fn new(size: u64, addr: Address) -> Self {
-        Self(addr..(addr + size), vec![0; size as usize])
-    }
-
-    pub fn write_bytes(&mut self, bytes: &[u8], addr: Address) -> Result<(), MemoryError> {
-        if (self.0.contains(&addr)) {
-            let idx = addr - self.0.start;
-            if <Address as Into<usize>>::into(idx) > self.1.len() {
-                return Err(MemoryError::OutOfBoundsWrite(addr));
-            }
-            if <Address as Into<usize>>::into(idx) + bytes.len() > self.1.len() {
-                return Err(MemoryError::OutOfMemory);
-            }
-            self.1[idx.into()..(<Address as Into<usize>>::into(idx) + bytes.len())]
-                .copy_from_slice(bytes);
-        } else {
-            return Err(MemoryError::OutOfBoundsWrite(addr));
-        }
-        Ok(())
-    }
-
-    pub fn read_bytes(&self, addr: Address, size: usize) -> Result<Vec<u8>, MemoryError> {
-        if (self.0.contains(&addr)) {
-            let idx = addr - self.0.start;
-            if <Address as Into<usize>>::into(idx) + size < self.1.len() {
-                Ok(self.1.get_bytes(idx.into(), size as u64).to_vec())
-            } else {
-                Err(MemoryError::OutOfBoundsRead(addr))
-            }
-        } else {
-            Err(MemoryError::OutOfBoundsRead(addr))
-        }
-    }
-
-    pub fn start(&self) -> Address {
-        self.0.start
     }
 }
 

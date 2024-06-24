@@ -10,7 +10,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::memory::{memory_buffer::MemoryBuffer, DeviceMemory, Memory};
+use crate::memory::{memory_buffer::MemoryBuffer, Memory};
 
 use super::{DeviceError, DeviceInitError, DeviceMemHandle, DeviceObject};
 

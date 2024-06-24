@@ -3,7 +3,7 @@ use std::{
     sync::mpsc::{self, Receiver, Sender},
 };
 
-use crate::memory::{DeviceMemory, Memory};
+use crate::memory::Memory;
 
 use super::{DeviceError, DeviceInitError, DeviceMemHandle, DeviceObject};
 

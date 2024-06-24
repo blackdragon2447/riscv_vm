@@ -29,7 +29,7 @@ use crate::{
     },
     execute::{execute_rv64, ExecuteError},
     hart::{self, privilege::PrivilegeMode, trap::InterruptTarget, Hart},
-    memory::{self, address::Address, pmp::PMP, DeviceMemory, Memory, MemoryError},
+    memory::{self, address::Address, pmp::PMP, Memory, MemoryError},
 };
 
 use self::timer::{MTimer, TimerRef};

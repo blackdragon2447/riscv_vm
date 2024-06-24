@@ -11,6 +11,10 @@ pub enum MemoryBufferError {
     OutOfMemory,
 }
 
+/// A buffer mapped to a specific address in memory, to which the vm can read and write
+/// there does not have to be a 1:1 backing in host memory, a read or write call might
+/// convert data stored in a different way to [u8] or might create any data only when called.
+///
 /// All addr arguments are normalised so that 0x0 is at the base of the buffer
 pub trait MemoryBuffer {
     fn size(&self) -> u64;

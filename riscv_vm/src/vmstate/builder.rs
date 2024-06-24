@@ -9,7 +9,7 @@ use crate::{
         handled_device::{HandledDevice, HandledDeviceHolder},
         Device, DeviceInitError,
     },
-    memory::{address::Address, DeviceMemory},
+    memory::address::Address,
     vmstate::VMState,
 };
 
