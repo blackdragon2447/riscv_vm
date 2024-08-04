@@ -2,6 +2,7 @@
 //! and can than be interacted with directly.
 
 mod builder;
+mod swi_controller;
 pub(crate) mod timer;
 
 use std::{
@@ -19,6 +20,7 @@ use elf_load::{
     data::{Bitness, Endianess, ProgramType, ASI},
     ByteRanges, Elf,
 };
+use swi_controller::SwiController;
 
 use crate::{
     decode::{decode, Instruction},
@@ -35,10 +37,35 @@ use crate::{
 use self::timer::{MTimer, TimerRef};
 pub use builder::{VMInitError, VMStateBuilder};
 
-#[derive(Default, Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct VMSettings {
     pub pmp_enable: bool,
     pub virt_mem_enable: bool,
+
+    pub timer_addr: Address,
+
+    pub m_mode_swi_enable: bool,
+    pub m_mode_swi_addr: Address,
+
+    pub s_mode_swi_enable: bool,
+    pub s_mode_swi_addr: Address,
+}
+
+impl Default for VMSettings {
+    fn default() -> Self {
+        Self {
+            pmp_enable: false,
+            virt_mem_enable: false,
+
+            timer_addr: 0x1000.into(),
+
+            m_mode_swi_enable: false,
+            m_mode_swi_addr: 0x2000.into(),
+
+            s_mode_swi_enable: false,
+            s_mode_swi_addr: 0x3000.into(),
+        }
+    }
 }
 
 /// An actual instance of a riscv vm, with memory, devices and harts
@@ -90,7 +117,19 @@ impl VMState {
             harts.push(hart);
         }
 
-        let timer = mem.add_device_memory(0x1000.into(), timer).unwrap();
+        let timer = mem.add_device_memory(settings.timer_addr, timer).unwrap();
+
+        if settings.s_mode_swi_enable {
+            let s_swi = SwiController::new(&harts, PrivilegeMode::Supervisor);
+            mem.add_device_memory(settings.s_mode_swi_addr, s_swi)
+                .unwrap();
+        }
+
+        if settings.m_mode_swi_enable {
+            let m_swi = SwiController::new(&harts, PrivilegeMode::Machine);
+            mem.add_device_memory(settings.m_mode_swi_addr, m_swi)
+                .unwrap();
+        }
 
         Self {
             harts,

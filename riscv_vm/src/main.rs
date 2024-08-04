@@ -7,7 +7,9 @@ use std::{
 use elf_load::Elf;
 #[cfg(feature = "vga_text_buf")]
 use riscv_vm::devices::vga_text_mode::VgaTextMode;
-use riscv_vm::{devices::simple_uart::SimpleUart, vmstate::VMStateBuilder, MB};
+use riscv_vm::{
+    devices::simple_uart::SimpleUart, vmstate::VMSettings, vmstate::VMStateBuilder, MB,
+};
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -15,9 +17,13 @@ fn main() {
     let elf = Elf::from_bytes(bytes).unwrap();
 
     #[cfg_attr(not(feature = "vga_text_buf"), allow(unused_mut))]
-    let mut builder = VMStateBuilder::<{ 3 * MB }>::default()
-        .add_sync_device::<SimpleUart>(0x10000000u64.into())
-        .set_hart_count(1);
+    let mut builder = VMStateBuilder::<{ 3 * MB }>::new(VMSettings {
+        m_mode_swi_enable: true,
+        s_mode_swi_enable: true,
+        ..Default::default()
+    })
+    .add_sync_device::<SimpleUart>(0x10000000u64.into())
+    .set_hart_count(2);
 
     #[cfg(feature = "vga_text_buf")]
     let builder = builder.add_sync_device::<VgaTextMode>(0xB8000u64);
@@ -30,6 +36,8 @@ fn main() {
     // vmstate.dump_mem();
 
     println!("Input a command or type help");
+
+    let mut quickstep = false;
 
     'cmdline: loop {
         print!("> ");
@@ -64,6 +72,34 @@ fn main() {
                     }
                 }
                 "stepv" =>
+                {
+                    #[allow(clippy::collapsible_else_if)]
+                    if let Some(count) = args.get(1) {
+                        let Ok(count) = count.parse::<usize>() else {
+                            println!("Invalid number of steps: {}", count);
+                            continue;
+                        };
+                        for _ in 0..count {
+                            if let Err(e) = vmstate.step(true) {
+                                println!("Stepping errored at {:?}", e);
+                                continue 'cmdline;
+                            }
+                        }
+                    } else {
+                        if let Err(e) = vmstate.step(true) {
+                            println!("Stepping errored at {:?}", e);
+                        }
+                    }
+                }
+                "quickstep" => {
+                    quickstep = !quickstep;
+                    if quickstep {
+                        println!("quickstep enabled");
+                    } else {
+                        println!("quickstep disabled");
+                    }
+                }
+                "" if quickstep =>
                 {
                     #[allow(clippy::collapsible_else_if)]
                     if let Some(count) = args.get(1) {

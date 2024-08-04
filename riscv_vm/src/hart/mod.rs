@@ -103,6 +103,10 @@ impl Hart {
         self.privilege = privilege;
     }
 
+    pub fn wait_for_interrupt(&mut self) {
+        self.waiting_for_interrupt = true;
+    }
+
     pub fn step(&mut self, mem: &mut Memory, verbose: bool) -> Result<(), VMError> {
         let mip_ref = self.get_mip_ref();
         let mip = mip_ref.lock().unwrap();
@@ -178,6 +182,7 @@ impl Hart {
         let result = execute_rv64(self, mem, inst, self.csr.isa());
         match result {
             Ok(ExecuteResult::Continue) => self.inc_pc(),
+            Ok(ExecuteResult::WFI) => self.wait_for_interrupt(),
             Ok(ExecuteResult::Jump(pc)) => self.set_pc(pc),
             Ok(ExecuteResult::CsrUpdate(addr)) => {
                 if addr == 0x180u16.into() && self.csr.status.tvm {
@@ -239,6 +244,7 @@ impl Hart {
     }
 
     fn trap(&mut self, cause: TrapCause, target: PrivilegeMode) {
+        self.waiting_for_interrupt = false;
         match target {
             PrivilegeMode::User => unreachable!("User mode cannot handle traps"),
             PrivilegeMode::Supervisor => {
@@ -287,6 +293,7 @@ impl Hart {
                         self.csr.inc_cycle(1);
                         self.csr.inc_instret(1);
                         self.csr.mcause = i.get_code();
+                        self.csr.mcause |= 0x1 << 63;
                         if self.csr.mtvec.mode == TrapMode::Direct {
                             self.set_pc(self.csr.mtvec.base);
                         } else {

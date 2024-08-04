@@ -371,7 +371,7 @@ fn read_pmp() {
         0,
         VMSettings {
             pmp_enable: true,
-            virt_mem_enable: false,
+            ..Default::default()
         },
         TimerRef::dummy(),
     );
@@ -396,7 +396,7 @@ fn read_pmp_denied() {
         0,
         VMSettings {
             pmp_enable: true,
-            virt_mem_enable: false,
+            ..Default::default()
         },
         TimerRef::dummy(),
     );
@@ -440,7 +440,7 @@ fn write_pmp_denied() {
         0,
         VMSettings {
             pmp_enable: true,
-            virt_mem_enable: false,
+            ..Default::default()
         },
         TimerRef::dummy(),
     );
@@ -468,7 +468,7 @@ fn write_pmp() {
         0,
         VMSettings {
             pmp_enable: true,
-            virt_mem_enable: false,
+            ..Default::default()
         },
         TimerRef::dummy(),
     );

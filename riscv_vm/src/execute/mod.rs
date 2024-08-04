@@ -22,6 +22,7 @@ use crate::{
 
 pub enum ExecuteResult {
     Continue,
+    WFI,
     Jump(Address),
     CsrUpdate(CsrAddress),
 }
@@ -358,7 +359,8 @@ pub fn execute_rv64(
             // Timeout is 0
             Err(ExecuteError::Exception(Exception::IllegalInstruction))
         }
-        WFI => Err(ExecuteError::Exception(Exception::IllegalInstruction)), // Not implemented
+        // WFI => Err(ExecuteError::Exception(Exception::IllegalInstruction)), // Not implemented
+        WFI => Ok(ExecuteResult::WFI),
 
         // SFENCE.VLA if !hart.get_csr().status.tvm
         // SINVAL.VLA if !hart.get_csr().status.tvm
