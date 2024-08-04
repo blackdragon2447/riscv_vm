@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["KB","MB"],"mod":["devices","trap","vmstate"],"struct":["Address"]};
+window.SIDEBAR_ITEMS = {"constant":["KB","MB","SUPPORTED_EXTENTIONS","UNSUPPORTED_EXENTIONS"],"mod":["devices","trap","vmstate"],"struct":["Address"]};

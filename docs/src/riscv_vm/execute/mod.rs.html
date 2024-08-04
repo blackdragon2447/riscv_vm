@@ -579,6 +579,13 @@
 <a href="#577" id="577">577</a>
 <a href="#578" id="578">578</a>
 <a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
 </pre></div><pre class="rust"><code><span class="comment">// Most of these warnings are caused ny macro generated code and cannot be avoided.
 </span><span class="attr">#![allow(clippy::unnecessary_cast)]
 
@@ -603,6 +610,7 @@
 
 <span class="kw">pub enum </span>ExecuteResult {
     Continue,
+    WFI,
     Jump(Address),
     CsrUpdate(CsrAddress),
 }
@@ -626,6 +634,11 @@
             MemoryError::DeviceMemoryPoison =&gt; <span class="self">Self</span>::Fatal,
             MemoryError::PmpDeniedFetch =&gt; <span class="self">Self</span>::Exception(Exception::InstructionAccessFault),
             MemoryError::PageFaultFetch =&gt; <span class="self">Self</span>::Exception(Exception::InstructionPageFault),
+            MemoryError::LoadAtomicsUnsupported =&gt; <span class="self">Self</span>::Exception(Exception::LoadAccessFault),
+            MemoryError::StoreAtomicsUnsupported =&gt; <span class="self">Self</span>::Exception(Exception::StoreAccessFault),
+            MemoryError::FetchUnsupported =&gt; <span class="self">Self</span>::Exception(Exception::InstructionAccessFault),
+            MemoryError::UnalignedWrite(<span class="kw">_</span>) =&gt; <span class="self">Self</span>::Exception(Exception::StoreAddressMisaligned),
+            MemoryError::UnalignedRead(<span class="kw">_</span>) =&gt; <span class="self">Self</span>::Exception(Exception::LoadAddressMisaligned),
         }
     }
 }
@@ -934,9 +947,10 @@
             <span class="comment">// Timeout is 0
             </span><span class="prelude-val">Err</span>(ExecuteError::Exception(Exception::IllegalInstruction))
         }
-        WFI =&gt; <span class="prelude-val">Err</span>(ExecuteError::Exception(Exception::IllegalInstruction)), <span class="comment">// Not implemented
+        <span class="comment">// WFI =&gt; Err(ExecuteError::Exception(Exception::IllegalInstruction)), // Not implemented
+        </span>WFI =&gt; <span class="prelude-val">Ok</span>(ExecuteResult::WFI),
 
-        // SFENCE.VLA if !hart.get_csr().status.tvm
+        <span class="comment">// SFENCE.VLA if !hart.get_csr().status.tvm
         // SINVAL.VLA if !hart.get_csr().status.tvm
         //
         </span>Undifined(i) =&gt; {

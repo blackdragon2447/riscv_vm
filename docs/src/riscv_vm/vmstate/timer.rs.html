@@ -70,32 +70,167 @@
 <a href="#68" id="68">68</a>
 <a href="#69" id="69">69</a>
 <a href="#70" id="70">70</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::time::{Duration, Instant};
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{
+    rc::Rc,
+    sync::Mutex,
+    time::{Duration, Instant},
+};
+
+<span class="kw">use </span>enumflags2::BitFlags;
+<span class="kw">use </span>nohash_hasher::IntMap;
 
 <span class="kw">use crate</span>::{
-    devices::event_bus::DeviceEventBusHandle,
     hart::{
         <span class="self">self</span>,
         trap::{Interrupt, InterruptTarget},
     },
+    memory::memory_buffer::{MemoryBuffer, MemoryBufferError},
+    trap::InterruptInternal,
+    Address,
 };
 
+<span class="kw">pub struct </span>TimerRef(Rc&lt;Mutex&lt;Instant&gt;&gt;);
+
+<span class="kw">impl </span>TimerRef {
+    <span class="kw">pub fn </span>get_time(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
+        <span class="self">self</span>.<span class="number">0</span>.lock().unwrap().elapsed().as_micros() <span class="kw">as </span>u64
+    }
+
+    <span class="attr">#[cfg(test)]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>dummy() -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>(Rc::new(Mutex::new(Instant::now())))
+    }
+}
+
 <span class="kw">pub struct </span>MTimer {
-    base: Instant,
-    time: Instant,
+    time: Rc&lt;Mutex&lt;Instant&gt;&gt;,
     time_cmp: Vec&lt;<span class="prelude-ty">Option</span>&lt;u64&gt;&gt;,
-    bus: DeviceEventBusHandle,
+    interrupts: IntMap&lt;usize, Rc&lt;Mutex&lt;BitFlags&lt;InterruptInternal&gt;&gt;&gt;&gt;,
+    hart_count: usize,
+}
+
+<span class="kw">impl </span>MemoryBuffer <span class="kw">for </span>MTimer {
+    <span class="kw">fn </span>size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
+        (<span class="self">self</span>.hart_count <span class="kw">as </span>u64 + <span class="number">1</span>) * <span class="number">8
+    </span>}
+
+    <span class="kw">fn </span>write_bytes(<span class="kw-2">&amp;mut </span><span class="self">self</span>, bytes: <span class="kw-2">&amp;</span>[u8], addr: Address) -&gt; <span class="prelude-ty">Result</span>&lt;(), MemoryBufferError&gt; {
+        <span class="kw">let </span>addr = &lt;Address <span class="kw">as </span>Into&lt;u64&gt;&gt;::into(addr);
+        <span class="kw">if </span>addr % <span class="number">8 </span>!= <span class="number">0 </span>{
+            <span class="kw">return </span><span class="prelude-val">Err</span>(MemoryBufferError::UnalignedWrite(addr.into()));
+        }
+        <span class="kw">let </span><span class="kw-2">mut </span>num_bytes = [<span class="number">0u8</span>; <span class="number">8</span>];
+        num_bytes[<span class="number">0</span>..bytes.len()].copy_from_slice(bytes);
+        <span class="kw">let </span>micros = u64::from_le_bytes(num_bytes);
+        <span class="kw">if </span>addr == <span class="number">0 </span>{
+            <span class="self">self</span>.set_time_micros(micros);
+        } <span class="kw">else </span>{
+            <span class="self">self</span>.set_cmp_micros(micros, (addr / <span class="number">8</span>) - <span class="number">1</span>);
+        }
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="kw">fn </span>read_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>, addr: Address, size: usize) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, MemoryBufferError&gt; {
+        <span class="kw">let </span>addr = &lt;Address <span class="kw">as </span>Into&lt;u64&gt;&gt;::into(addr);
+        <span class="kw">if </span>addr % <span class="number">8 </span>!= <span class="number">0 </span>{
+            <span class="kw">return </span><span class="prelude-val">Err</span>(MemoryBufferError::UnalignedRead(addr.into()));
+        }
+        <span class="kw">if </span>addr == <span class="number">0 </span>{
+            <span class="prelude-val">Ok</span>(<span class="self">self</span>.get_time_micros().to_le_bytes()[<span class="number">0</span>..size].to_vec())
+        } <span class="kw">else </span>{
+            <span class="prelude-val">Ok</span>(<span class="self">self</span>.get_cmp_micros((addr / <span class="number">8</span>) - <span class="number">1</span>).to_le_bytes()[<span class="number">0</span>..size].to_vec())
+        }
+    }
 }
 
 <span class="kw">impl </span>MTimer {
-    <span class="kw">pub fn </span>new(hart_count: usize, bus: DeviceEventBusHandle) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>base = Instant::now();
+    <span class="kw">pub fn </span>new(hart_count: usize) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
-            base,
-            time: base,
+            time: Rc::new(Mutex::new(Instant::now())),
             time_cmp: <span class="macro">vec!</span>[<span class="prelude-val">None</span>; hart_count],
-            bus,
+            interrupts: IntMap::default(),
+            hart_count,
         }
+    }
+
+    <span class="kw">pub fn </span>get_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TimerRef {
+        TimerRef(<span class="self">self</span>.time.clone())
     }
 
     <span class="kw">pub fn </span>get_cmps(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Vec&lt;<span class="prelude-ty">Option</span>&lt;u64&gt;&gt; {
@@ -103,11 +238,11 @@
     }
 
     <span class="kw">pub fn </span>get_time_micros(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
-        <span class="self">self</span>.time.elapsed().as_micros() <span class="kw">as </span>u64
+        <span class="self">self</span>.time.lock().unwrap().elapsed().as_micros() <span class="kw">as </span>u64
     }
 
     <span class="kw">pub fn </span>set_time_micros(<span class="kw-2">&amp;mut </span><span class="self">self</span>, micros: u64) {
-        <span class="self">self</span>.time = <span class="self">self</span>.base - Duration::from_micros(micros);
+        <span class="kw-2">*</span><span class="self">self</span>.time.lock().unwrap() = Instant::now() - Duration::from_micros(micros);
     }
 
     <span class="kw">pub fn </span>get_cmp_micros(<span class="kw-2">&amp;</span><span class="self">self</span>, hartid: u64) -&gt; u64 {
@@ -118,26 +253,43 @@
     }
 
     <span class="kw">pub fn </span>set_cmp_micros(<span class="kw-2">&amp;mut </span><span class="self">self</span>, micros: u64, hartid: u64) {
+        <span class="macro">eprintln!</span>(<span class="string">"Set cmp to {micros} for H{hartid}"</span>);
         <span class="kw">if </span>micros == <span class="number">0 </span>{
             <span class="self">self</span>.time_cmp[hartid <span class="kw">as </span>usize] = <span class="prelude-val">None</span>;
         } <span class="kw">else </span>{
             <span class="self">self</span>.time_cmp[hartid <span class="kw">as </span>usize] = <span class="prelude-val">Some</span>(micros);
         }
 
-        <span class="kw">if </span>(micros <span class="kw">as </span>u128) &gt; <span class="self">self</span>.time.elapsed().as_micros() {
-            <span class="self">self</span>.bus
-                .clear_interrupt(InterruptTarget::Single(hartid <span class="kw">as </span>usize), Interrupt::Timer)
-                .unwrap();
+        <span class="kw">if </span>(micros <span class="kw">as </span>u128) &lt; <span class="self">self</span>.time.lock().unwrap().elapsed().as_micros() {
+            <span class="self">self</span>.interrupts
+                .get(<span class="kw-2">&amp;</span>(hartid <span class="kw">as </span>usize))
+                .as_mut()
+                .map(|bits| <span class="kw-2">*</span>bits.lock().unwrap() |= InterruptInternal::MachineTimer);
+        } <span class="kw">else </span>{
+            <span class="self">self</span>.interrupts
+                .get(<span class="kw-2">&amp;</span>(hartid <span class="kw">as </span>usize))
+                .as_mut()
+                .map(|bits| <span class="kw-2">*</span>bits.lock().unwrap() &amp;= !InterruptInternal::MachineTimer);
         }
     }
 
-    <span class="kw">pub fn </span>generate_interrupts(<span class="kw-2">&amp;</span><span class="self">self</span>, bus: DeviceEventBusHandle) {
+    <span class="kw">pub fn </span>generate_interrupts(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="kw">for </span>(i, t) <span class="kw">in </span><span class="self">self</span>.time_cmp.iter().enumerate() {
-            <span class="kw">if </span>t.is_some_and(|t| (t <span class="kw">as </span>u128) &lt; <span class="self">self</span>.time.elapsed().as_micros()) {
-                bus.send_interrupt(InterruptTarget::Single(i), Interrupt::Timer)
-                    .unwrap();
+            <span class="kw">if </span>t.is_some_and(|t| (t <span class="kw">as </span>u128) &lt; <span class="self">self</span>.time.lock().unwrap().elapsed().as_micros()) {
+                <span class="self">self</span>.interrupts
+                    .get(<span class="kw-2">&amp;</span>i)
+                    .as_mut()
+                    .map(|bits| <span class="kw-2">*</span>bits.lock().unwrap() |= InterruptInternal::MachineTimer);
             }
         }
+    }
+
+    <span class="kw">pub fn </span>add_interrupt_bits(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        hartid: usize,
+        bits: Rc&lt;Mutex&lt;BitFlags&lt;InterruptInternal&gt;&gt;&gt;,
+    ) {
+        <span class="self">self</span>.interrupts.insert(hartid, bits);
     }
 }
 </code></pre></div></section></main></body></html>

@@ -59,76 +59,62 @@
 <a href="#57" id="57">57</a>
 <a href="#58" id="58">58</a>
 <a href="#59" id="59">59</a>
-<a href="#60" id="60">60</a>
-<a href="#61" id="61">61</a>
-<a href="#62" id="62">62</a>
-<a href="#63" id="63">63</a>
-<a href="#64" id="64">64</a>
-<a href="#65" id="65">65</a>
-<a href="#66" id="66">66</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::{Arc, RwLock};
+</pre></div><pre class="rust"><code><span class="kw">use </span>core::panic;
+<span class="kw">use </span>std::{
+    io::{stdout, Write},
+    sync::{Arc, RwLock},
+};
 
 <span class="kw">use crate</span>::{
     hart::registers,
-    memory::{registers::MemoryRegisterHandle, DeviceMemory},
+    memory::memory_buffer::{MemoryBuffer, NaiveBuffer},
 };
 
 <span class="kw">use super</span>::{
-    event_bus::DeviceEventBusHandle, handled_device::HandledDevice, Device, DeviceData,
-    DeviceError, DeviceEvent, DeviceInitError, DeviceObject,
+    handled_device::HandledDevice, Device, DeviceError, DeviceInitError, DeviceMemHandle,
+    DeviceObject,
 };
 
 <span class="doccomment">/// It's not uart and probably breaks if you look at it wrong.
 </span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>SimpleUart;
+</span><span class="kw">pub struct </span>SimpleUart(<span class="prelude-ty">Option</span>&lt;Arc&lt;RwLock&lt;NaiveBuffer&lt;<span class="number">8</span>&gt;&gt;&gt;&gt;);
 
-<span class="kw">impl </span>Device <span class="kw">for </span>SimpleUart {
+<span class="comment">// struct UartMem([u8; 8]);
+
+</span><span class="kw">impl </span>Device <span class="kw">for </span>SimpleUart {
     <span class="doccomment">/// Hint for vm's using this device, a vm may give more/less memory.
     </span><span class="kw">const </span>MEM_SIZE: u64 = <span class="number">8</span>;
 
     <span class="kw">fn </span>new() -&gt; <span class="self">Self </span>{
-        <span class="self">Self
-    </span>}
+        <span class="self">Self</span>(<span class="prelude-val">None</span>)
+    }
 }
 
 <span class="kw">impl </span>DeviceObject <span class="kw">for </span>SimpleUart {
-    <span class="kw">fn </span>init(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        mem: <span class="kw-2">&amp;mut </span>DeviceMemory,
-        registers: MemoryRegisterHandle,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;DeviceData, DeviceInitError&gt; {
-        <span class="kw">if </span>mem.size() &lt; <span class="number">8 </span>{
-            <span class="prelude-val">Err</span>(DeviceInitError::InsufficientMemory)
-        } <span class="kw">else </span>{
-            mem.get_mem_mut()[<span class="number">5</span>] |= <span class="number">0x40</span>;
-            <span class="prelude-val">Ok</span>(Arc::new(RwLock::new(Box::new(()))))
-        }
+    <span class="kw">fn </span>init(<span class="kw-2">&amp;mut </span><span class="self">self</span>, <span class="kw-2">mut </span>mem: DeviceMemHandle) -&gt; <span class="prelude-ty">Result</span>&lt;(), DeviceInitError&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>dev_mem = NaiveBuffer::&lt;<span class="number">8</span>&gt;::new();
+        <span class="comment">// dev_mem.0[5] |= 0x40;
+        </span>dev_mem.write_bytes(
+            <span class="kw-2">&amp;</span>[dev_mem.read_bytes(<span class="number">5u64</span>.into(), <span class="number">1</span>).unwrap()[<span class="number">0</span>] | <span class="number">0x40</span>],
+            <span class="number">5u64</span>.into(),
+        );
+        <span class="self">self</span>.<span class="number">0 </span>= <span class="prelude-val">Some</span>(mem.add_memory_buffer(<span class="number">0x10000000u64</span>.into(), dev_mem)<span class="question-mark">?</span>);
+        <span class="prelude-val">Ok</span>(())
     }
 }
 
 <span class="kw">impl </span>HandledDevice <span class="kw">for </span>SimpleUart {
-    <span class="kw">fn </span>update(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        mem: <span class="kw-2">&amp;mut </span>DeviceMemory,
-        <span class="kw">_</span>: <span class="kw-2">&amp;</span>DeviceEventBusHandle,
-        <span class="kw">_</span>: DeviceData,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), DeviceError&gt; {
-        <span class="kw">let </span>reg = mem.get_mem()[<span class="number">0</span>];
+    <span class="kw">fn </span>update(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), DeviceError&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>mem = <span class="self">self</span>.<span class="number">0</span>.as_ref().unwrap().write().unwrap();
+        <span class="kw">let </span>reg = mem.read_bytes(<span class="number">0u64</span>.into(), <span class="number">1</span>).unwrap()[<span class="number">0</span>];
         <span class="kw">if </span>reg != <span class="number">0 </span>{
             <span class="macro">print!</span>(<span class="string">"{}"</span>, std::str::from_utf8(<span class="kw-2">&amp;</span>[reg])<span class="question-mark">?</span>);
-            mem.get_mem_mut()[<span class="number">0</span>] = <span class="number">0</span>;
-            mem.get_mem_mut()[<span class="number">5</span>] |= <span class="number">0x40</span>;
+            stdout().flush();
+            mem.write_bytes(<span class="kw-2">&amp;</span>[<span class="number">0</span>], <span class="number">0u64</span>.into());
+            <span class="kw">let </span>byte = mem.read_bytes(<span class="number">5u64</span>.into(), <span class="number">1</span>).unwrap()[<span class="number">0</span>] | <span class="number">0x40</span>;
+            mem.write_bytes(<span class="kw-2">&amp;</span>[byte], <span class="number">5u64</span>.into()).unwrap();
         }
 
-        <span class="prelude-val">Ok</span>(())
-    }
-
-    <span class="kw">fn </span>event(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        mem: <span class="kw-2">&amp;mut </span>DeviceMemory,
-        event: DeviceEvent,
-        <span class="kw">_</span>: <span class="kw-2">&amp;</span>DeviceEventBusHandle,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), DeviceError&gt; {
         <span class="prelude-val">Ok</span>(())
     }
 }

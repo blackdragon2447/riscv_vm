@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["DeviceError","DeviceInitError","Register"],"mod":["async_device","event_bus","handled_device","simple_uart"],"struct":["DeviceMemory","MemoryRegisterHandle"],"trait":["Device","DeviceObject"],"type":["DeviceData"]};
+window.SIDEBAR_ITEMS = {"enum":["DeviceError","DeviceInitError"],"mod":["async_device","handled_device","memory_buffer","simple_uart"],"struct":["DeviceMemHandle"],"trait":["Device","DeviceObject"]};

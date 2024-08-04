@@ -69,35 +69,23 @@
 <a href="#67" id="67">67</a>
 <a href="#68" id="68">68</a>
 <a href="#69" id="69">69</a>
-<a href="#70" id="70">70</a>
-<a href="#71" id="71">71</a>
-<a href="#72" id="72">72</a>
-<a href="#73" id="73">73</a>
-<a href="#74" id="74">74</a>
-<a href="#75" id="75">75</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::ops::Range;
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::ops::{Range, RangeInclusive};
 
-<span class="kw">use </span><span class="kw">crate</span>::devices::DeviceId;
-
-<span class="kw">use super</span>::{address::Address, MemoryError};
+<span class="kw">use super</span>::{address::Address, DeviceRegionId, MemoryError};
 
 <span class="attr">#[derive(Debug)]
 </span><span class="kw">pub enum </span>MemoryRegion {
-    Ram(Range&lt;Address&gt;),
-    Rom(Range&lt;Address&gt;),
-    IO(DeviceId, Range&lt;Address&gt;),
-    Register(DeviceId, Address),
+    Ram(RangeInclusive&lt;Address&gt;),
+    Rom(RangeInclusive&lt;Address&gt;),
+    IO(DeviceRegionId, RangeInclusive&lt;Address&gt;),
 }
 
 <span class="kw">impl </span>MemoryRegion {
-    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>range(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Range&lt;Address&gt; {
+    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>range(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RangeInclusive&lt;Address&gt; {
         <span class="kw">match </span><span class="self">self </span>{
             MemoryRegion::Ram(r) =&gt; r.clone(),
             MemoryRegion::Rom(r) =&gt; r.clone(),
             MemoryRegion::IO(<span class="kw">_</span>, r) =&gt; r.clone(),
-            <span class="comment">// + 9 and not 8 because .. is
-            // exclusivem to +8 would make our range only 7 wide.
-            </span>MemoryRegion::Register(<span class="kw">_</span>, a) =&gt; <span class="kw-2">*</span>a..(<span class="kw-2">*</span>a + <span class="number">9u64</span>),
         }
     }
 }
@@ -114,7 +102,7 @@
 }
 
 <span class="kw">impl </span>MemoryMap {
-    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>new(ram: Range&lt;Address&gt;) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>new(ram: RangeInclusive&lt;Address&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(<span class="macro">vec!</span>[MemoryRegion::Ram(ram)])
     }
 
@@ -147,7 +135,7 @@
     }
 }
 
-<span class="kw">fn </span>overlap&lt;T: Ord&gt;(a: Range&lt;T&gt;, b: Range&lt;T&gt;) -&gt; bool {
-    a.start &lt;= b.end &amp;&amp; b.start &lt;= a.end
+<span class="kw">fn </span>overlap&lt;T: Ord&gt;(a: RangeInclusive&lt;T&gt;, b: RangeInclusive&lt;T&gt;) -&gt; bool {
+    a.start() &lt;= b.end() &amp;&amp; b.start() &lt;= a.end()
 }
 </code></pre></div></section></main></body></html>

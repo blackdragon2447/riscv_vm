@@ -988,12 +988,22 @@
 <a href="#986" id="986">986</a>
 <a href="#987" id="987">987</a>
 <a href="#988" id="988">988</a>
+<a href="#989" id="989">989</a>
+<a href="#990" id="990">990</a>
+<a href="#991" id="991">991</a>
+<a href="#992" id="992">992</a>
+<a href="#993" id="993">993</a>
+<a href="#994" id="994">994</a>
+<a href="#995" id="995">995</a>
+<a href="#996" id="996">996</a>
+<a href="#997" id="997">997</a>
+<a href="#998" id="998">998</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>enumflags2::{make_bitflags, BitFlag, BitFlags};
 
 <span class="kw">use crate</span>::{
     execute::ExecuteError,
-    memory::{address::Address, paging::Satp, pmp::PMP, registers::Register},
-    vmstate::timer::MTimer,
+    memory::{address::Address, paging::Satp, pmp::PMP},
+    vmstate::timer::{MTimer, TimerRef},
 };
 
 <span class="kw">use super</span>::{
@@ -1005,7 +1015,12 @@
     CsrAddress,
 };
 <span class="kw">use </span>std::{
-    any::Any, collections::HashMap, fmt::Debug, ops::RangeBounds, rc::Rc, sync::RwLock,
+    any::Any,
+    collections::HashMap,
+    fmt::Debug,
+    ops::RangeBounds,
+    rc::Rc,
+    sync::{Mutex, RwLock},
     time::Instant,
 };
 
@@ -1028,7 +1043,7 @@
 <span class="kw">pub struct </span>CsrHolder {
     <span class="comment">// UserMode
     // cycle (tied to mcylce)
-    </span>timer: Register,
+    </span>timer: TimerRef,
     <span class="comment">// instret (tied to minstret)
 
     // SupervisorMode
@@ -1063,7 +1078,7 @@
     <span class="kw">pub</span>(<span class="kw">in </span><span class="kw">crate</span>::hart) mepc: Address,
     <span class="kw">pub</span>(<span class="kw">in </span><span class="kw">crate</span>::hart) mcause: u64,
     <span class="kw">pub</span>(<span class="kw">in </span><span class="kw">crate</span>::hart) mtval: u64,
-    <span class="kw">pub</span>(<span class="kw">in </span><span class="kw">crate</span>::hart) mip: BitFlags&lt;InterruptInternal&gt;,
+    <span class="kw">pub</span>(<span class="kw">in </span><span class="kw">crate</span>::hart) mip: Rc&lt;Mutex&lt;BitFlags&lt;InterruptInternal&gt;&gt;&gt;,
     menvcfg: u64,
     mseccfg: u64,
 
@@ -1188,7 +1203,7 @@
 }
 
 <span class="kw">impl </span>CsrHolder {
-    <span class="kw">pub fn </span>new(hart_id: u64, timer: Register) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>new(hart_id: u64, timer: TimerRef) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             <span class="comment">// UserMode
             </span>timer,
@@ -1228,7 +1243,7 @@
             mepc: <span class="number">0u64</span>.into(),
             mcause: <span class="number">0</span>,
             mtval: <span class="number">0</span>,
-            mip: InterruptInternal::empty(),
+            mip: Rc::new(Mutex::new(InterruptInternal::empty())),
             menvcfg: <span class="number">0</span>,
             mseccfg: <span class="number">0</span>,
             mcycle: <span class="number">0</span>,
@@ -1299,7 +1314,7 @@
     <span class="kw">pub fn </span>get_csr(<span class="kw-2">&amp;</span><span class="self">self</span>, addr: CsrAddress) -&gt; u64 {
         <span class="kw">match </span>addr.into() {
             <span class="number">0xC00u16 </span>=&gt; <span class="self">self</span>.mcycle,
-            <span class="number">0xC01 </span>=&gt; <span class="self">self</span>.timer.get(),
+            <span class="number">0xC01 </span>=&gt; <span class="self">self</span>.timer.get_time(),
             <span class="number">0xC02 </span>=&gt; <span class="self">self</span>.minstret,
 
             <span class="number">0x100 </span>=&gt; <span class="self">self</span>.status.to_s_bits(),
@@ -1311,7 +1326,7 @@
             <span class="number">0x141 </span>=&gt; <span class="self">self</span>.sepc.into(),
             <span class="number">0x142 </span>=&gt; <span class="self">self</span>.scause,
             <span class="number">0x143 </span>=&gt; <span class="self">self</span>.stval,
-            <span class="number">0x144 </span>=&gt; (<span class="self">self</span>.mip &amp; <span class="self">self</span>.mideleg).bits(),
+            <span class="number">0x144 </span>=&gt; (<span class="kw-2">*</span><span class="self">self</span>.mip.lock().unwrap() &amp; <span class="self">self</span>.mideleg).bits(),
             <span class="number">0x180 </span>=&gt; <span class="self">self</span>.satp.to_bits(),
             <span class="number">0xF11 </span>=&gt; <span class="self">self</span>.mvendorid,
             <span class="number">0xF12 </span>=&gt; <span class="self">self</span>.marchid,
@@ -1330,7 +1345,7 @@
             <span class="number">0x341 </span>=&gt; <span class="self">self</span>.mepc.into(),
             <span class="number">0x342 </span>=&gt; <span class="self">self</span>.mcause,
             <span class="number">0x343 </span>=&gt; <span class="self">self</span>.mtval,
-            <span class="number">0x344 </span>=&gt; <span class="self">self</span>.mip.bits(),
+            <span class="number">0x344 </span>=&gt; <span class="self">self</span>.mip.lock().unwrap().bits(),
             <span class="number">0x30A </span>=&gt; <span class="self">self</span>.menvcfg,
             i @ <span class="number">0x3A0</span>..=<span class="number">0x3AF </span><span class="kw">if </span>i % <span class="number">2 </span>== <span class="number">0 </span>=&gt; <span class="self">self</span>.pmp.read_cfg_rv64((i - <span class="number">0x3A0</span>) <span class="kw">as </span>usize),
             i @ <span class="number">0x3B0</span>..=<span class="number">0x3EF </span>=&gt; <span class="self">self</span>.pmp.read_addr_rv64((i - <span class="number">0x3B0</span>) <span class="kw">as </span>usize),
@@ -1389,8 +1404,9 @@
                     <span class="self">self</span>.stval = value;
                 }
                 <span class="number">0x144 </span>=&gt; {
-                    <span class="self">self</span>.mip = BitFlags::&lt;InterruptInternal&gt;::from_bits_truncate(
-                        (<span class="self">self</span>.mip.bits() &amp; !(TOGGLEABLE_INTERRUPTS &amp; S_INTERRUPT_MASK))
+                    <span class="kw">let </span><span class="kw-2">mut </span>mip = <span class="kw-2">*</span><span class="self">self</span>.mip.lock().unwrap();
+                    mip = BitFlags::&lt;InterruptInternal&gt;::from_bits_truncate(
+                        (mip.bits() &amp; !(TOGGLEABLE_INTERRUPTS &amp; S_INTERRUPT_MASK))
                             | (value &amp; (TOGGLEABLE_INTERRUPTS &amp; S_INTERRUPT_MASK)),
                     );
                 }
@@ -1440,9 +1456,9 @@
                 }
                 <span class="number">0x344 </span>=&gt; {
                     <span class="comment">// TODO: not all interrupts can be set/cleared via mip
-                    </span><span class="self">self</span>.mip = BitFlags::&lt;InterruptInternal&gt;::from_bits_truncate(
-                        (<span class="self">self</span>.mip.bits() &amp; !TOGGLEABLE_INTERRUPTS)
-                            | (value &amp; TOGGLEABLE_INTERRUPTS),
+                    </span><span class="kw">let </span><span class="kw-2">mut </span>mip = <span class="kw-2">*</span><span class="self">self</span>.mip.lock().unwrap();
+                    mip = BitFlags::&lt;InterruptInternal&gt;::from_bits_truncate(
+                        (mip.bits() &amp; !TOGGLEABLE_INTERRUPTS) | (value &amp; TOGGLEABLE_INTERRUPTS),
                     );
                 }
                 <span class="number">0x30A </span>=&gt; {
@@ -1522,8 +1538,9 @@
                     <span class="self">self</span>.stval |= mask;
                 }
                 <span class="number">0x144 </span>=&gt; {
-                    <span class="self">self</span>.mip = BitFlags::&lt;InterruptInternal&gt;::from_bits_truncate(
-                        <span class="self">self</span>.mip.bits() | (mask &amp; (TOGGLEABLE_INTERRUPTS &amp; S_INTERRUPT_MASK)),
+                    <span class="kw">let </span><span class="kw-2">mut </span>mip = <span class="kw-2">*</span><span class="self">self</span>.mip.lock().unwrap();
+                    mip = BitFlags::&lt;InterruptInternal&gt;::from_bits_truncate(
+                        mip.bits() | (mask &amp; (TOGGLEABLE_INTERRUPTS &amp; S_INTERRUPT_MASK)),
                     );
                 }
                 <span class="number">0x180 </span><span class="kw">if </span>!<span class="self">self</span>.status.tvm =&gt; {
@@ -1578,7 +1595,8 @@
                 }
                 <span class="number">0x344 </span>=&gt; {
                     <span class="comment">// TODO: not all interrupts can be set/cleared via mip
-                    </span><span class="self">self</span>.mip = BitFlags::&lt;InterruptInternal&gt;::from_bits_truncate(
+                    </span><span class="kw">let </span><span class="kw-2">mut </span>mip = <span class="kw-2">*</span><span class="self">self</span>.mip.lock().unwrap();
+                    mip = BitFlags::&lt;InterruptInternal&gt;::from_bits_truncate(
                         <span class="self">self</span>.mie.bits() | (mask &amp; TOGGLEABLE_INTERRUPTS),
                     );
                 }
@@ -1660,8 +1678,9 @@
                     <span class="self">self</span>.stval &amp;= !mask;
                 }
                 <span class="number">0x144 </span>=&gt; {
-                    <span class="self">self</span>.mip = BitFlags::&lt;InterruptInternal&gt;::from_bits_truncate(
-                        <span class="self">self</span>.mip.bits() &amp; !(mask &amp; (S_INTERRUPT_MASK &amp; TOGGLEABLE_INTERRUPTS)),
+                    <span class="kw">let </span><span class="kw-2">mut </span>mip = <span class="kw-2">*</span><span class="self">self</span>.mip.lock().unwrap();
+                    mip = BitFlags::&lt;InterruptInternal&gt;::from_bits_truncate(
+                        mip.bits() &amp; !(mask &amp; (S_INTERRUPT_MASK &amp; TOGGLEABLE_INTERRUPTS)),
                     );
                 }
                 <span class="number">0x180 </span><span class="kw">if </span>!<span class="self">self</span>.status.tvm =&gt; {
@@ -1716,7 +1735,8 @@
                 }
                 <span class="number">0x344 </span>=&gt; {
                     <span class="comment">// TODO: not all interrupts can be set/cleared via mip
-                    </span><span class="self">self</span>.mip = BitFlags::&lt;InterruptInternal&gt;::from_bits_truncate(
+                    </span><span class="kw">let </span><span class="kw-2">mut </span>mip = <span class="kw-2">*</span><span class="self">self</span>.mip.lock().unwrap();
+                    mip = BitFlags::&lt;InterruptInternal&gt;::from_bits_truncate(
                         <span class="self">self</span>.mie.bits() | (mask &amp; TOGGLEABLE_INTERRUPTS),
                     );
                 }

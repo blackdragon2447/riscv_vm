@@ -306,6 +306,7 @@
 <a href="#304" id="304">304</a>
 <a href="#305" id="305">305</a>
 <a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>counters;
 <span class="kw">mod </span>csr_address;
 <span class="kw">mod </span>csr_holder;
@@ -319,6 +320,8 @@
 <span class="kw">use </span>core::panic;
 <span class="kw">use </span>std::{
     collections::{BinaryHeap, HashMap},
+    rc::Rc,
+    sync::Mutex,
     time::Instant,
     usize,
 };
@@ -327,11 +330,12 @@
     decode::{decode, Instruction},
     execute::{execute_rv64, ExecuteError, ExecuteResult},
     hart::csr_holder::TrapMode,
-    memory::{address::Address, registers::Register, Memory, MemoryError},
-    vmstate::{VMError, VMSettings},
+    memory::{address::Address, Memory, MemoryError},
+    vmstate::{timer::TimerRef, VMError, VMSettings},
 };
 
 <span class="kw">pub use </span>csr_address::CsrAddress;
+<span class="kw">use </span>enumflags2::BitFlags;
 
 <span class="kw">use </span><span class="self">self</span>::{
     csr_holder::CsrHolder,
@@ -352,7 +356,7 @@
 }
 
 <span class="kw">impl </span>Hart {
-    <span class="kw">pub fn </span>new(hart_id: u64, vm_settings: VMSettings, timer: Register) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>new(hart_id: u64, vm_settings: VMSettings, timer: TimerRef) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             hart_id,
             pc: <span class="number">0x80000000u64</span>.into(),
@@ -396,6 +400,10 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>.csr
     }
 
+    <span class="kw">pub fn </span>get_mip_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Rc&lt;Mutex&lt;BitFlags&lt;InterruptInternal&gt;&gt;&gt; {
+        <span class="self">self</span>.csr.mip.clone()
+    }
+
     <span class="kw">pub fn </span>privilege(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; PrivilegeMode {
         <span class="self">self</span>.privilege
     }
@@ -404,63 +412,54 @@
         <span class="self">self</span>.privilege = privilege;
     }
 
-    <span class="kw">pub fn </span>interrupt(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cause: Interrupt) {
-        <span class="kw">match </span>cause {
-            Interrupt::SSoftware =&gt; <span class="self">self</span>.csr.mip |= InterruptInternal::SupervisorSoftware,
-            Interrupt::MSoftware =&gt; <span class="self">self</span>.csr.mip |= InterruptInternal::MachineSoftware,
-            Interrupt::Timer =&gt; <span class="self">self</span>.csr.mip |= InterruptInternal::MachineTimer,
-            Interrupt::External =&gt; <span class="self">self</span>.csr.mip |= InterruptInternal::MachineExternal,
-        }
-    }
-
-    <span class="kw">pub fn </span>clear_interrupt(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cause: Interrupt) {
-        <span class="kw">match </span>cause {
-            Interrupt::SSoftware =&gt; <span class="self">self</span>.csr.mip &amp;= !InterruptInternal::SupervisorSoftware,
-            Interrupt::MSoftware =&gt; <span class="self">self</span>.csr.mip &amp;= !InterruptInternal::MachineSoftware,
-            Interrupt::Timer =&gt; <span class="self">self</span>.csr.mip &amp;= !InterruptInternal::MachineTimer,
-            Interrupt::External =&gt; <span class="self">self</span>.csr.mip &amp;= !InterruptInternal::MachineExternal,
-        }
+    <span class="kw">pub fn </span>wait_for_interrupt(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="self">self</span>.waiting_for_interrupt = <span class="bool-val">true</span>;
     }
 
     <span class="kw">pub fn </span>step(<span class="kw-2">&amp;mut </span><span class="self">self</span>, mem: <span class="kw-2">&amp;mut </span>Memory, verbose: bool) -&gt; <span class="prelude-ty">Result</span>&lt;(), VMError&gt; {
-        <span class="lifetime">'interrupt_loop</span>: <span class="kw">for </span>i <span class="kw">in </span><span class="self">self
-            </span>.csr
-            .mip
-            .iter()
-            .collect::&lt;BinaryHeap&lt;InterruptInternal&gt;&gt;()
-            .into_sorted_vec()
-        {
-            <span class="kw">match </span>i {
-                InterruptInternal::SupervisorSoftware
-                | InterruptInternal::SupervisorTimer
-                | InterruptInternal::SupervisorExternal =&gt; {
-                    <span class="kw">if </span><span class="self">self</span>.csr.mideleg.contains(i) {
-                        <span class="kw">if </span>(<span class="self">self</span>.privilege &lt; PrivilegeMode::Supervisor
-                            || (<span class="self">self</span>.privilege == PrivilegeMode::Supervisor &amp;&amp; <span class="self">self</span>.csr.status.sie))
-                            &amp;&amp; <span class="self">self</span>.csr.sie.contains(i)
+        <span class="kw">let </span>mip_ref = <span class="self">self</span>.get_mip_ref();
+        <span class="kw">let </span>mip = mip_ref.lock().unwrap();
+        <span class="kw">if </span>mip.bits() != <span class="number">0 </span>{
+            <span class="lifetime">'interrupt_loop</span>: <span class="kw">for </span>i <span class="kw">in </span>mip
+                .iter()
+                .collect::&lt;BinaryHeap&lt;InterruptInternal&gt;&gt;()
+                .into_sorted_vec()
+            {
+                <span class="kw">match </span>i {
+                    InterruptInternal::SupervisorSoftware
+                    | InterruptInternal::SupervisorTimer
+                    | InterruptInternal::SupervisorExternal =&gt; {
+                        <span class="kw">if </span><span class="self">self</span>.csr.mideleg.contains(i) {
+                            <span class="kw">if </span>(<span class="self">self</span>.privilege &lt; PrivilegeMode::Supervisor
+                                || (<span class="self">self</span>.privilege == PrivilegeMode::Supervisor
+                                    &amp;&amp; <span class="self">self</span>.csr.status.sie))
+                                &amp;&amp; <span class="self">self</span>.csr.sie.contains(i)
+                            {
+                                <span class="self">self</span>.trap(TrapCause::Interrupt(i), PrivilegeMode::Supervisor);
+                                <span class="kw">break </span><span class="lifetime">'interrupt_loop</span>;
+                            }
+                        } <span class="kw">else if </span>(<span class="self">self</span>.privilege &lt; PrivilegeMode::Machine || <span class="self">self</span>.csr.status.mie)
+                            &amp;&amp; <span class="self">self</span>.csr.mie.contains(i)
                         {
-                            <span class="self">self</span>.trap(TrapCause::Interrupt(i), PrivilegeMode::Supervisor);
+                            <span class="self">self</span>.trap(TrapCause::Interrupt(i), PrivilegeMode::Machine);
                             <span class="kw">break </span><span class="lifetime">'interrupt_loop</span>;
                         }
-                    } <span class="kw">else if </span>(<span class="self">self</span>.privilege &lt; PrivilegeMode::Machine || <span class="self">self</span>.csr.status.mie)
-                        &amp;&amp; <span class="self">self</span>.csr.mie.contains(i)
-                    {
-                        <span class="self">self</span>.trap(TrapCause::Interrupt(i), PrivilegeMode::Machine);
-                        <span class="kw">break </span><span class="lifetime">'interrupt_loop</span>;
                     }
-                }
-                InterruptInternal::MachineSoftware
-                | InterruptInternal::MachineTimer
-                | InterruptInternal::MachineExternal =&gt; {
-                    <span class="kw">if </span>(<span class="self">self</span>.privilege &lt; PrivilegeMode::Machine || <span class="self">self</span>.csr.status.mie)
-                        &amp;&amp; <span class="self">self</span>.csr.mie.contains(i)
-                    {
-                        <span class="self">self</span>.trap(TrapCause::Interrupt(i), PrivilegeMode::Machine);
-                        <span class="kw">break </span><span class="lifetime">'interrupt_loop</span>;
+                    InterruptInternal::MachineSoftware
+                    | InterruptInternal::MachineTimer
+                    | InterruptInternal::MachineExternal =&gt; {
+                        <span class="kw">if </span>(<span class="self">self</span>.privilege &lt; PrivilegeMode::Machine || <span class="self">self</span>.csr.status.mie)
+                            &amp;&amp; <span class="self">self</span>.csr.mie.contains(i)
+                        {
+                            <span class="self">self</span>.trap(TrapCause::Interrupt(i), PrivilegeMode::Machine);
+                            <span class="kw">break </span><span class="lifetime">'interrupt_loop</span>;
+                        }
                     }
                 }
             }
         }
+        drop(mip);
+        drop(mip_ref);
 
         <span class="kw">if </span>(<span class="self">self</span>.waiting_for_interrupt) {
             <span class="kw">return </span><span class="prelude-val">Ok</span>(());
@@ -492,6 +491,7 @@
         <span class="kw">let </span>result = execute_rv64(<span class="self">self</span>, mem, inst, <span class="self">self</span>.csr.isa());
         <span class="kw">match </span>result {
             <span class="prelude-val">Ok</span>(ExecuteResult::Continue) =&gt; <span class="self">self</span>.inc_pc(),
+            <span class="prelude-val">Ok</span>(ExecuteResult::WFI) =&gt; <span class="self">self</span>.wait_for_interrupt(),
             <span class="prelude-val">Ok</span>(ExecuteResult::Jump(pc)) =&gt; <span class="self">self</span>.set_pc(pc),
             <span class="prelude-val">Ok</span>(ExecuteResult::CsrUpdate(addr)) =&gt; {
                 <span class="kw">if </span>addr == <span class="number">0x180u16</span>.into() &amp;&amp; <span class="self">self</span>.csr.status.tvm {
@@ -553,6 +553,7 @@
     }
 
     <span class="kw">fn </span>trap(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cause: TrapCause, target: PrivilegeMode) {
+        <span class="self">self</span>.waiting_for_interrupt = <span class="bool-val">false</span>;
         <span class="kw">match </span>target {
             PrivilegeMode::User =&gt; <span class="macro">unreachable!</span>(<span class="string">"User mode cannot handle traps"</span>),
             PrivilegeMode::Supervisor =&gt; {
@@ -601,6 +602,7 @@
                         <span class="self">self</span>.csr.inc_cycle(<span class="number">1</span>);
                         <span class="self">self</span>.csr.inc_instret(<span class="number">1</span>);
                         <span class="self">self</span>.csr.mcause = i.get_code();
+                        <span class="self">self</span>.csr.mcause |= <span class="number">0x1 </span>&lt;&lt; <span class="number">63</span>;
                         <span class="kw">if </span><span class="self">self</span>.csr.mtvec.mode == TrapMode::Direct {
                             <span class="self">self</span>.set_pc(<span class="self">self</span>.csr.mtvec.base);
                         } <span class="kw">else </span>{

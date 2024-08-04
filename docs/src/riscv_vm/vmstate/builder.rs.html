@@ -115,22 +115,6 @@
 <a href="#113" id="113">113</a>
 <a href="#114" id="114">114</a>
 <a href="#115" id="115">115</a>
-<a href="#116" id="116">116</a>
-<a href="#117" id="117">117</a>
-<a href="#118" id="118">118</a>
-<a href="#119" id="119">119</a>
-<a href="#120" id="120">120</a>
-<a href="#121" id="121">121</a>
-<a href="#122" id="122">122</a>
-<a href="#123" id="123">123</a>
-<a href="#124" id="124">124</a>
-<a href="#125" id="125">125</a>
-<a href="#126" id="126">126</a>
-<a href="#127" id="127">127</a>
-<a href="#128" id="128">128</a>
-<a href="#129" id="129">129</a>
-<a href="#130" id="130">130</a>
-<a href="#131" id="131">131</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::mpsc::Sender;
 
 <span class="kw">use </span>nohash_hasher::IntMap;
@@ -139,11 +123,10 @@
 <span class="kw">use crate</span>::{
     devices::{
         async_device::{AsyncDevice, AsyncDeviceHolder},
-        event_bus::DeviceEvent,
         handled_device::{HandledDevice, HandledDeviceHolder},
-        Device, DeviceId, DeviceInitError,
+        Device, DeviceInitError,
     },
-    memory::{address::Address, DeviceMemory},
+    memory::address::Address,
     vmstate::VMState,
 };
 
@@ -156,13 +139,8 @@
 </span><span class="kw">pub struct </span>VMStateBuilder&lt;<span class="kw">const </span>MEM_SIZE: usize&gt; {
     hart_count: u64, <span class="comment">//TODO: Change to vec HartSettings at some point
     </span>settings: VMSettings,
-    handled_devices: IntMap&lt;DeviceId, (u64, Address, (Sender&lt;DeviceEvent&gt;, HandledDeviceHolder))&gt;,
-    async_devices: IntMap&lt;DeviceId, (u64, Address, (Sender&lt;DeviceEvent&gt;, AsyncDeviceHolder))&gt;,
-    interrupt_controllder: <span class="prelude-ty">Option</span>&lt;(
-        DeviceId,
-        (u64, Address, (Sender&lt;DeviceEvent&gt;, AsyncDeviceHolder)),
-    )&gt;,
-    next_dev_id: usize,
+    handled_devices: Vec&lt;HandledDeviceHolder&gt;,
+    async_devices: Vec&lt;AsyncDeviceHolder&gt;,
 }
 
 <span class="attr">#[derive(Debug)]
@@ -201,16 +179,13 @@
     </span>}
 
     <span class="attr">#[deprecated]
-    </span><span class="doccomment">/// DEPRECATED
+    </span><span class="doccomment">/// DEPRECATED, Does nothing
     /// Interrupt Contoller will be built in, only a toggle will be available
     </span><span class="kw">pub fn </span>add_interrupt_controllder&lt;D: Device + AsyncDevice + <span class="lifetime">'static</span>&gt;(
         <span class="kw-2">mut </span><span class="self">self</span>,
         addr: Address,
     ) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>device = Box::new(D::new());
-        <span class="kw">let </span>dev = AsyncDeviceHolder::new(device);
-        <span class="self">self</span>.interrupt_controllder = <span class="prelude-val">Some</span>((<span class="self">self</span>.next_dev_id, (D::MEM_SIZE, addr, dev)));
-        <span class="self">self</span>.next_dev_id += <span class="number">1</span>;
+        <span class="macro">unimplemented!</span>();
 
         <span class="self">self
     </span>}
@@ -222,9 +197,7 @@
     </span><span class="kw">pub fn </span>add_sync_device&lt;D: Device + HandledDevice + <span class="lifetime">'static</span>&gt;(<span class="kw-2">mut </span><span class="self">self</span>, addr: Address) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>device = Box::new(D::new());
         <span class="kw">let </span>dev = HandledDeviceHolder::new(device);
-        <span class="self">self</span>.handled_devices
-            .insert(<span class="self">self</span>.next_dev_id, (D::MEM_SIZE, addr, dev));
-        <span class="self">self</span>.next_dev_id += <span class="number">1</span>;
+        <span class="self">self</span>.handled_devices.push(dev.<span class="number">1</span>);
         <span class="self">self
     </span>}
 
@@ -232,26 +205,21 @@
     /// specifies where the devices memory will be placed in the vm's memory
     </span><span class="comment">// The device will be passed this base address so it can place its memory mapped registers
     // relative to this address
-    </span><span class="kw">pub fn </span>add_async_device&lt;D: Device + AsyncDevice + <span class="lifetime">'static</span>&gt;(<span class="kw-2">mut </span><span class="self">self</span>, addr: Address) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">pub fn </span>add_async_device&lt;D: Device + AsyncDevice + <span class="lifetime">'static</span>&gt;(<span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>device = Box::new(D::new());
         <span class="kw">let </span>dev = AsyncDeviceHolder::new(device);
-        <span class="self">self</span>.async_devices
-            .insert(<span class="self">self</span>.next_dev_id, (D::MEM_SIZE, addr, dev));
-        <span class="self">self</span>.next_dev_id += <span class="number">1</span>;
+        <span class="self">self</span>.async_devices.push(dev.<span class="number">1</span>);
         <span class="self">self
     </span>}
 
     <span class="doccomment">/// Build a vm from this builder, consumes the builder
     </span><span class="kw">pub fn </span>build(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;VMState, VMInitError&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>state = VMState::new::&lt;MEM_SIZE&gt;(<span class="self">self</span>.hart_count, <span class="self">self</span>.settings);
-        <span class="kw">if let </span><span class="prelude-val">Some</span>((k, v)) = <span class="self">self</span>.interrupt_controllder {
-            state.add_async_device(v.<span class="number">2</span>, v.<span class="number">1</span>, k, v.<span class="number">0</span>, <span class="bool-val">true</span>)<span class="question-mark">?</span>;
+        <span class="kw">for </span>d <span class="kw">in </span><span class="self">self</span>.handled_devices {
+            state.add_sync_device(d)<span class="question-mark">?</span>;
         }
-        <span class="kw">for </span>(k, v) <span class="kw">in </span><span class="self">self</span>.handled_devices {
-            state.add_sync_device(v.<span class="number">2</span>, v.<span class="number">1</span>, k, v.<span class="number">0</span>)<span class="question-mark">?</span>;
-        }
-        <span class="kw">for </span>(k, v) <span class="kw">in </span><span class="self">self</span>.async_devices {
-            state.add_async_device(v.<span class="number">2</span>, v.<span class="number">1</span>, k, v.<span class="number">0</span>, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
+        <span class="kw">for </span>d <span class="kw">in </span><span class="self">self</span>.async_devices {
+            state.add_async_device(d)<span class="question-mark">?</span>;
         }
         <span class="prelude-val">Ok</span>(state)
     }
