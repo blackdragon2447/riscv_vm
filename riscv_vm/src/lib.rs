@@ -24,6 +24,8 @@ pub const SUPPORTED_EXTENTIONS: &[&str] = &[
     "A",      // Outdated? Handle rl/aq bits
     "Zalrsc", // Check if Reservations are up to spec, LR/SC loops
     "Zaamo",
+    "F", 
+    "D", 
     // Privileged
     "S",
     "U",
@@ -45,8 +47,6 @@ pub const UNSUPPORTED_EXENTIONS: &[&str] = &[
     "Zacas", // Want?
     "Ztso",
     "CMO",
-    "F", // Required
-    "D", // Required
     "Q",
     "Zfh",
     "Zfhmin",
