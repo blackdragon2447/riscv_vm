@@ -1,4 +1,50 @@
-use crate::{hart::registers::IntRegister, hart::CsrAddress};
+use crate::hart::{registers::IntRegister, CsrAddress};
+
+#[cfg(feature = "float")]
+use crate::hart::registers::FloatRegister;
+
+#[repr(u32)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[cfg(feature = "float")]
+pub enum RoundingMode {
+    ToNearestTieEven = 0b000,
+    ToZero = 0b001,
+    Down = 0b010,
+    Up = 0b011,
+    ToNearestTieMagnitude = 0b100,
+    Dynamic = 0b111,
+}
+
+#[cfg(feature = "float")]
+impl TryFrom<u32> for RoundingMode {
+    type Error = ();
+
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
+        match value {
+            0b000 => Ok(Self::ToNearestTieEven),
+            0b001 => Ok(Self::ToZero),
+            0b010 => Ok(Self::Down),
+            0b011 => Ok(Self::Up),
+            0b100 => Ok(Self::ToNearestTieMagnitude),
+            0b111 => Ok(Self::Dynamic),
+            _ => Err(()),
+        }
+    }
+}
+
+#[cfg(feature = "float")]
+impl From<RoundingMode> for softfloat_wrapper::RoundingMode {
+    fn from(value: RoundingMode) -> Self {
+        match value {
+            RoundingMode::ToNearestTieEven => Self::TiesToEven,
+            RoundingMode::ToZero => Self::TowardZero,
+            RoundingMode::Down => Self::TowardNegative,
+            RoundingMode::Up => Self::TowardPositive,
+            RoundingMode::ToNearestTieMagnitude => Self::TiesToAway,
+            RoundingMode::Dynamic => unreachable!(),
+        }
+    }
+}
 
 #[allow(non_camel_case_types)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -526,6 +572,199 @@ pub enum Instruction {
         rs2: IntRegister,
         rl: bool,
         aq: bool,
+    },
+
+    // RV32F
+    #[cfg(feature = "float")]
+    FLW {
+        rd: FloatRegister,
+        rs1: IntRegister,
+        imm: i32,
+    },
+    #[cfg(feature = "float")]
+    FSW {
+        rs1: IntRegister,
+        rs2: FloatRegister,
+        imm: i32,
+    },
+    #[cfg(feature = "float")]
+    FMADD_S {
+        rd: FloatRegister,
+        rs1: FloatRegister,
+        rs2: FloatRegister,
+        rs3: FloatRegister,
+        rm: RoundingMode,
+    },
+    #[cfg(feature = "float")]
+    FMSUB_S {
+        rd: FloatRegister,
+        rs1: FloatRegister,
+        rs2: FloatRegister,
+        rs3: FloatRegister,
+        rm: RoundingMode,
+    },
+    #[cfg(feature = "float")]
+    FNMADD_S {
+        rd: FloatRegister,
+        rs1: FloatRegister,
+        rs2: FloatRegister,
+        rs3: FloatRegister,
+        rm: RoundingMode,
+    },
+    #[cfg(feature = "float")]
+    FNMSUB_S {
+        rd: FloatRegister,
+        rs1: FloatRegister,
+        rs2: FloatRegister,
+        rs3: FloatRegister,
+        rm: RoundingMode,
+    },
+    #[cfg(feature = "float")]
+    FADD_S {
+        rd: FloatRegister,
+        rs1: FloatRegister,
+        rs2: FloatRegister,
+        rm: RoundingMode,
+    },
+    #[cfg(feature = "float")]
+    FSUB_S {
+        rd: FloatRegister,
+        rs1: FloatRegister,
+        rs2: FloatRegister,
+        rm: RoundingMode,
+    },
+    #[cfg(feature = "float")]
+    FMUL_S {
+        rd: FloatRegister,
+        rs1: FloatRegister,
+        rs2: FloatRegister,
+        rm: RoundingMode,
+    },
+    #[cfg(feature = "float")]
+    FDIV_S {
+        rd: FloatRegister,
+        rs1: FloatRegister,
+        rs2: FloatRegister,
+        rm: RoundingMode,
+    },
+    #[cfg(feature = "float")]
+    FSQRT_S {
+        rd: FloatRegister,
+        rs1: FloatRegister,
+        rm: RoundingMode,
+    },
+    #[cfg(feature = "float")]
+    FSGNJ_S {
+        rd: FloatRegister,
+        rs1: FloatRegister,
+        rs2: FloatRegister,
+    },
+    #[cfg(feature = "float")]
+    FSGNJN_S {
+        rd: FloatRegister,
+        rs1: FloatRegister,
+        rs2: FloatRegister,
+    },
+    #[cfg(feature = "float")]
+    FSGNJX_S {
+        rd: FloatRegister,
+        rs1: FloatRegister,
+        rs2: FloatRegister,
+    },
+    #[cfg(feature = "float")]
+    FMIN_S {
+        rd: FloatRegister,
+        rs1: FloatRegister,
+        rs2: FloatRegister,
+    },
+    #[cfg(feature = "float")]
+    FMAX_S {
+        rd: FloatRegister,
+        rs1: FloatRegister,
+        rs2: FloatRegister,
+    },
+    #[cfg(feature = "float")]
+    FCVT_W_S {
+        rd: IntRegister,
+        rs1: FloatRegister,
+        rm: RoundingMode,
+    },
+    #[cfg(feature = "float")]
+    FCVT_WU_S {
+        rd: IntRegister,
+        rs1: FloatRegister,
+        rm: RoundingMode,
+    },
+    #[cfg(feature = "float")]
+    FMV_X_W {
+        rd: IntRegister,
+        rs1: FloatRegister,
+    },
+    #[cfg(feature = "float")]
+    FEQ_S {
+        rd: IntRegister,
+        rs1: FloatRegister,
+        rs2: FloatRegister,
+    },
+    #[cfg(feature = "float")]
+    FLT_S {
+        rd: IntRegister,
+        rs1: FloatRegister,
+        rs2: FloatRegister,
+    },
+    #[cfg(feature = "float")]
+    FLE_S {
+        rd: IntRegister,
+        rs1: FloatRegister,
+        rs2: FloatRegister,
+    },
+    #[cfg(feature = "float")]
+    FCLASS_S {
+        rd: IntRegister,
+        rs1: FloatRegister,
+    },
+    #[cfg(feature = "float")]
+    FCVT_S_W {
+        rd: FloatRegister,
+        rs1: IntRegister,
+        rm: RoundingMode,
+    },
+    #[cfg(feature = "float")]
+    FCVT_S_WU {
+        rd: FloatRegister,
+        rs1: IntRegister,
+        rm: RoundingMode,
+    },
+    #[cfg(feature = "float")]
+    FMV_W_X {
+        rd: FloatRegister,
+        rs1: IntRegister,
+    },
+
+    // RV64F
+    #[cfg(feature = "float")]
+    FCVT_L_S {
+        rd: IntRegister,
+        rs1: FloatRegister,
+        rm: RoundingMode,
+    },
+    #[cfg(feature = "float")]
+    FCVT_LU_S {
+        rd: IntRegister,
+        rs1: FloatRegister,
+        rm: RoundingMode,
+    },
+    #[cfg(feature = "float")]
+    FCVT_S_L {
+        rd: FloatRegister,
+        rs1: IntRegister,
+        rm: RoundingMode,
+    },
+    #[cfg(feature = "float")]
+    FCVT_S_LU {
+        rd: FloatRegister,
+        rs1: IntRegister,
+        rm: RoundingMode,
     },
 
     // Privilege

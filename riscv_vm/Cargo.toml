@@ -8,12 +8,23 @@ edition = "2021"
 [dependencies]
 elf_load = { path = "../elf_load/" }
 riscv_vm_macros = { path = "../riscv_vm_macros/" }
+
 enumflags2 = "0.7.8"
-pollster = {version = "0.3.0", optional = true}
-wgpu = {version = "0.18.0", optional = true}
-wgpu_text = {version = "0.8.5", optional = true}
-winit = {version = "0.28", optional = true}
 nohash-hasher = "0.2.0"
 
+
+pollster = { version = "0.3.0", optional = true }
+wgpu = { version = "0.18.0", optional = true }
+wgpu_text = { version = "0.8.5", optional = true }
+winit = { version = "0.28", optional = true }
+
+[dependencies.softfloat-wrapper]
+version = "0.3.4"
+optional = true
+default-features = false
+features = ["riscv"]
+
 [features]
+default = ["float"]
 vga_text_buf = ["dep:pollster", "dep:wgpu", "dep:wgpu_text", "dep:winit"]
+float = ["dep:softfloat-wrapper"]

@@ -1,4 +1,5 @@
 #![allow(non_camel_case_types)]
+#![allow(non_upper_case_globals)]
 
 use riscv_vm_macros::inst;
 
@@ -6,12 +7,16 @@ use crate::memory::{address::Address, Memory};
 
 use super::{ExecuteError, ExecuteResult};
 
-inst!(mulw(r) for [64]: {
+inst!(mulw(r) for [b64]
+    where [rd: int, rs1: int, rs2: int]:
+{
     *rd = (*rs1 as i32).overflowing_mul(*rs2 as i32).0 as ixlen;
     Ok(ExecuteResult::Continue)
 });
 
-inst!(divw(r) for [64]: {
+inst!(divw(r) for [b64]
+    where [rd: int, rs1: int, rs2: int]:
+{
     if (*rs2 == 0) {
         *rd = -1;
     } else {
@@ -20,7 +25,9 @@ inst!(divw(r) for [64]: {
     Ok(ExecuteResult::Continue)
 });
 
-inst!(divuw(r) for [64]: {
+inst!(divuw(r) for [b64]
+    where [rd: int, rs1: int, rs2: int]:
+{
     if (*rs2 == 0) {
         *rd = -1;
     } else {
@@ -29,7 +36,9 @@ inst!(divuw(r) for [64]: {
     Ok(ExecuteResult::Continue)
 });
 
-inst!(remw(r) for [64]: {
+inst!(remw(r) for [b64]
+    where [rd: int, rs1: int, rs2: int]:
+{
     if (*rs2 == 0) {
         *rd = *rs1;
     } else {
@@ -38,7 +47,9 @@ inst!(remw(r) for [64]: {
     Ok(ExecuteResult::Continue)
 });
 
-inst!(remuw(r) for [64]: {
+inst!(remuw(r) for [b64]
+    where [rd: int, rs1: int, rs2: int]:
+{
     if (*rs2 == 0) {
         *rd = *rs1;
     } else {

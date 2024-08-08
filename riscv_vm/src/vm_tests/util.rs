@@ -113,15 +113,16 @@ macro_rules! isa_test {
 
             let mut vmstate = VMStateBuilder::<{ (4 * KB) + 128 }>::default()
                 .set_hart_count(1)
-                .build();
+                .build()
+                .unwrap();
             vmstate.load_elf_kernel(&elf).unwrap();
 
             loop {
-                vmstate.step();
+                vmstate.step(false);
                 let bytes = u32::from_le_bytes(
                     vmstate
                         .mem()
-                        .read_bytes(0x80001000u64.into(), 4, PrivilegeMode::Machine, None)
+                        .read_bytes(0x80001000u64.into(), 4)
                         .unwrap()
                         .try_into()
                         .unwrap(),

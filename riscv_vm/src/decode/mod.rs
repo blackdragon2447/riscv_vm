@@ -1,12 +1,16 @@
+#[cfg(feature = "float")]
+use instruction::RoundingMode;
+
 pub use self::instruction::Instruction;
 
-mod instruction;
+pub(crate) mod instruction;
 #[cfg(test)]
 mod tests;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum InstructionType {
     R,
+    R4,
     I,
     S,
     B,
@@ -333,6 +337,210 @@ pub fn decode(inst: u32) -> Instruction {
                             _ => Instruction::Undifined(inst),
                         }
                     }
+                    (0b1010011, f3, f7) => {
+                        #[cfg(feature = "float")]
+                        let Ok(rm): Result<RoundingMode, _> = f3.try_into() else {
+                            return Instruction::Undifined(inst);
+                        };
+
+                        match (f7, f3) {
+                            #[cfg(feature = "float")]
+                            (0b0000000, _) => Instruction::FADD_S {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rs2: rs2.into(),
+                                rm,
+                            },
+                            #[cfg(feature = "float")]
+                            (0b0000100, _) => Instruction::FSUB_S {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rs2: rs2.into(),
+                                rm,
+                            },
+                            #[cfg(feature = "float")]
+                            (0b0001000, _) => Instruction::FMUL_S {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rs2: rs2.into(),
+                                rm,
+                            },
+                            #[cfg(feature = "float")]
+                            (0b0001100, _) => Instruction::FDIV_S {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rs2: rs2.into(),
+                                rm,
+                            },
+                            #[cfg(feature = "float")]
+                            (0b0101100, _) => Instruction::FSQRT_S {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rm,
+                            },
+                            #[cfg(feature = "float")]
+                            (0b0010000, 0b000) => Instruction::FSGNJ_S {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rs2: rs2.into(),
+                            },
+                            #[cfg(feature = "float")]
+                            (0b0010000, 0b001) => Instruction::FSGNJN_S {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rs2: rs2.into(),
+                            },
+                            #[cfg(feature = "float")]
+                            (0b0010000, 0b010) => Instruction::FSGNJX_S {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rs2: rs2.into(),
+                            },
+                            #[cfg(feature = "float")]
+                            (0b0010100, 0b000) => Instruction::FMIN_S {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rs2: rs2.into(),
+                            },
+                            #[cfg(feature = "float")]
+                            (0b0010100, 0b001) => Instruction::FMAX_S {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rs2: rs2.into(),
+                            },
+                            #[cfg(feature = "float")]
+                            (0b1100000, _) if rs2 == 0b00000 => Instruction::FCVT_W_S {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rm,
+                            },
+                            #[cfg(feature = "float")]
+                            (0b1100000, _) if rs2 == 0b00001 => Instruction::FCVT_WU_S {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rm,
+                            },
+                            #[cfg(feature = "float")]
+                            (0b1100000, _) if rs2 == 0b00010 => Instruction::FCVT_L_S {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rm,
+                            },
+                            #[cfg(feature = "float")]
+                            (0b1100000, _) if rs2 == 0b00011 => Instruction::FCVT_LU_S {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rm,
+                            },
+                            #[cfg(feature = "float")]
+                            (0b1110000, 0b000) => Instruction::FMV_X_W {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                            },
+                            #[cfg(feature = "float")]
+                            (0b1010000, 0b010) => Instruction::FEQ_S {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rs2: rs2.into(),
+                            },
+                            #[cfg(feature = "float")]
+                            (0b1010000, 0b001) => Instruction::FLT_S {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rs2: rs2.into(),
+                            },
+                            #[cfg(feature = "float")]
+                            (0b1010000, 0b000) => Instruction::FLE_S {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rs2: rs2.into(),
+                            },
+                            #[cfg(feature = "float")]
+                            (0b1110000, 0b001) => Instruction::FCLASS_S {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                            },
+                            #[cfg(feature = "float")]
+                            (0b1101000, _) if rs2 == 0b0000 => Instruction::FCVT_S_W {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rm,
+                            },
+                            #[cfg(feature = "float")]
+                            (0b1101000, _) if rs2 == 0b0001 => Instruction::FCVT_S_WU {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rm,
+                            },
+                            #[cfg(feature = "float")]
+                            (0b1101000, _) if rs2 == 0b0010 => Instruction::FCVT_S_L {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rm,
+                            },
+                            #[cfg(feature = "float")]
+                            (0b1101000, _) if rs2 == 0b0011 => Instruction::FCVT_S_LU {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                                rm,
+                            },
+                            #[cfg(feature = "float")]
+                            (0b1111000, 0b000) => Instruction::FMV_W_X {
+                                rd: rd.into(),
+                                rs1: rs1.into(),
+                            },
+                            _ => Instruction::Undifined(inst),
+                        }
+                    }
+                    _ => Instruction::Undifined(inst),
+                }
+            }
+            InstructionType::R4 => {
+                let rd = (inst & masks::RD_MASK) >> 7;
+                let funct3 = (inst & masks::FUNCT3_MASK) >> 12;
+                let rs1 = (inst & masks::RS1_MASK) >> 15;
+                let rs2 = (inst & masks::RS2_MASK) >> 20;
+                let funct2 = (inst & masks::FUNCT2_MASK) >> 25;
+                let rs3 = (inst & masks::RS3_MASK) >> 27;
+
+                #[cfg(feature = "float")]
+                let Ok(rm) = funct3.try_into() else {
+                    return Instruction::Undifined(inst);
+                };
+
+                match (opcode, funct2) {
+                    #[cfg(feature = "float")]
+                    (0b1000011, 0b00) => Instruction::FMADD_S {
+                        rd: rd.into(),
+                        rs1: rs1.into(),
+                        rs2: rs2.into(),
+                        rs3: rs3.into(),
+                        rm,
+                    },
+                    #[cfg(feature = "float")]
+                    (0b1000111, 0b00) => Instruction::FMSUB_S {
+                        rd: rd.into(),
+                        rs1: rs1.into(),
+                        rs2: rs2.into(),
+                        rs3: rs3.into(),
+                        rm,
+                    },
+                    #[cfg(feature = "float")]
+                    (0b1001011, 0b00) => Instruction::FNMSUB_S {
+                        rd: rd.into(),
+                        rs1: rs1.into(),
+                        rs2: rs2.into(),
+                        rs3: rs3.into(),
+                        rm,
+                    },
+                    #[cfg(feature = "float")]
+                    (0b1001111, 0b00) => Instruction::FNMADD_S {
+                        rd: rd.into(),
+                        rs1: rs1.into(),
+                        rs2: rs2.into(),
+                        rs3: rs3.into(),
+                        rm,
+                    },
                     _ => Instruction::Undifined(inst),
                 }
             }
@@ -382,6 +590,12 @@ pub fn decode(inst: u32) -> Instruction {
                         imm,
                     },
                     (0b0000011, 0b110) => Instruction::LWU {
+                        rd: rd.into(),
+                        rs1: rs1.into(),
+                        imm,
+                    },
+                    #[cfg(feature = "float")]
+                    (0b0000111, 0b010) => Instruction::FLW {
                         rd: rd.into(),
                         rs1: rs1.into(),
                         imm,
@@ -550,6 +764,12 @@ pub fn decode(inst: u32) -> Instruction {
                         rs2: rs2.into(),
                         imm,
                     },
+                    #[cfg(feature = "float")]
+                    (0b0100111, 0b010) => Instruction::FSW {
+                        rs1: rs1.into(),
+                        rs2: rs2.into(),
+                        imm,
+                    },
                     _ => Instruction::Undifined(inst),
                 }
             }
@@ -650,7 +870,9 @@ mod masks {
     pub(super) const FUNCT3_MASK: u32 = 0b0000_0000_0000_0000_0111_0000_0000_0000;
     pub(super) const RS1_MASK: u32 = 0b0000_0000_0000_1111_1000_0000_0000_0000;
     pub(super) const RS2_MASK: u32 = 0b0000_0001_1111_0000_0000_0000_0000_0000;
+    pub(super) const RS3_MASK: u32 = 0b1111_1000_0000_0000_0000_0000_0000_0000;
     pub(super) const FUNCT7_MASK: u32 = 0b1111_1110_0000_0000_0000_0000_0000_0000;
+    pub(super) const FUNCT2_MASK: u32 = 0b0000_0110_0000_0000_0000_0000_0000_0000;
     pub(super) const IMM11_5_MASK: u32 = 0b1111_1111_0000_0000_0000_0000_0000_0000;
     pub(super) const IMM11_0_MASK: u32 = 0b1111_1111_1111_0000_0000_0000_0000_0000;
     pub(super) const IMM4_0_MASK: u32 = RD_MASK;
@@ -666,7 +888,7 @@ const TYPE_MAP: [Option<InstructionType>; 128] = [
     /*0b0000100 */ None,
     /*0b0000101 */ None,
     /*0b0000110 */ None,
-    /*0b0000111 */ None,
+    /*0b0000111 */ Some(InstructionType::I),
     /*0b0001000 */ None,
     /*0b0001001 */ None,
     /*0b0001010 */ None,
@@ -698,7 +920,7 @@ const TYPE_MAP: [Option<InstructionType>; 128] = [
     /*0b0100100 */ None,
     /*0b0100101 */ None,
     /*0b0100110 */ None,
-    /*0b0100111 */ None,
+    /*0b0100111 */ Some(InstructionType::S),
     /*0b0101000 */ None,
     /*0b0101001 */ None,
     /*0b0101010 */ None,
@@ -726,23 +948,23 @@ const TYPE_MAP: [Option<InstructionType>; 128] = [
     /*0b1000000 */ None,
     /*0b1000001 */ None,
     /*0b1000010 */ None,
-    /*0b1000011 */ None,
+    /*0b1000011 */ Some(InstructionType::R4),
     /*0b1000100 */ None,
     /*0b1000101 */ None,
     /*0b1000110 */ None,
-    /*0b1000111 */ None,
+    /*0b1000111 */ Some(InstructionType::R4),
     /*0b1001000 */ None,
     /*0b1001001 */ None,
     /*0b1001010 */ None,
-    /*0b1001011 */ None,
+    /*0b1001011 */ Some(InstructionType::R4),
     /*0b1001100 */ None,
     /*0b1001101 */ None,
     /*0b1001110 */ None,
-    /*0b1001111 */ None,
+    /*0b1001111 */ Some(InstructionType::R4),
     /*0b1010000 */ None,
     /*0b1010001 */ None,
     /*0b1010010 */ None,
-    /*0b1010011 */ None,
+    /*0b1010011 */ Some(InstructionType::R),
     /*0b1010100 */ None,
     /*0b1010101 */ None,
     /*0b1010110 */ None,

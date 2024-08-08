@@ -1,10 +1,15 @@
-use enumflags2::{make_bitflags, BitFlag, BitFlags};
+use enumflags2::{bitflags, make_bitflags, BitFlag, BitFlags};
+#[cfg(feature = "float")]
+use softfloat_wrapper::ExceptionFlags;
 
 use crate::{
     execute::ExecuteError,
     memory::{address::Address, paging::Satp, pmp::PMP},
     vmstate::timer::{MTimer, TimerRef},
 };
+
+#[cfg(feature = "float")]
+use crate::decode::instruction::RoundingMode;
 
 use super::{
     counters::Counters,
@@ -37,11 +42,27 @@ pub struct TrapVector {
     pub(crate) base: Address,
 }
 
+#[repr(u64)]
+#[derive(Debug, Clone, Copy)]
+#[bitflags]
+#[cfg(feature = "float")]
+pub enum FFlags {
+    InvalidOperation = 1 << 4,
+    DevideByZero = 1 << 3,
+    Overflow = 1 << 2,
+    Underflow = 1 << 1,
+    Inexact = 1 << 0,
+}
+
 const S_INTERRUPT_MASK: u64 = 0b0000_0010_0010_0010;
 const TOGGLEABLE_INTERRUPTS: u64 = 0b0000_1010_0010_0000;
 
 pub struct CsrHolder {
     // UserMode
+    #[cfg(feature = "float")]
+    fflags: BitFlags<FFlags>,
+    #[cfg(feature = "float")]
+    frm: RoundingMode,
     // cycle (tied to mcylce)
     timer: TimerRef,
     // instret (tied to minstret)
@@ -167,8 +188,11 @@ pub struct Status {
 
 impl Debug for CsrHolder {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("CsrHolder")
-            .field("stvec", &self.stvec)
+        let mut dbg = f.debug_struct("CsrHolder");
+
+        #[cfg(feature = "float")]
+        dbg.field("fflags", &self.fflags).field("frm", &self.frm);
+        dbg.field("stvec", &self.stvec)
             .field("scounteren", &self.scounteren)
             .field("senvcfg", &self.senvcfg)
             .field("sscratch", &self.sscratch)
@@ -206,6 +230,10 @@ impl CsrHolder {
     pub fn new(hart_id: u64, timer: TimerRef) -> Self {
         Self {
             // UserMode
+            #[cfg(feature = "float")]
+            fflags: FFlags::empty(),
+            #[cfg(feature = "float")]
+            frm: RoundingMode::ToNearestTieEven,
             timer,
 
             // SupervisorMode
@@ -311,8 +339,33 @@ impl CsrHolder {
         (self.status.mxr, self.status.sum)
     }
 
+    #[cfg(feature = "float")]
+    pub(crate) fn get_frm(&self) -> RoundingMode {
+        self.frm
+    }
+
+    #[cfg(feature = "float")]
+    pub(crate) fn save_env_fflags(&mut self) {
+        let mut flags = ExceptionFlags::default();
+        flags.get();
+        self.fflags = FFlags::from_bits_truncate(flags.to_bits() as u64);
+    }
+
+    #[cfg(feature = "float")]
+    pub(crate) fn load_env_fflags(&self) {
+        let mut flags = ExceptionFlags::from_bits(self.fflags.bits() as u8);
+        flags.set();
+    }
+
     pub fn get_csr(&self, addr: CsrAddress) -> u64 {
         match addr.into() {
+            #[cfg(feature = "float")]
+            0x001 => self.fflags.bits(),
+            #[cfg(feature = "float")]
+            0x002 => self.frm as u64,
+            #[cfg(feature = "float")]
+            0x003 => self.fflags.bits() | ((self.frm as u64) << 5),
+
             0xC00u16 => self.mcycle,
             0xC01 => self.timer.get_time(),
             0xC02 => self.minstret,
@@ -374,6 +427,30 @@ impl CsrHolder {
         } else {
             let old = self.get_csr(addr);
             match <CsrAddress as Into<u16>>::into(addr) {
+                #[cfg(feature = "float")]
+                0x001 => {
+                    self.fflags = FFlags::from_bits_truncate(value);
+                }
+                #[cfg(feature = "float")]
+                0x002 => {
+                    self.frm = if let Ok(rm) = RoundingMode::try_from(value as u32) {
+                        rm
+                    } else {
+                        self.frm
+                    };
+                }
+                #[cfg(feature = "float")]
+                0x003 => {
+                    println!("{:#b}", value);
+                    self.fflags = FFlags::from_bits_truncate(value);
+                    println!("{:#b}", value >> 5);
+                    self.frm = if let Ok(rm) = RoundingMode::try_from(((value >> 5) & 0b111) as u32)
+                    {
+                        rm
+                    } else {
+                        self.frm
+                    };
+                }
                 0x100 => {
                     self.status.update_from_s_bits(value);
                 }
@@ -505,6 +582,33 @@ impl CsrHolder {
         let old = self.get_csr(addr);
         if should_write {
             match <CsrAddress as Into<u16>>::into(addr) {
+                #[cfg(feature = "float")]
+                0x001 => {
+                    self.fflags = FFlags::from_bits_truncate(self.fflags.bits() | mask);
+                }
+                #[cfg(feature = "float")]
+                0x002 => {
+                    self.frm = if let Ok(rm) =
+                        RoundingMode::try_from((self.frm as u32) | ((mask & 0b111) as u32))
+                    {
+                        rm
+                    } else {
+                        self.frm
+                    };
+                }
+                #[cfg(feature = "float")]
+                0x003 => {
+                    println!("{:#b}", mask);
+                    let value = (self.fflags.bits() | ((self.frm as u64) << 5)) | (mask & 0xFF);
+                    println!("{:#b}", value);
+                    self.fflags = FFlags::from_bits_truncate(value);
+                    self.frm = if let Ok(rm) = RoundingMode::try_from(((value >> 5) & 0b111) as u32)
+                    {
+                        rm
+                    } else {
+                        self.frm
+                    };
+                }
                 0x100 => {
                     self.status
                         .update_from_s_bits(self.status.to_s_bits() | mask);
@@ -645,6 +749,33 @@ impl CsrHolder {
         let old = self.get_csr(addr);
         if should_write {
             match <CsrAddress as Into<u16>>::into(addr) {
+                #[cfg(feature = "float")]
+                0x001 => {
+                    self.fflags = FFlags::from_bits_truncate(self.fflags.bits() & !mask);
+                }
+                #[cfg(feature = "float")]
+                0x002 => {
+                    self.frm = if let Ok(rm) =
+                        RoundingMode::try_from((self.frm as u32) & !((mask & 0b111) as u32))
+                    {
+                        rm
+                    } else {
+                        self.frm
+                    };
+                }
+                #[cfg(feature = "float")]
+                0x003 => {
+                    println!("{:#b}", mask);
+                    let value = (self.fflags.bits() | ((self.frm as u64) << 5)) & !(mask & 0xFF);
+                    println!("{:#b}", value);
+                    self.fflags = FFlags::from_bits_truncate(value);
+                    self.frm = if let Ok(rm) = RoundingMode::try_from(((value >> 5) & 0b111) as u32)
+                    {
+                        rm
+                    } else {
+                        self.frm
+                    };
+                }
                 0x100 => {
                     self.status
                         .update_from_s_bits(self.status.to_s_bits() & !mask);

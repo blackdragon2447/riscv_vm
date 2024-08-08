@@ -9,6 +9,8 @@ mod tests;
 pub mod trap;
 
 use core::panic;
+#[cfg(feature = "float")]
+use softfloat_wrapper::F32;
 use std::{
     collections::{BinaryHeap, HashMap},
     rc::Rc,
@@ -27,6 +29,8 @@ use crate::{
 
 pub use csr_address::CsrAddress;
 use enumflags2::BitFlags;
+#[cfg(feature = "float")]
+use registers::FloatRegister;
 
 use self::{
     csr_holder::CsrHolder,
@@ -75,12 +79,22 @@ impl Hart {
         self.pc = pc;
     }
 
-    pub fn get_reg(&self, register: IntRegister) -> i64 {
-        self.registers.get(register)
+    pub fn get_int_reg(&self, register: IntRegister) -> i64 {
+        self.registers.get_int(register)
     }
 
-    pub fn set_reg(&mut self, register: IntRegister, value: i64) {
-        self.registers.set(register, value)
+    pub fn set_int_reg(&mut self, register: IntRegister, value: i64) {
+        self.registers.set_int(register, value)
+    }
+
+    #[cfg(feature = "float")]
+    pub fn get_f32_reg(&self, register: FloatRegister) -> F32 {
+        self.registers.get_f32(register)
+    }
+
+    #[cfg(feature = "float")]
+    pub fn set_f32_reg(&mut self, register: FloatRegister, value: F32) {
+        self.registers.set_f32(register, value)
     }
 
     pub fn get_csr_mut(&mut self) -> &mut CsrHolder {

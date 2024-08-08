@@ -214,6 +214,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "c99"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b03049b0d9ea44294834dfc77cdf319fcd00832a9c676edf04e5166970ccf403"
+
+[[package]]
 name = "calloop"
 version = "0.10.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -235,6 +241,16 @@ checksum = "a0ba8f7aaa012f30d5b2861462f6708eccd49c3c39863fe083a308035f63d723"
 dependencies = [
  "jobserver",
  "libc",
+]
+
+[[package]]
+name = "cc-version"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2e142b8a521e1a062f6cccb17827e45b06bc11cb65792535be5f8dec6c89e05c"
+dependencies = [
+ "cc",
+ "thiserror",
 ]
 
 [[package]]
@@ -1307,6 +1323,7 @@ dependencies = [
  "nohash-hasher",
  "pollster",
  "riscv_vm_macros",
+ "softfloat-wrapper",
  "wgpu",
  "wgpu_text",
  "winit",
@@ -1396,6 +1413,27 @@ dependencies = [
  "wayland-client",
  "wayland-cursor",
  "wayland-protocols",
+]
+
+[[package]]
+name = "softfloat-sys"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b3ebcd12cb9c5e5bfe6731eb435ba863af244b76cef645d9a840b558bccc218"
+dependencies = [
+ "c99",
+ "cc",
+ "cc-version",
+]
+
+[[package]]
+name = "softfloat-wrapper"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d93ae834b62e7d8e3acf6d8e0466771dc774fe4293fa4a270ced6109dfe31fe1"
+dependencies = [
+ "num-traits",
+ "softfloat-sys",
 ]
 
 [[package]]

@@ -41,6 +41,9 @@ mod instructions {
         tests,
     };
 
+    #[cfg(feature = "float")]
+    use crate::{decode::instruction::RoundingMode, hart::registers::FloatRegister::*};
+
     #[test]
     fn aiupc() {
         assert_eq!(decode(0x00000117), AUIPC { rd: X2, imm: 0x0 });
@@ -206,5 +209,117 @@ mod instructions {
                 shamt: 0x20
             }
         )
+    }
+
+    #[test]
+    #[cfg(feature = "float")]
+    fn fsqrt_s() {
+        assert_eq!(
+            decode(0x580130d3),
+            FSQRT_S {
+                rd: F1,
+                rs1: F2,
+                rm: RoundingMode::Up,
+            }
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "float")]
+    fn fclass_s() {
+        assert_eq!(decode(0xe0009153), FCLASS_S { rd: X2, rs1: F1 });
+    }
+
+    #[test]
+    #[cfg(feature = "float")]
+    fn flw() {
+        assert_eq!(
+            decode(0x0250a187),
+            FLW {
+                rd: F3,
+                rs1: X1,
+                imm: 37
+            }
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "float")]
+    fn fmadd_s() {
+        assert_eq!(
+            decode(0x484381c3),
+            FMADD_S {
+                rd: F3,
+                rs1: F7,
+                rs2: F4,
+                rs3: F9,
+                rm: RoundingMode::ToNearestTieEven
+            }
+        )
+    }
+
+    #[test]
+    #[cfg(feature = "float")]
+    fn fmul_s() {
+        assert_eq!(
+            decode(0x10c47253),
+            FMUL_S {
+                rd: F4,
+                rs1: F8,
+                rs2: F12,
+                rm: RoundingMode::Dynamic
+            }
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "float")]
+    fn feq_s() {
+        assert_eq!(
+            decode(0xa149a7d3),
+            FEQ_S {
+                rd: X15,
+                rs1: F19,
+                rs2: F20
+            }
+        )
+    }
+
+    #[test]
+    #[cfg(feature = "float")]
+    fn fdiv_s() {
+        assert_eq!(
+            decode(0x181071d3),
+            FDIV_S {
+                rd: F3,
+                rs1: F0,
+                rs2: F1,
+                rm: RoundingMode::Dynamic
+            }
+        )
+    }
+
+    #[test]
+    fn fcvt_lu_s() {
+        assert_eq!(
+            decode(0xd0357053),
+            FCVT_S_LU {
+                rd: F0,
+                rs1: X10,
+                rm: RoundingMode::Dynamic,
+            }
+        );
+    }
+
+    #[test]
+    fn fsw() {
+        assert_eq!(
+            decode(0x0015aa27),
+            FSW {
+                rs1: X11,
+                rs2: F1,
+                imm: 20,
+            }
+        );
     }
 }

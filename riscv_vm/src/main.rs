@@ -23,7 +23,7 @@ fn main() {
         ..Default::default()
     })
     .add_sync_device::<SimpleUart>(0x10000000u64.into())
-    .set_hart_count(2);
+    .set_hart_count(1);
 
     #[cfg(feature = "vga_text_buf")]
     let builder = builder.add_sync_device::<VgaTextMode>(0xB8000u64);

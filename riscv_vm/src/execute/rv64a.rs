@@ -1,5 +1,6 @@
 #![allow(clippy::useless_conversion)]
 #![allow(non_camel_case_types)]
+#![allow(non_upper_case_globals)]
 
 use std::cmp::{max, min};
 
@@ -12,7 +13,9 @@ use crate::{
 
 use super::{ExecuteError, ExecuteResult};
 
-inst!(lr_d(r_mem) for [64]: {
+inst!(lr_d(r_mem) for [b64]
+    where [rd: int, rs1: int, rs2: int]:
+{
     if *rs1 % 4 != 0 {
         return Err(ExecuteError::Exception(Exception::LoadAddressMisaligned));
     }
@@ -21,7 +24,9 @@ inst!(lr_d(r_mem) for [64]: {
     Ok(ExecuteResult::Continue)
 });
 
-inst!(sc_d(r_mem) for [64]: {
+inst!(sc_d(r_mem) for [b64]
+    where [rd: int, rs1: int, rs2: int]:
+{
     if *rs1 % 4 != 0 {
         return Err(ExecuteError::Exception(Exception::LoadAddressMisaligned));
     }
@@ -32,7 +37,9 @@ inst!(sc_d(r_mem) for [64]: {
 
 });
 
-inst!(amoswap_d(r_mem) for [64]: {
+inst!(amoswap_d(r_mem) for [b64]
+    where [rd: int, rs1: int, rs2: int]:
+{
     if *rs1 % 4 != 0 {
         return Err(ExecuteError::Exception(Exception::LoadAddressMisaligned));
     }
@@ -40,7 +47,9 @@ inst!(amoswap_d(r_mem) for [64]: {
     Ok(ExecuteResult::Continue)
 });
 
-inst!(amoadd_d(r_mem) for [64]: {
+inst!(amoadd_d(r_mem) for [b64]
+    where [rd: int, rs1: int, rs2: int]:
+{
     if *rs1 % 4 != 0 {
         return Err(ExecuteError::Exception(Exception::LoadAddressMisaligned));
     }
@@ -48,7 +57,9 @@ inst!(amoadd_d(r_mem) for [64]: {
     Ok(ExecuteResult::Continue)
 });
 
-inst!(amoand_d(r_mem) for [64]: {
+inst!(amoand_d(r_mem) for [b64]
+    where [rd: int, rs1: int, rs2: int]:
+{
     if *rs1 % 4 != 0 {
         return Err(ExecuteError::Exception(Exception::LoadAddressMisaligned));
     }
@@ -56,7 +67,9 @@ inst!(amoand_d(r_mem) for [64]: {
     Ok(ExecuteResult::Continue)
 });
 
-inst!(amoor_d(r_mem) for [64]: {
+inst!(amoor_d(r_mem) for [b64]
+    where [rd: int, rs1: int, rs2: int]:
+{
     if *rs1 % 4 != 0 {
         return Err(ExecuteError::Exception(Exception::LoadAddressMisaligned));
     }
@@ -64,7 +77,9 @@ inst!(amoor_d(r_mem) for [64]: {
     Ok(ExecuteResult::Continue)
 });
 
-inst!(amoxor_d(r_mem) for [64]: {
+inst!(amoxor_d(r_mem) for [b64]
+    where [rd: int, rs1: int, rs2: int]:
+{
     if *rs1 % 4 != 0 {
         return Err(ExecuteError::Exception(Exception::LoadAddressMisaligned));
     }
@@ -72,7 +87,9 @@ inst!(amoxor_d(r_mem) for [64]: {
     Ok(ExecuteResult::Continue)
 });
 
-inst!(amomax_d(r_mem) for [64]: {
+inst!(amomax_d(r_mem) for [b64]
+    where [rd: int, rs1: int, rs2: int]:
+{
     if *rs1 % 4 != 0 {
         return Err(ExecuteError::Exception(Exception::LoadAddressMisaligned));
     }
@@ -80,7 +97,9 @@ inst!(amomax_d(r_mem) for [64]: {
     Ok(ExecuteResult::Continue)
 });
 
-inst!(amomaxu_d(r_mem) for [64]: {
+inst!(amomaxu_d(r_mem) for [b64]
+    where [rd: int, rs1: int, rs2: int]:
+{
     if *rs1 % 4 != 0 {
         return Err(ExecuteError::Exception(Exception::LoadAddressMisaligned));
     }
@@ -88,7 +107,9 @@ inst!(amomaxu_d(r_mem) for [64]: {
     Ok(ExecuteResult::Continue)
 });
 
-inst!(amomin_d(r_mem) for [64]: {
+inst!(amomin_d(r_mem) for [b64]
+    where [rd: int, rs1: int, rs2: int]:
+{
     if *rs1 % 4 != 0 {
         return Err(ExecuteError::Exception(Exception::LoadAddressMisaligned));
     }
@@ -96,7 +117,9 @@ inst!(amomin_d(r_mem) for [64]: {
     Ok(ExecuteResult::Continue)
 });
 
-inst!(amominu_d(r_mem) for [64]: {
+inst!(amominu_d(r_mem) for [b64]
+    where [rd: int, rs1: int, rs2: int]:
+{
     if *rs1 % 4 != 0 {
         return Err(ExecuteError::Exception(Exception::LoadAddressMisaligned));
     }

@@ -96,3 +96,26 @@ isa_test!(off: rv64ua_p_amominu_d, "rv64ua-p-amominu_d", {16 * KB});
 
 isa_test!(off: rv64si_p_csr, { 16 * KB });
 isa_test!(off: rv64si_p_scall, { 16 * KB });
+
+#[cfg(feature = "float")]
+isa_test!(off: rv64uf_p_fadd, {16 * KB});
+#[cfg(feature = "float")]
+isa_test!(off: rv64uf_p_fclass);
+#[cfg(feature = "float")]
+isa_test!(off: rv64uf_p_fcmp, {16 * KB});
+#[cfg(feature = "float")]
+isa_test!(off: rv64uf_p_fcvt, {16 * KB});
+#[cfg(feature = "float")]
+isa_test!(off: rv64uf_p_fcvt_w, "rv64uf-p-fcvt_w", {16 * KB});
+#[cfg(feature = "float")]
+isa_test!(off: rv64uf_p_fdiv, {16 * KB});
+#[cfg(feature = "float")]
+isa_test!(off: rv64uf_p_fmadd, {16 * KB});
+#[cfg(feature = "float")]
+isa_test!(off: rv64uf_p_fmin, {16 * KB});
+#[cfg(feature = "float")]
+isa_test!(off: rv64uf_p_ldst, {16 * KB});
+#[cfg(feature = "float")]
+isa_test!(off: rv64uf_p_move, {16 * KB});
+#[cfg(feature = "float")]
+isa_test!(off: rv64uf_p_recoding, {16 * KB});

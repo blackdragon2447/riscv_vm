@@ -2,23 +2,32 @@
 #![allow(clippy::unnecessary_cast)]
 
 mod rv32a;
+#[cfg(feature = "float")]
+mod rv32f;
 mod rv32i;
 mod rv32m;
 mod rv64a;
+#[cfg(feature = "float")]
+mod rv64f;
 mod rv64i;
 mod rv64m;
 mod rv64zicsr;
 
 use enumflags2::BitFlags;
+#[cfg(feature = "float")]
+use softfloat_wrapper::{Float, F32};
 
 use crate::{
-    decode::{Instruction, Instruction::*},
+    decode::Instruction::{self, *},
     hart::{
-        isa::Isa, privilege::PrivilegeMode, registers::IntRegister, trap::Exception, CsrAddress,
-        Hart,
+        self, isa::Isa, privilege::PrivilegeMode, registers::IntRegister, trap::Exception,
+        CsrAddress, Hart,
     },
     memory::{address::Address, Memory, MemoryError, MemoryWindow},
 };
+
+#[cfg(feature = "float")]
+use crate::{decode::instruction::RoundingMode, hart::registers::FloatRegister};
 
 pub enum ExecuteResult {
     Continue,
@@ -284,6 +293,266 @@ pub fn execute_rv64(
             aq,
         } => r_type_mem(hart, mem, rd, rs1, rs2, rv64a::amominu_d_64),
 
+        // rv32f
+        #[cfg(feature = "float")]
+        FLW { rd, rs1, imm } => {
+            let mut rdv = F32::positive_zero();
+            let rs1 = hart.get_int_reg(rs1);
+            let result = rv32f::flw_64(
+                hart.get_pc(),
+                mem.window(hart),
+                &mut rdv,
+                &rs1,
+                imm,
+                RoundingMode::Dynamic,
+            );
+
+            hart.set_f32_reg(rd, rdv);
+
+            result
+        }
+        #[cfg(feature = "float")]
+        FSW { rs1, rs2, imm } => {
+            let rs1 = hart.get_int_reg(rs1);
+            let rs2 = hart.get_f32_reg(rs2);
+            rv32f::fsw_64(
+                hart.get_pc(),
+                mem.window(hart),
+                &rs1,
+                &rs2,
+                imm,
+                RoundingMode::Dynamic,
+            )
+        }
+        #[cfg(feature = "float")]
+        FMADD_S {
+            rd,
+            rs1,
+            rs2,
+            rs3,
+            rm,
+        } => r4_type_float_s(hart, rd, rs1, rs2, rs3, rm, rv32f::fmadd_s_64),
+        #[cfg(feature = "float")]
+        FMSUB_S {
+            rd,
+            rs1,
+            rs2,
+            rs3,
+            rm,
+        } => r4_type_float_s(hart, rd, rs1, rs2, rs3, rm, rv32f::fmsub_s_64),
+        #[cfg(feature = "float")]
+        FNMADD_S {
+            rd,
+            rs1,
+            rs2,
+            rs3,
+            rm,
+        } => r4_type_float_s(hart, rd, rs1, rs2, rs3, rm, rv32f::fnmadd_s_64),
+        #[cfg(feature = "float")]
+        FNMSUB_S {
+            rd,
+            rs1,
+            rs2,
+            rs3,
+            rm,
+        } => r4_type_float_s(hart, rd, rs1, rs2, rs3, rm, rv32f::fnmsub_s_64),
+        #[cfg(feature = "float")]
+        FADD_S { rd, rs1, rs2, rm } => r_type_float_s(hart, rd, rs1, rs2, rm, rv32f::fadd_s_64),
+        #[cfg(feature = "float")]
+        FSUB_S { rd, rs1, rs2, rm } => r_type_float_s(hart, rd, rs1, rs2, rm, rv32f::fsub_s_64),
+        #[cfg(feature = "float")]
+        FMUL_S { rd, rs1, rs2, rm } => r_type_float_s(hart, rd, rs1, rs2, rm, rv32f::fmul_s_64),
+        #[cfg(feature = "float")]
+        FDIV_S { rd, rs1, rs2, rm } => r_type_float_s(hart, rd, rs1, rs2, rm, rv32f::fdiv_s_64),
+        #[cfg(feature = "float")]
+        FSQRT_S { rd, rs1, rm } => r2_type_float_s(hart, rd, rs1, rm, rv32f::fsqrt_s_64),
+        #[cfg(feature = "float")]
+        FSGNJ_S { rd, rs1, rs2 } => {
+            r_type_float_s(hart, rd, rs1, rs2, RoundingMode::Dynamic, rv32f::fsgnj_s_64)
+        }
+        #[cfg(feature = "float")]
+        FSGNJN_S { rd, rs1, rs2 } => r_type_float_s(
+            hart,
+            rd,
+            rs1,
+            rs2,
+            RoundingMode::Dynamic,
+            rv32f::fsgnjn_s_64,
+        ),
+        #[cfg(feature = "float")]
+        FSGNJX_S { rd, rs1, rs2 } => r_type_float_s(
+            hart,
+            rd,
+            rs1,
+            rs2,
+            RoundingMode::Dynamic,
+            rv32f::fsgnjx_s_64,
+        ),
+        #[cfg(feature = "float")]
+        FMIN_S { rd, rs1, rs2 } => {
+            r_type_float_s(hart, rd, rs1, rs2, RoundingMode::Dynamic, rv32f::fmin_s_64)
+        }
+        #[cfg(feature = "float")]
+        FMAX_S { rd, rs1, rs2 } => {
+            r_type_float_s(hart, rd, rs1, rs2, RoundingMode::Dynamic, rv32f::fmax_s_64)
+        }
+        #[cfg(feature = "float")]
+        FCVT_W_S { rd, rs1, rm } => {
+            let mut rdv = 0;
+            let rs1 = hart.get_f32_reg(rs1);
+            let rs2 = F32::positive_zero();
+            hart.get_csr().load_env_fflags();
+            let result = rv32f::fcvt_w_s_64(hart.get_pc(), &mut rdv, &rs1, &rs2, rm.undyn(hart));
+            hart.set_int_reg(rd, rdv);
+            hart.get_csr_mut().save_env_fflags();
+            result
+        }
+        #[cfg(feature = "float")]
+        FCVT_WU_S { rd, rs1, rm } => {
+            let mut rdv = 0;
+            let rs1 = hart.get_f32_reg(rs1);
+            let rs2 = F32::positive_zero();
+            hart.get_csr().load_env_fflags();
+            let result = rv32f::fcvt_wu_s_64(hart.get_pc(), &mut rdv, &rs1, &rs2, rm.undyn(hart));
+            hart.get_csr_mut().save_env_fflags();
+            hart.set_int_reg(rd, rdv);
+            result
+        }
+        #[cfg(feature = "float")]
+        FMV_X_W { rd, rs1 } => {
+            let mut rdv = 0;
+            let rs1 = hart.get_f32_reg(rs1);
+            let rs2 = F32::positive_zero();
+            let result =
+                rv32f::fmv_x_w_64(hart.get_pc(), &mut rdv, &rs1, &rs2, RoundingMode::Dynamic);
+            hart.set_int_reg(rd, rdv);
+            result
+        }
+        #[cfg(feature = "float")]
+        FEQ_S { rd, rs1, rs2 } => {
+            let mut rdv = 0;
+            let rs1 = hart.get_f32_reg(rs1);
+            let rs2 = hart.get_f32_reg(rs2);
+            hart.get_csr().load_env_fflags();
+            let result =
+                rv32f::feq_s_64(hart.get_pc(), &mut rdv, &rs1, &rs2, RoundingMode::Dynamic);
+            hart.get_csr_mut().save_env_fflags();
+            hart.set_int_reg(rd, rdv);
+            result
+        }
+        #[cfg(feature = "float")]
+        FLT_S { rd, rs1, rs2 } => {
+            let mut rdv = 0;
+            let rs1 = hart.get_f32_reg(rs1);
+            let rs2 = hart.get_f32_reg(rs2);
+            hart.get_csr().load_env_fflags();
+            let result =
+                rv32f::flt_s_64(hart.get_pc(), &mut rdv, &rs1, &rs2, RoundingMode::Dynamic);
+            hart.get_csr_mut().save_env_fflags();
+            hart.set_int_reg(rd, rdv);
+            result
+        }
+        #[cfg(feature = "float")]
+        FLE_S { rd, rs1, rs2 } => {
+            let mut rdv = 0;
+            let rs1 = hart.get_f32_reg(rs1);
+            let rs2 = hart.get_f32_reg(rs2);
+            hart.get_csr().load_env_fflags();
+            let result =
+                rv32f::fle_s_64(hart.get_pc(), &mut rdv, &rs1, &rs2, RoundingMode::Dynamic);
+            hart.get_csr_mut().save_env_fflags();
+            hart.set_int_reg(rd, rdv);
+            result
+        }
+        #[cfg(feature = "float")]
+        FCLASS_S { rd, rs1 } => {
+            let mut rdv = 0;
+            let rs1 = hart.get_f32_reg(rs1);
+            let rs2 = F32::positive_zero();
+            let result =
+                rv32f::fclass_s_64(hart.get_pc(), &mut rdv, &rs1, &rs2, RoundingMode::Dynamic);
+            hart.set_int_reg(rd, rdv);
+            result
+        }
+        #[cfg(feature = "float")]
+        FCVT_S_W { rd, rs1, rm } => {
+            let mut rdv = F32::positive_zero();
+            let rs1 = hart.get_int_reg(rs1);
+            let rs2 = 0;
+            hart.get_csr().load_env_fflags();
+            let result = rv32f::fcvt_s_w_64(hart.get_pc(), &mut rdv, &rs1, &rs2, rm.undyn(hart));
+            hart.set_f32_reg(rd, rdv);
+            hart.get_csr_mut().save_env_fflags();
+            result
+        }
+        #[cfg(feature = "float")]
+        FCVT_S_WU { rd, rs1, rm } => {
+            let mut rdv = F32::positive_zero();
+            let rs1 = hart.get_int_reg(rs1);
+            let rs2 = 0;
+            hart.get_csr().load_env_fflags();
+            let result = rv32f::fcvt_s_wu_64(hart.get_pc(), &mut rdv, &rs1, &rs2, rm.undyn(hart));
+            hart.get_csr_mut().save_env_fflags();
+            hart.set_f32_reg(rd, rdv);
+            result
+        }
+        #[cfg(feature = "float")]
+        FMV_W_X { rd, rs1 } => {
+            let mut rdv = F32::positive_zero();
+            let rs1 = hart.get_int_reg(rs1);
+            let rs2 = 0;
+            let result =
+                rv32f::fmv_w_x_64(hart.get_pc(), &mut rdv, &rs1, &rs2, RoundingMode::Dynamic);
+            hart.set_f32_reg(rd, rdv);
+            result
+        }
+
+        // rv64f
+        #[cfg(feature = "float")]
+        FCVT_L_S { rd, rs1, rm } => {
+            let mut rdv = 0;
+            let rs1 = hart.get_f32_reg(rs1);
+            let rs2 = F32::positive_zero();
+            hart.get_csr().load_env_fflags();
+            let result = rv64f::fcvt_l_s_64(hart.get_pc(), &mut rdv, &rs1, &rs2, rm.undyn(hart));
+            hart.set_int_reg(rd, rdv);
+            hart.get_csr_mut().save_env_fflags();
+            result
+        }
+        #[cfg(feature = "float")]
+        FCVT_LU_S { rd, rs1, rm } => {
+            let mut rdv = 0;
+            let rs1 = hart.get_f32_reg(rs1);
+            let rs2 = F32::positive_zero();
+            hart.get_csr().load_env_fflags();
+            let result = rv64f::fcvt_lu_s_64(hart.get_pc(), &mut rdv, &rs1, &rs2, rm.undyn(hart));
+            hart.get_csr_mut().save_env_fflags();
+            hart.set_int_reg(rd, rdv);
+            result
+        }
+        #[cfg(feature = "float")]
+        FCVT_S_L { rd, rs1, rm } => {
+            let mut rdv = F32::positive_zero();
+            let rs1 = hart.get_int_reg(rs1);
+            let rs2 = 0;
+            hart.get_csr().load_env_fflags();
+            let result = rv64f::fcvt_s_l_64(hart.get_pc(), &mut rdv, &rs1, &rs2, rm.undyn(hart));
+            hart.set_f32_reg(rd, rdv);
+            hart.get_csr_mut().save_env_fflags();
+            result
+        }
+        #[cfg(feature = "float")]
+        FCVT_S_LU { rd, rs1, rm } => {
+            let mut rdv = F32::positive_zero();
+            let rs1 = hart.get_int_reg(rs1);
+            let rs2 = 0;
+            hart.get_csr().load_env_fflags();
+            let result = rv64f::fcvt_s_lu_64(hart.get_pc(), &mut rdv, &rs1, &rs2, rm.undyn(hart));
+            hart.get_csr_mut().save_env_fflags();
+            hart.set_f32_reg(rd, rdv);
+            result
+        }
+
         // rv64 Zicsr
         CSRRW {
             rd: IntRegister::X0,
@@ -383,11 +652,11 @@ fn r_type<E>(
 where
     E: Fn(Address, &mut i64, &i64, &i64) -> Result<ExecuteResult, ExecuteError>,
 {
-    let rs1 = hart.get_reg(rs1);
-    let rs2 = hart.get_reg(rs2);
+    let rs1 = hart.get_int_reg(rs1);
+    let rs2 = hart.get_int_reg(rs2);
     let mut rdv = 0;
     let result = executor(hart.get_pc(), &mut rdv, &rs1, &rs2)?;
-    hart.set_reg(rd, rdv);
+    hart.set_int_reg(rd, rdv);
     Ok(result)
 }
 
@@ -402,12 +671,79 @@ fn r_type_mem<E>(
 where
     E: Fn(Address, MemoryWindow, &mut i64, &i64, &i64) -> Result<ExecuteResult, ExecuteError>,
 {
-    let rs1 = hart.get_reg(rs1);
-    let rs2 = hart.get_reg(rs2);
+    let rs1 = hart.get_int_reg(rs1);
+    let rs2 = hart.get_int_reg(rs2);
     let mut rdv = 0;
     let result = executor(hart.get_pc(), mem.window(hart), &mut rdv, &rs1, &rs2)?;
-    hart.set_reg(rd, rdv);
+    hart.set_int_reg(rd, rdv);
     Ok(result)
+}
+
+#[cfg(feature = "float")]
+fn r_type_float_s<E>(
+    hart: &mut Hart,
+    rd: FloatRegister,
+    rs1: FloatRegister,
+    rs2: FloatRegister,
+    rm: RoundingMode,
+    executor: E,
+) -> Result<ExecuteResult, ExecuteError>
+where
+    E: Fn(Address, &mut F32, &F32, &F32, RoundingMode) -> Result<ExecuteResult, ExecuteError>,
+{
+    let mut rdv = F32::positive_zero();
+    let rs1 = hart.get_f32_reg(rs1);
+    let rs2 = hart.get_f32_reg(rs2);
+    hart.get_csr().load_env_fflags();
+    let result = executor(hart.get_pc(), &mut rdv, &rs1, &rs2, rm.undyn(hart))?;
+    hart.get_csr_mut().save_env_fflags();
+    hart.set_f32_reg(rd, rdv);
+    Ok(result)
+}
+
+#[cfg(feature = "float")]
+fn r2_type_float_s<E>(
+    hart: &mut Hart,
+    rd: FloatRegister,
+    rs1: FloatRegister,
+    rm: RoundingMode,
+    executor: E,
+) -> Result<ExecuteResult, ExecuteError>
+where
+    E: Fn(Address, &mut F32, &F32, &F32, RoundingMode) -> Result<ExecuteResult, ExecuteError>,
+{
+    let mut rdv = F32::positive_zero();
+    let rs1 = hart.get_f32_reg(rs1);
+    let rs2 = F32::positive_zero();
+    hart.get_csr().load_env_fflags();
+    let result = executor(hart.get_pc(), &mut rdv, &rs1, &rs2, rm.undyn(hart))?;
+    hart.get_csr_mut().save_env_fflags();
+    hart.set_f32_reg(rd, rdv);
+    Ok(result)
+}
+
+#[cfg(feature = "float")]
+fn r4_type_float_s<E>(
+    hart: &mut Hart,
+    rd: FloatRegister,
+    rs1: FloatRegister,
+    rs2: FloatRegister,
+    rs3: FloatRegister,
+    rm: RoundingMode,
+    executor: E,
+) -> Result<ExecuteResult, ExecuteError>
+where
+    E: Fn(Address, &mut F32, &F32, &F32, &F32, RoundingMode) -> Result<ExecuteResult, ExecuteError>,
+{
+    let mut rdv = F32::positive_zero();
+    let rs1 = hart.get_f32_reg(rs1);
+    let rs2 = hart.get_f32_reg(rs2);
+    let rs3 = hart.get_f32_reg(rs3);
+    hart.get_csr().load_env_fflags();
+    let result = executor(hart.get_pc(), &mut rdv, &rs1, &rs2, &rs3, rm.undyn(hart));
+    hart.get_csr_mut().save_env_fflags();
+    hart.set_f32_reg(rd, rdv);
+    result
 }
 
 fn i_type<E>(
@@ -420,10 +756,10 @@ fn i_type<E>(
 where
     E: Fn(Address, &mut i64, &i64, i32) -> Result<ExecuteResult, ExecuteError>,
 {
-    let rs1 = hart.get_reg(rs1);
+    let rs1 = hart.get_int_reg(rs1);
     let mut rdv = 0;
     let result = executor(hart.get_pc(), &mut rdv, &rs1, imm)?;
-    hart.set_reg(rd, rdv);
+    hart.set_int_reg(rd, rdv);
     Ok(result)
 }
 
@@ -438,10 +774,10 @@ fn i_type_mem<E>(
 where
     E: Fn(Address, MemoryWindow, &mut i64, &i64, i32) -> Result<ExecuteResult, ExecuteError>,
 {
-    let rs1 = hart.get_reg(rs1);
+    let rs1 = hart.get_int_reg(rs1);
     let mut rdv = 0;
     let result = executor(hart.get_pc(), mem.window(hart), &mut rdv, &rs1, imm)?;
-    hart.set_reg(rd, rdv);
+    hart.set_int_reg(rd, rdv);
     Ok(result)
 }
 
@@ -455,8 +791,8 @@ fn s_type<E>(
 where
     E: Fn(Address, &i64, &i64, i32) -> Result<ExecuteResult, ExecuteError>,
 {
-    let rs1 = hart.get_reg(rs1);
-    let rs2 = hart.get_reg(rs2);
+    let rs1 = hart.get_int_reg(rs1);
+    let rs2 = hart.get_int_reg(rs2);
     let result = executor(hart.get_pc(), &rs1, &rs2, imm)?;
     Ok(result)
 }
@@ -472,8 +808,8 @@ fn s_type_mem<E>(
 where
     E: Fn(Address, MemoryWindow, &i64, &i64, i32) -> Result<ExecuteResult, ExecuteError>,
 {
-    let rs1 = hart.get_reg(rs1);
-    let rs2 = hart.get_reg(rs2);
+    let rs1 = hart.get_int_reg(rs1);
+    let rs2 = hart.get_int_reg(rs2);
     let result = executor(hart.get_pc(), mem.window(hart), &rs1, &rs2, imm)?;
     Ok(result)
 }
@@ -489,7 +825,7 @@ where
 {
     let mut rdv = 0;
     let result = executor(hart.get_pc(), &mut rdv, imm)?;
-    hart.set_reg(rd, rdv);
+    hart.set_int_reg(rd, rdv);
     Ok(result)
 }
 
@@ -504,9 +840,9 @@ where
     E: Fn(&mut Hart, &mut i64, &i64, CsrAddress) -> Result<ExecuteResult, ExecuteError>,
 {
     let mut rdv = 0;
-    let rs1 = hart.get_reg(rs1);
+    let rs1 = hart.get_int_reg(rs1);
     let result = executor(hart, &mut rdv, &rs1, csr)?;
-    hart.set_reg(rd, rdv);
+    hart.set_int_reg(rd, rdv);
     Ok(result)
 }
 
@@ -519,7 +855,7 @@ fn inst_csrwo<E>(
 where
     E: Fn(&mut Hart, &i64, CsrAddress) -> Result<ExecuteResult, ExecuteError>,
 {
-    let rs1 = hart.get_reg(rs1);
+    let rs1 = hart.get_int_reg(rs1);
     executor(hart, &rs1, csr)
 }
 
@@ -534,7 +870,7 @@ where
 {
     let mut rdv = 0;
     let result = executor(hart, &mut rdv, csr)?;
-    hart.set_reg(rd, rdv);
+    hart.set_int_reg(rd, rdv);
     Ok(result)
 }
 
@@ -550,7 +886,7 @@ where
 {
     let mut rdv = 0;
     let result = executor(hart, &mut rdv, uimm, csr)?;
-    hart.set_reg(rd, rdv);
+    hart.set_int_reg(rd, rdv);
     Ok(result)
 }
 
@@ -577,10 +913,21 @@ where
 {
     let mut rdv = 0;
     let resut = executor(hart, &mut rdv, csr)?;
-    hart.set_reg(rd, rdv);
+    hart.set_int_reg(rd, rdv);
     Ok(resut)
 }
 
 fn nop() -> Result<ExecuteResult, ExecuteError> {
     Ok(ExecuteResult::Continue)
+}
+
+#[cfg(feature = "float")]
+impl RoundingMode {
+    fn undyn(self, hart: &Hart) -> RoundingMode {
+        if self == RoundingMode::Dynamic {
+            hart.get_csr().get_frm()
+        } else {
+            self
+        }
+    }
 }

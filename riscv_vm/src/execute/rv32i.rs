@@ -1,5 +1,6 @@
 #![allow(clippy::useless_conversion)]
 #![allow(non_camel_case_types)]
+#![allow(non_upper_case_globals)]
 
 use riscv_vm_macros::inst;
 
@@ -7,23 +8,31 @@ use crate::memory::{address::Address, Memory, MemoryWindow};
 
 use super::{ExecuteError, ExecuteResult};
 
-inst!(lui(u) for [32, 64]: {
+inst!(lui(u) for [b32, b64]
+    where [rd: int]:
+{
     *rd = imm as ixlen;
     Ok(ExecuteResult::Continue)
 });
 
-inst!(auipc(u) for [32, 64]: {
+inst!(auipc(u) for [b32, b64]
+    where [rd: int]:
+{
     *rd = (pc + imm).into();
     Ok(ExecuteResult::Continue)
 });
 
-inst!(jal(u) for [32, 64]: {
+inst!(jal(u) for [b32, b64]
+    where [rd: int]:
+{
     *rd = pc.into();
     *rd += 4;
     Ok(ExecuteResult::Jump(pc + imm))
 });
 
-inst!(jalr(i) for [32, 64]: {
+inst!(jalr(i) for [b32, b64]
+    where [rd: int, rs1: int]:
+{
     *rd = pc.into();
     *rd += 4;
     Ok(ExecuteResult::Jump(
@@ -31,7 +40,9 @@ inst!(jalr(i) for [32, 64]: {
     ))
 });
 
-inst!(beq(s) for [32, 64]: {
+inst!(beq(s) for [b32, b64]
+    where [rs1: int, rs2: int]:
+{
     if (rs1 == rs2) {
         Ok(ExecuteResult::Jump(pc + imm))
     } else {
@@ -39,7 +50,9 @@ inst!(beq(s) for [32, 64]: {
     }
 });
 
-inst!(bne(s) for [32, 64]: {
+inst!(bne(s) for [b32, b64]
+    where [rs1: int, rs2: int]:
+{
     if (rs1 != rs2) {
         Ok(ExecuteResult::Jump(pc + imm))
     } else {
@@ -47,7 +60,7 @@ inst!(bne(s) for [32, 64]: {
     }
 });
 
-inst!(blt(s) for  [32, 64]:{
+inst!(blt(s) for  [b32, b64] where [rs1: int, rs2: int]: {
     if rs1 < rs2 {
         Ok(ExecuteResult::Jump(pc + imm))
     } else {
@@ -55,7 +68,9 @@ inst!(blt(s) for  [32, 64]:{
     }
 });
 
-inst!(bge(s) for [32, 64]: {
+inst!(bge(s) for [b32, b64]
+    where [rs1: int, rs2: int]:
+{
     if rs1 >= rs2 {
         Ok(ExecuteResult::Jump(pc + imm))
     } else {
@@ -64,7 +79,9 @@ inst!(bge(s) for [32, 64]: {
 
 });
 
-inst!(bltu(s) for [32, 64]: {
+inst!(bltu(s) for [b32, b64]
+    where [rs1: int, rs2: int]:
+{
     if (*rs1 as uxlen) < (*rs2 as uxlen) {
         Ok(ExecuteResult::Jump(pc + imm))
     } else {
@@ -72,7 +89,9 @@ inst!(bltu(s) for [32, 64]: {
     }
 });
 
-inst!(bgeu(s) for [32, 64]: {
+inst!(bgeu(s) for [b32, b64]
+    where [rs1: int, rs2: int]:
+{
     if (*rs1 as uxlen) >= (*rs2 as uxlen) {
         Ok(ExecuteResult::Jump(pc + imm))
     } else {
@@ -80,7 +99,9 @@ inst!(bgeu(s) for [32, 64]: {
     }
 });
 
-inst!(lb(i_mem) for [32, 64]: {
+inst!(lb(i_mem) for [b32, b64]
+    where [rd: int, rs1: int]:
+{
     let bytes = mem.read_bytes(rs1.overflowing_add(imm.into()).0.into(), 1)?;
     let mut buf = [0; 1];
     buf.copy_from_slice(&bytes);
@@ -88,7 +109,9 @@ inst!(lb(i_mem) for [32, 64]: {
     Ok(ExecuteResult::Continue)
 });
 
-inst!(lh(i_mem) for [32, 64]: {
+inst!(lh(i_mem) for [b32, b64]
+    where [rd: int, rs1: int]:
+{
     let bytes = mem.read_bytes(rs1.overflowing_add(imm.into()).0.into(), 2)?;
     let mut buf = [0; 2];
     buf.copy_from_slice(&bytes);
@@ -96,7 +119,9 @@ inst!(lh(i_mem) for [32, 64]: {
     Ok(ExecuteResult::Continue)
 });
 
-inst!(lw(i_mem) for [32, 64]: {
+inst!(lw(i_mem) for [b32, b64]
+    where [rd: int, rs1: int]:
+{
     let bytes = mem.read_bytes(rs1.overflowing_add(imm.into()).0.into(), 4)?;
     let mut buf = [0; 4];
     buf.copy_from_slice(&bytes);
@@ -104,7 +129,9 @@ inst!(lw(i_mem) for [32, 64]: {
     Ok(ExecuteResult::Continue)
 });
 
-inst!(lbu(i_mem) for [32, 64]: {
+inst!(lbu(i_mem) for [b32, b64]
+    where [rd: int, rs1: int]:
+{
     let bytes = mem.read_bytes(rs1.overflowing_add(imm.into()).0.into(), 1)?;
     let mut buf = [0; 1];
     buf.copy_from_slice(&bytes);
@@ -112,7 +139,9 @@ inst!(lbu(i_mem) for [32, 64]: {
     Ok(ExecuteResult::Continue)
 });
 
-inst!(lhu(i_mem) for [32, 64]: {
+inst!(lhu(i_mem) for [b32, b64]
+    where [rd: int, rs1: int]:
+{
     let bytes = mem.read_bytes(rs1.overflowing_add(imm.into()).0.into(), 2)?;
     let mut buf = [0; 2];
     buf.copy_from_slice(&bytes);
@@ -120,7 +149,9 @@ inst!(lhu(i_mem) for [32, 64]: {
     Ok(ExecuteResult::Continue)
 });
 
-inst!(sb(s_mem) for [32, 64]: {
+inst!(sb(s_mem) for [b32, b64]
+    where [rs1: int, rs2: int]:
+{
     mem.write_bytes(
         &rs2.to_le_bytes()[0..1],
         rs1.overflowing_add(imm.into()).0.into(),
@@ -128,7 +159,9 @@ inst!(sb(s_mem) for [32, 64]: {
     Ok(ExecuteResult::Continue)
 });
 
-inst!(sh(s_mem) for [32, 64]: {
+inst!(sh(s_mem) for [b32, b64]
+    where [rs1: int, rs2: int]:
+{
     mem.write_bytes(
         &rs2.to_le_bytes()[0..2],
         rs1.overflowing_add(imm.into()).0.into(),
@@ -136,7 +169,9 @@ inst!(sh(s_mem) for [32, 64]: {
     Ok(ExecuteResult::Continue)
 });
 
-inst!(sw(s_mem) for [32, 64]: {
+inst!(sw(s_mem) for [b32, b64]
+    where [rs1: int, rs2: int]:
+{
     mem.write_bytes(
         &rs2.to_le_bytes()[0..4],
         rs1.overflowing_add(imm.into()).0.into(),
@@ -144,12 +179,16 @@ inst!(sw(s_mem) for [32, 64]: {
     Ok(ExecuteResult::Continue)
 });
 
-inst!(addi(i) for [32, 64]: {
+inst!(addi(i) for [b32, b64]
+    where [rd: int, rs1: int]:
+{
     *rd = rs1.overflowing_add(imm.into()).0;
     Ok(ExecuteResult::Continue)
 });
 
-inst!(slti(i) for [32, 64]: {
+inst!(slti(i) for [b32, b64]
+    where [rd: int, rs1: int]:
+{
     if *rs1 < (imm as ixlen) {
         *rd = 1;
     } else {
@@ -158,7 +197,9 @@ inst!(slti(i) for [32, 64]: {
     Ok(ExecuteResult::Continue)
 });
 
-inst!(sltiu(i) for [32, 64]: {
+inst!(sltiu(i) for [b32, b64]
+    where [rd: int, rs1: int]:
+{
     if (*rs1 as uxlen) < (imm as ixlen as uxlen) {
         *rd = 1;
     } else {
@@ -167,52 +208,72 @@ inst!(sltiu(i) for [32, 64]: {
     Ok(ExecuteResult::Continue)
 });
 
-inst!(xori(i) for [32, 64]: {
+inst!(xori(i) for [b32, b64]
+    where [rd: int, rs1: int]:
+{
     *rd = *rs1 ^ (imm as ixlen);
     Ok(ExecuteResult::Continue)
 });
 
-inst!(ori(i) for [32, 64]: {
+inst!(ori(i) for [b32, b64]
+    where [rd: int, rs1: int]:
+{
     *rd = *rs1 | (imm as ixlen);
     Ok(ExecuteResult::Continue)
 });
 
-inst!(andi(i) for [32, 64]: {
+inst!(andi(i) for [b32, b64]
+    where [rd: int, rs1: int]:
+{
     *rd = *rs1 & (imm as ixlen);
     Ok(ExecuteResult::Continue)
 });
 
-inst!(slli(i) for [32, 64]: {
+inst!(slli(i) for [b32, b64]
+    where [rd: int, rs1: int]:
+{
     *rd = *rs1 << imm; //shamt
     Ok(ExecuteResult::Continue)
 });
 
-inst!(srli(i) for [32, 64]: {
+inst!(srli(i) for [b32, b64]
+    where [rd: int, rs1: int]:
+{
     *rd = ((*rs1 as uxlen) >> imm) as ixlen;
     Ok(ExecuteResult::Continue)
 });
 
-inst!(srai(i) for [32, 64]: {
+inst!(srai(i) for [b32, b64]
+    where [rd: int, rs1: int]:
+{
     *rd = *rs1 >> imm;
     Ok(ExecuteResult::Continue)
 });
 
-inst!(add(r) for [32, 64]: {
+inst!(add(r) for [b32, b64]
+    where [rd: int, rs1: int, rs2: int]:
+{
     *rd = rs1.overflowing_add(*rs2).0;
     Ok(ExecuteResult::Continue)
 });
 
-inst!(sub(r) for [32, 64]: {
+inst!(sub(r) for [b32, b64]
+    where [rd: int, rs1: int, rs2: int]:
+{
     *rd = rs1.overflowing_sub(*rs2).0;
     Ok(ExecuteResult::Continue)
 });
 
-inst!(sll(r) for [32, 64]: {
+inst!(sll(r) for [b32, b64]
+    where [rd: int, rs1: int, rs2: int]:
+{
     *rd = rs1 << (rs2 & 0b111111);
     Ok(ExecuteResult::Continue)
 });
 
-inst!(slt(r) for [32, 64]: {
+inst!(slt(r) for [b32, b64]
+    where [rd: int, rs1: int, rs2: int]:
+{
     if *rs1 < *rs2 {
         *rd = 1;
     } else {
@@ -221,7 +282,9 @@ inst!(slt(r) for [32, 64]: {
     Ok(ExecuteResult::Continue)
 });
 
-inst!(sltu(r) for [32, 64]: {
+inst!(sltu(r) for [b32, b64]
+    where [rd: int, rs1: int, rs2: int]:
+{
     if (*rs1 as uxlen) < (*rs2 as uxlen) {
         *rd = 1;
     } else {
@@ -230,27 +293,37 @@ inst!(sltu(r) for [32, 64]: {
     Ok(ExecuteResult::Continue)
 });
 
-inst!(xor(r) for [32, 64]: {
+inst!(xor(r) for [b32, b64]
+    where [rd: int, rs1: int, rs2: int]:
+{
     *rd = rs1 ^ rs2;
     Ok(ExecuteResult::Continue)
 });
 
-inst!(srl(r) for [32, 64]: {
+inst!(srl(r) for [b32, b64]
+    where [rd: int, rs1: int, rs2: int]:
+{
     *rd = ((*rs1 as uxlen) >> (rs2 & 0b111111)) as ixlen;
     Ok(ExecuteResult::Continue)
 });
 
-inst!(sra(r) for [32, 64]: {
+inst!(sra(r) for [b32, b64]
+    where [rd: int, rs1: int, rs2: int]:
+{
     *rd = *rs1 >> (rs2 & 0b111111);
     Ok(ExecuteResult::Continue)
 });
 
-inst!(or(r) for [32, 64]: {
+inst!(or(r) for [b32, b64]
+    where [rd: int, rs1: int, rs2: int]:
+{
     *rd = rs1 | rs2;
     Ok(ExecuteResult::Continue)
 });
 
-inst!(and(r) for [32, 64]: {
+inst!(and(r) for [b32, b64]
+    where [rd: int, rs1: int, rs2: int]:
+{
     *rd = rs1 & rs2;
     Ok(ExecuteResult::Continue)
 });
