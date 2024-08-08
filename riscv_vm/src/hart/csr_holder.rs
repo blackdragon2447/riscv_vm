@@ -441,9 +441,7 @@ impl CsrHolder {
                 }
                 #[cfg(feature = "float")]
                 0x003 => {
-                    println!("{:#b}", value);
                     self.fflags = FFlags::from_bits_truncate(value);
-                    println!("{:#b}", value >> 5);
                     self.frm = if let Ok(rm) = RoundingMode::try_from(((value >> 5) & 0b111) as u32)
                     {
                         rm
@@ -598,9 +596,7 @@ impl CsrHolder {
                 }
                 #[cfg(feature = "float")]
                 0x003 => {
-                    println!("{:#b}", mask);
                     let value = (self.fflags.bits() | ((self.frm as u64) << 5)) | (mask & 0xFF);
-                    println!("{:#b}", value);
                     self.fflags = FFlags::from_bits_truncate(value);
                     self.frm = if let Ok(rm) = RoundingMode::try_from(((value >> 5) & 0b111) as u32)
                     {
@@ -765,9 +761,7 @@ impl CsrHolder {
                 }
                 #[cfg(feature = "float")]
                 0x003 => {
-                    println!("{:#b}", mask);
                     let value = (self.fflags.bits() | ((self.frm as u64) << 5)) & !(mask & 0xFF);
-                    println!("{:#b}", value);
                     self.fflags = FFlags::from_bits_truncate(value);
                     self.frm = if let Ok(rm) = RoundingMode::try_from(((value >> 5) & 0b111) as u32)
                     {

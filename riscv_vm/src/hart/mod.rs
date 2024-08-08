@@ -10,7 +10,7 @@ pub mod trap;
 
 use core::panic;
 #[cfg(feature = "float")]
-use softfloat_wrapper::F32;
+use softfloat_wrapper::{F32, F64};
 use std::{
     collections::{BinaryHeap, HashMap},
     rc::Rc,
@@ -30,7 +30,7 @@ use crate::{
 pub use csr_address::CsrAddress;
 use enumflags2::BitFlags;
 #[cfg(feature = "float")]
-use registers::FloatRegister;
+use registers::{FloatRegister, InvalidNaNBox};
 
 use self::{
     csr_holder::CsrHolder,
@@ -88,13 +88,23 @@ impl Hart {
     }
 
     #[cfg(feature = "float")]
-    pub fn get_f32_reg(&self, register: FloatRegister) -> F32 {
+    pub fn get_f32_reg(&self, register: FloatRegister) -> Result<F32, InvalidNaNBox> {
         self.registers.get_f32(register)
     }
 
     #[cfg(feature = "float")]
     pub fn set_f32_reg(&mut self, register: FloatRegister, value: F32) {
         self.registers.set_f32(register, value)
+    }
+
+    #[cfg(feature = "float")]
+    pub fn get_f64_reg(&self, register: FloatRegister) -> F64 {
+        self.registers.get_f64(register)
+    }
+
+    #[cfg(feature = "float")]
+    pub fn set_f64_reg(&mut self, register: FloatRegister, value: F64) {
+        self.registers.set_f64(register, value)
     }
 
     pub fn get_csr_mut(&mut self) -> &mut CsrHolder {

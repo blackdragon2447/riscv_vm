@@ -1,7 +1,10 @@
 use std::fmt::Debug;
 
 #[cfg(feature = "float")]
-use softfloat_wrapper::{Float, F32};
+use softfloat_wrapper::{Float, F32, F64};
+
+#[repr(transparent)]
+pub struct InvalidNaNBox(pub F32);
 
 pub struct Registers {
     int_registers: [i64; 32],
@@ -36,6 +39,8 @@ impl Default for Registers {
 }
 
 impl Registers {
+    const NAN_BOX_32_BIT: u64 = 0xFFFF_FFFF_0000_0000;
+
     pub fn new() -> Self {
         Self {
             int_registers: [0; 32],
@@ -56,13 +61,28 @@ impl Registers {
     }
 
     #[cfg(feature = "float")]
-    pub fn get_f32(&self, register: FloatRegister) -> F32 {
-        F32::from_bits(self.float_registers[register as usize] as u32)
+    pub fn get_f32(&self, register: FloatRegister) -> Result<F32, InvalidNaNBox> {
+        let bits = self.float_registers[register as usize];
+        if (bits & Self::NAN_BOX_32_BIT) == Self::NAN_BOX_32_BIT {
+            Ok(F32::from_bits(bits as u32))
+        } else {
+            Err(InvalidNaNBox(F32::from_bits(bits as u32)))
+        }
     }
 
     #[cfg(feature = "float")]
     pub fn set_f32(&mut self, register: FloatRegister, value: F32) {
-        self.float_registers[register as usize] = value.to_bits() as u64;
+        self.float_registers[register as usize] = (value.to_bits() as u64) | Self::NAN_BOX_32_BIT;
+    }
+
+    #[cfg(feature = "float")]
+    pub fn get_f64(&self, register: FloatRegister) -> F64 {
+        F64::from_bits(self.float_registers[register as usize])
+    }
+
+    #[cfg(feature = "float")]
+    pub fn set_f64(&mut self, register: FloatRegister, value: F64) {
+        self.float_registers[register as usize] = value.to_bits();
     }
 }
 

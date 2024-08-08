@@ -54,6 +54,7 @@ inst!(bne(s) for [b32, b64]
     where [rs1: int, rs2: int]:
 {
     if (rs1 != rs2) {
+        println!("{:?}", pc);
         Ok(ExecuteResult::Jump(pc + imm))
     } else {
         Ok(ExecuteResult::Continue)

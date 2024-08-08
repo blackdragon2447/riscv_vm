@@ -33,7 +33,7 @@ impl HandledDevice for TestOutputDevice {
 }
 
 macro_rules! isa_test {
-    (off: $name:ident) => {
+    (off(tohost: $tohost:expr): $name:ident) => {
         #[test]
         fn $name() -> Result<(), u32> {
             let bytes = fs::read(format!(
@@ -55,7 +55,8 @@ macro_rules! isa_test {
                 let bytes = u32::from_le_bytes(
                     vmstate
                         .mem()
-                        .read_bytes(0x80001000u64.into(), 4)
+                        // .read_bytes(0x80001000u64.into(), 4)
+                        .read_bytes($tohost.into(), 4)
                         .unwrap()
                         .try_into()
                         .unwrap(),
@@ -69,7 +70,7 @@ macro_rules! isa_test {
             }
         }
     };
-    (off: $name:ident, $mem:block) => {
+    (off(tohost: $tohost:expr): $name:ident, $mem:block) => {
         #[test]
         fn $name() -> Result<(), u32> {
             let bytes = fs::read(format!(
@@ -90,7 +91,7 @@ macro_rules! isa_test {
                 let bytes = u32::from_le_bytes(
                     vmstate
                         .mem()
-                        .read_bytes(0x80001000u64.into(), 4)
+                        .read_bytes($tohost.into(), 4)
                         .unwrap()
                         .try_into()
                         .unwrap(),
@@ -105,7 +106,7 @@ macro_rules! isa_test {
         }
     };
 
-    (off: $name:ident, $file:expr) => {
+    (off(tohost: $tohost:expr): $name:ident, $file:expr) => {
         #[test]
         fn $name() -> Result<(), u32> {
             let bytes = fs::read(format!("../vm_tests/official_tests/isa/{}", $file)).unwrap();
@@ -122,7 +123,7 @@ macro_rules! isa_test {
                 let bytes = u32::from_le_bytes(
                     vmstate
                         .mem()
-                        .read_bytes(0x80001000u64.into(), 4)
+                        .read_bytes($tohost.into(), 4)
                         .unwrap()
                         .try_into()
                         .unwrap(),
@@ -136,7 +137,7 @@ macro_rules! isa_test {
             }
         }
     };
-    (off: $name:ident, $file:expr, $mem:block) => {
+    (off(tohost: $tohost:expr): $name:ident, $file:expr, $mem:block) => {
         #[test]
         fn $name() -> Result<(), u32> {
             let bytes = fs::read(format!("../vm_tests/official_tests/isa/{}", $file)).unwrap();
@@ -153,7 +154,7 @@ macro_rules! isa_test {
                 let bytes = u32::from_le_bytes(
                     vmstate
                         .mem()
-                        .read_bytes(0x80001000u64.into(), 4)
+                        .read_bytes($tohost.into(), 4)
                         .unwrap()
                         .try_into()
                         .unwrap(),

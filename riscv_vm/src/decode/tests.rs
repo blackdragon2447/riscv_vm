@@ -300,7 +300,8 @@ mod instructions {
     }
 
     #[test]
-    fn fcvt_lu_s() {
+    #[cfg(feature = "float")]
+    fn fcvt_s_lu() {
         assert_eq!(
             decode(0xd0357053),
             FCVT_S_LU {
@@ -312,10 +313,106 @@ mod instructions {
     }
 
     #[test]
+    #[cfg(feature = "float")]
     fn fsw() {
         assert_eq!(
             decode(0x0015aa27),
             FSW {
+                rs1: X11,
+                rs2: F1,
+                imm: 20,
+            }
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "float")]
+    fn fld() {
+        assert_eq!(
+            decode(0x0250b187),
+            FLD {
+                rd: F3,
+                rs1: X1,
+                imm: 37
+            }
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "float")]
+    fn fmadd_d() {
+        assert_eq!(
+            decode(0x4a4381c3),
+            FMADD_D {
+                rd: F3,
+                rs1: F7,
+                rs2: F4,
+                rs3: F9,
+                rm: RoundingMode::ToNearestTieEven
+            }
+        )
+    }
+
+    #[test]
+    #[cfg(feature = "float")]
+    fn fmul_d() {
+        assert_eq!(
+            decode(0x12c47253),
+            FMUL_D {
+                rd: F4,
+                rs1: F8,
+                rs2: F12,
+                rm: RoundingMode::Dynamic
+            }
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "float")]
+    fn feq_d() {
+        assert_eq!(
+            decode(0xa349a7d3),
+            FEQ_D {
+                rd: X15,
+                rs1: F19,
+                rs2: F20
+            }
+        )
+    }
+
+    #[test]
+    #[cfg(feature = "float")]
+    fn fdiv_d() {
+        assert_eq!(
+            decode(0x1a1071d3),
+            FDIV_D {
+                rd: F3,
+                rs1: F0,
+                rs2: F1,
+                rm: RoundingMode::Dynamic
+            }
+        )
+    }
+
+    #[test]
+    #[cfg(feature = "float")]
+    fn fcvt_d_lu() {
+        assert_eq!(
+            decode(0xd2357053),
+            FCVT_D_LU {
+                rd: F0,
+                rs1: X10,
+                rm: RoundingMode::Dynamic,
+            }
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "float")]
+    fn fsd() {
+        assert_eq!(
+            decode(0x0015ba27),
+            FSD {
                 rs1: X11,
                 rs2: F1,
                 imm: 20,
