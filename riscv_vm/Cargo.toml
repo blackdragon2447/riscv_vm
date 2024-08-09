@@ -24,6 +24,9 @@ optional = true
 default-features = false
 features = ["riscv"]
 
+[[bin]]
+name = "riscv_vm"
+
 [features]
 default = ["float"]
 vga_text_buf = ["dep:pollster", "dep:wgpu", "dep:wgpu_text", "dep:winit"]

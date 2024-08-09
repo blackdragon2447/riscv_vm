@@ -37,7 +37,7 @@ use crate::{
 use self::timer::{MTimer, TimerRef};
 pub use builder::{VMInitError, VMStateBuilder};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct VMSettings {
     pub pmp_enable: bool,
     pub virt_mem_enable: bool,
@@ -49,12 +49,14 @@ pub struct VMSettings {
 
     pub s_mode_swi_enable: bool,
     pub s_mode_swi_addr: Address,
+
+    pub reset_vec: Address,
 }
 
 impl Default for VMSettings {
     fn default() -> Self {
         Self {
-            pmp_enable: false,
+            pmp_enable: true,
             virt_mem_enable: false,
 
             timer_addr: 0x1000.into(),
@@ -64,6 +66,8 @@ impl Default for VMSettings {
 
             s_mode_swi_enable: false,
             s_mode_swi_addr: 0x3000.into(),
+
+            reset_vec: 0x80000000u64.into(),
         }
     }
 }

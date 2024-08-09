@@ -1,39 +1,53 @@
+mod args;
+
 use std::{
     fs,
     io::{stdin, stdout, Write},
     usize,
 };
 
+use args::parse_args;
 use elf_load::Elf;
 #[cfg(feature = "vga_text_buf")]
 use riscv_vm::devices::vga_text_mode::VgaTextMode;
-use riscv_vm::{
-    devices::simple_uart::SimpleUart, vmstate::VMSettings, vmstate::VMStateBuilder, MB,
-};
+use riscv_vm::{devices::simple_uart::SimpleUart, vmstate::VMStateBuilder, MB};
 
 fn main() {
-    let args: Vec<String> = std::env::args().collect();
-    let bytes = fs::read(&args[1]).unwrap();
+    let args = match parse_args(std::env::args()) {
+        Ok(args) => args,
+        Err(err) => {
+            println!("{err}");
+            return;
+        }
+    };
+
+    let bytes = fs::read(args.kernel.unwrap()).unwrap();
     let elf = Elf::from_bytes(bytes).unwrap();
 
-    #[cfg_attr(not(feature = "vga_text_buf"), allow(unused_mut))]
-    let mut builder = VMStateBuilder::<{ 3 * MB }>::new(VMSettings {
-        m_mode_swi_enable: true,
-        s_mode_swi_enable: true,
-        ..Default::default()
-    })
-    .add_sync_device::<SimpleUart>(0x10000000u64.into())
-    .set_hart_count(1);
+    let builder = VMStateBuilder::<{ 3 * MB }>::new(args.settings).set_hart_count(args.hart_count);
 
-    #[cfg(feature = "vga_text_buf")]
-    let builder = builder.add_sync_device::<VgaTextMode>(0xB8000u64);
+    let builder = if args.uart {
+        builder.add_sync_device::<SimpleUart>(0x10000000u64.into())
+    } else {
+        builder
+    };
+
+    let builder = if args.graphic {
+        #[cfg(feature = "vga_text_buf")]
+        {
+            builder.add_sync_device::<VgaTextMode>(0xB8000u64)
+        }
+        #[cfg(not(any(feature = "vga_text_buf")))]
+        {
+            builder
+        }
+    } else {
+        builder
+    };
 
     let mut vmstate = builder.build().unwrap();
 
     vmstate.load_elf_kernel(&elf).unwrap();
-
-    // vmstate.step_hart_until(0, 0x2d8u64.into()).unwrap();
-    // vmstate.dump_mem();
 
     println!("Input a command or type help");
 

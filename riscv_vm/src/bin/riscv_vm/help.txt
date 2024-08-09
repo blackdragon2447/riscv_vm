@@ -1,0 +1,81 @@
+--pmp (default)
+--no-pmp
+	Enables RiscV's Physical Memory Protections,
+	these allow firmware or OSes to deny lower privilege
+	some or all access on parts of memory. Also see the RiscV
+	privileged spec 3.7.
+	enabled by default
+
+--virt-mem
+--no-virt-mem (default)
+	Enable the MMU and address translation, allows 
+	firmware or (more likely) OSes to use page tables
+	to controll a virtual address space. Also see the RiscV 
+	privileged spec 10.1.11.
+	disabled by default
+
+--timer-address
+	Where in memory to place the `mtime` and `mtimecmp` 
+	registers, these can be used to observe the passage 
+	of time and request an interrupt after the value in 
+	`mtime` has exceeded a certain value. Note that the 
+	number in `mtime` does not reflect real world time 
+	and can thus only be used to tell the passage of 
+	time and not absolute time. Also see the RiscV privileged 
+	spec 3.2.1.
+	default value: 0x1000
+
+--mswi
+--no-mswi (default)
+--mswi-address
+	Enable the machine mode software interrupt controller,
+	this memory mapped device allows diffirent Harts to 
+	interrupt eachother for communication. These 
+	interrupts come in the form of MachineSoftware
+	interrupts.
+	diabled by default
+	default address: 0x2000
+
+--sswi
+--no-sswi (default)
+--sswi-address
+	Enable the supervisor mode software interrupt controller,
+	this memory mapped device allows diffirent Harts to 
+	interrupt eachother for communication. These
+	interrupts come in the form of SupervisorSoftware
+	interrupts.
+	diabled by default
+	default address: 0x3000
+
+--reset-vec
+	The address at which the vm starts executing after a reset 
+	or when initially started, defaults to the bottom of RAM.
+	default address: 0x80000000
+
+--harts 
+	Set the number of harts (cores) of the vm
+	default value: 1
+
+--kernel
+	An elf file to load as the kernel, it is loaded at the 
+	location specified in the elf header (provided this is 
+	inside memory). Reasonably the kernel should be loaded 
+	in such a way execution can start at reset-vec.
+	This option is currently required as not specifying it 
+	would result in an unbootable vm.
+
+--graphic
+--no-graphic (default)
+	Provide a graphic output for the vm, this requires that 
+	some graphic device is enabled when riscv_vm was compiled.
+	Currently the only provided option is a VGA text buffer.
+	disabled by default
+
+--uart (default)
+--no-uart
+	Provide a serial communication device for io to the vm.
+	enabled by default
+
+--help
+	Print this!
+	
