@@ -166,6 +166,22 @@ impl From<u32> for IntRegister {
     }
 }
 
+impl From<u16> for IntRegister {
+    fn from(value: u16) -> Self {
+        match value {
+            0 => IntRegister::X8,
+            1 => IntRegister::X9,
+            2 => IntRegister::X10,
+            3 => IntRegister::X11,
+            4 => IntRegister::X12,
+            5 => IntRegister::X13,
+            6 => IntRegister::X14,
+            7 => IntRegister::X15,
+            _ => unreachable!(),
+        }
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 #[repr(u8)]
 #[cfg(feature = "float")]
@@ -240,6 +256,23 @@ impl From<u32> for FloatRegister {
             29 => FloatRegister::F29,
             30 => FloatRegister::F30,
             31 => FloatRegister::F31,
+            _ => unreachable!(),
+        }
+    }
+}
+
+#[cfg(feature = "float")]
+impl From<u16> for FloatRegister {
+    fn from(value: u16) -> Self {
+        match value {
+            0 => FloatRegister::F8,
+            1 => FloatRegister::F9,
+            2 => FloatRegister::F10,
+            3 => FloatRegister::F11,
+            4 => FloatRegister::F12,
+            5 => FloatRegister::F13,
+            6 => FloatRegister::F14,
+            7 => FloatRegister::F15,
             _ => unreachable!(),
         }
     }

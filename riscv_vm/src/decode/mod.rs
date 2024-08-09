@@ -1,8 +1,12 @@
+use compact::decode_compact;
 #[cfg(feature = "float")]
 use instruction::RoundingMode;
 
+use crate::hart::registers::IntRegister;
+
 pub use self::instruction::Instruction;
 
+mod compact;
 pub(crate) mod instruction;
 #[cfg(test)]
 mod tests;
@@ -18,21 +22,41 @@ pub(crate) enum InstructionType {
     J,
 }
 
+// #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+// pub(crate) enum CompactInstructionType {
+//     Cr,
+//     Ci,
+//     Css,
+//     Ciw,
+//     Cl,
+//     Cs,
+//     Ca,
+//     Cb,
+//     Cj,
+// }
+
 /// Decode a single RiscV instruction, Invalid instructions are encoded as a variant of the
 /// `Instruction` enum.
-pub fn decode(inst: u32) -> Instruction {
-    if let Some((inst_type, opcode)) = get_type_and_opcode(inst) {
-        match inst_type {
-            InstructionType::R => decode_r_type(opcode, inst),
-            InstructionType::R4 => decode_r4_type(opcode, inst),
-            InstructionType::I => decode_i_type(opcode, inst),
-            InstructionType::S => decode_s_type(opcode, inst),
-            InstructionType::B => decode_b_type(opcode, inst),
-            InstructionType::U => decode_u_type(opcode, inst),
-            InstructionType::J => decode_j_type(opcode, inst),
-        }
+pub fn decode(inst: u32) -> (Instruction, bool) {
+    if (inst & 0b11) != 0b11 {
+        (decode_compact(inst as u16), true)
     } else {
-        Instruction::Undifined(inst)
+        (
+            if let Some((inst_type, opcode)) = get_type_and_opcode(inst) {
+                match inst_type {
+                    InstructionType::R => decode_r_type(opcode, inst),
+                    InstructionType::R4 => decode_r4_type(opcode, inst),
+                    InstructionType::I => decode_i_type(opcode, inst),
+                    InstructionType::S => decode_s_type(opcode, inst),
+                    InstructionType::B => decode_b_type(opcode, inst),
+                    InstructionType::U => decode_u_type(opcode, inst),
+                    InstructionType::J => decode_j_type(opcode, inst),
+                }
+            } else {
+                Instruction::Undifined(inst)
+            },
+            false,
+        )
     }
 }
 

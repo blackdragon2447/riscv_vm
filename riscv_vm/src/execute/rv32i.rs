@@ -22,23 +22,73 @@ inst!(auipc(u) for [b32, b64]
     Ok(ExecuteResult::Continue)
 });
 
-inst!(jal(u) for [b32, b64]
-    where [rd: int]:
-{
-    *rd = pc.into();
-    *rd += 4;
-    Ok(ExecuteResult::Jump(pc + imm))
-});
+// inst!(jal(u) for [b32, b64]
+//     where [rd: int]:
+// {
+//     *rd = pc.into();
+//     *rd += 4;
+//     Ok(ExecuteResult::Jump(pc + imm))
+// });
 
-inst!(jalr(i) for [b32, b64]
-    where [rd: int, rs1: int]:
-{
+// inst!(jalr(i) for [b32, b64]
+//     where [rd: int, rs1: int]:
+// {
+//     *rd = pc.into();
+//     *rd += 4;
+//     Ok(ExecuteResult::Jump(
+//         (rs1.wrapping_add(imm.into()) & !1).into(),
+//     ))
+// });
+
+// Custom jal and jalr for use with C ext
+
+pub(super) fn jal_32(
+    pc: Address,
+    is_c: bool,
+    rd: &mut i32,
+    imm: i32,
+) -> Result<ExecuteResult, ExecuteError> {
     *rd = pc.into();
-    *rd += 4;
+    *rd += if is_c { 2 } else { 4 };
+    Ok(ExecuteResult::Jump(pc + imm))
+}
+pub(super) fn jal_64(
+    pc: Address,
+    is_c: bool,
+    rd: &mut i64,
+    imm: i32,
+) -> Result<ExecuteResult, ExecuteError> {
+    *rd = pc.into();
+    *rd += if is_c { 2 } else { 4 };
+    Ok(ExecuteResult::Jump(pc + imm))
+}
+
+pub(super) fn jalr_32(
+    pc: Address,
+    is_c: bool,
+    rd: &mut i32,
+    rs1: &i32,
+    imm: i32,
+) -> Result<ExecuteResult, ExecuteError> {
+    *rd = pc.into();
+    *rd += if is_c { 2 } else { 4 };
     Ok(ExecuteResult::Jump(
         (rs1.wrapping_add(imm.into()) & !1).into(),
     ))
-});
+}
+pub(super) fn jalr_64(
+    pc: Address,
+    is_c: bool,
+    rd: &mut i64,
+    rs1: &i64,
+    imm: i32,
+) -> Result<ExecuteResult, ExecuteError> {
+    *rd = pc.into();
+    *rd += if is_c { 2 } else { 4 };
+    Ok(ExecuteResult::Jump(
+        (rs1.wrapping_add(imm.into()) & !1).into(),
+    ))
+}
 
 inst!(beq(s) for [b32, b64]
     where [rs1: int, rs2: int]:
@@ -54,7 +104,6 @@ inst!(bne(s) for [b32, b64]
     where [rs1: int, rs2: int]:
 {
     if (rs1 != rs2) {
-        println!("{:?}", pc);
         Ok(ExecuteResult::Jump(pc + imm))
     } else {
         Ok(ExecuteResult::Continue)

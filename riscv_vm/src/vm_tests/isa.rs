@@ -144,3 +144,5 @@ isa_test!(off(tohost: 0x80002000u64): rv64ud_p_move, {16 * KB});
 isa_test!(off(tohost: 0x80001000u64): rv64ud_p_recoding, {16 * KB});
 #[cfg(feature = "float")]
 isa_test!(off(tohost: 0x80001000u64): rv64ud_p_structural, {16 * KB});
+
+isa_test!(off(tohost: 0x80003000u64): rv64uc_p_rvc, {16 * KB});

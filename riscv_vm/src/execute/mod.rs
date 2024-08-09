@@ -75,14 +75,26 @@ pub fn execute_rv64(
     hart: &mut Hart,
     mem: &mut Memory,
     instruction: Instruction,
+    is_c: bool,
     isa: BitFlags<Isa>,
 ) -> Result<ExecuteResult, ExecuteError> {
     match instruction {
         // rv64i
         LUI { rd, imm } => u_type(hart, rd, imm, rv32i::lui_64),
         AUIPC { rd, imm } => u_type(hart, rd, imm, rv32i::auipc_64),
-        JAL { rd, imm } => u_type(hart, rd, imm, rv32i::jal_64),
-        JALR { rd, rs1, imm } => i_type(hart, rd, rs1, imm, rv32i::jalr_64),
+        JAL { rd, imm } => {
+            let mut rdv = 0;
+            let result = rv32i::jal_64(hart.get_pc(), is_c, &mut rdv, imm)?;
+            hart.set_int_reg(rd, rdv);
+            Ok(result)
+        }
+        JALR { rd, rs1, imm } => {
+            let rs1 = hart.get_int_reg(rs1);
+            let mut rdv = 0;
+            let result = rv32i::jalr_64(hart.get_pc(), is_c, &mut rdv, &rs1, imm)?;
+            hart.set_int_reg(rd, rdv);
+            Ok(result)
+        }
         BEQ { rs1, rs2, imm } => s_type(hart, imm, rs1, rs2, rv32i::beq_64),
         BNE { rs1, rs2, imm } => s_type(hart, imm, rs1, rs2, rv32i::bne_64),
         BLT { rs1, rs2, imm } => s_type(hart, imm, rs1, rs2, rv32i::blt_64),

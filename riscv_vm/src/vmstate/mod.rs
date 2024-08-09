@@ -297,7 +297,7 @@ impl VMState {
     }
 
     /// Attempt to fetch on a specific hart and return the decoded instruction
-    pub fn fetch(&mut self, hart: usize) -> Result<Instruction, MemoryError> {
+    pub fn fetch(&mut self, hart: usize) -> Result<(Instruction, bool), MemoryError> {
         self.harts[hart].fetch(&mut self.mem)
     }
 

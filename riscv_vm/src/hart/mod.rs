@@ -71,8 +71,12 @@ impl Hart {
         self.pc
     }
 
-    pub fn inc_pc(&mut self) {
-        self.pc += 4;
+    pub fn inc_pc(&mut self, if_compact: bool) {
+        if if_compact {
+            self.pc += 2;
+        } else {
+            self.pc += 4;
+        }
     }
 
     pub fn set_pc(&mut self, pc: Address) {
@@ -180,7 +184,7 @@ impl Hart {
             return Ok(());
         }
 
-        let inst = match self.fetch(mem) {
+        let (inst, is_compact) = match self.fetch(mem) {
             Ok(inst) => inst,
             Err(err) => match err {
                 MemoryError::PmpDeniedFetch => {
@@ -203,9 +207,9 @@ impl Hart {
             println!("{:#?}", &inst);
         }
 
-        let result = execute_rv64(self, mem, inst, self.csr.isa());
+        let result = execute_rv64(self, mem, inst, is_compact, self.csr.isa());
         match result {
-            Ok(ExecuteResult::Continue) => self.inc_pc(),
+            Ok(ExecuteResult::Continue) => self.inc_pc(is_compact),
             Ok(ExecuteResult::WFI) => self.wait_for_interrupt(),
             Ok(ExecuteResult::Jump(pc)) => self.set_pc(pc),
             Ok(ExecuteResult::CsrUpdate(addr)) => {
@@ -213,7 +217,7 @@ impl Hart {
                     self.exception(Exception::IllegalInstruction);
                     return Ok(());
                 }
-                self.inc_pc();
+                self.inc_pc(is_compact);
             }
             Err(ExecuteError::Exception(e)) => {
                 self.exception(e);
@@ -246,7 +250,7 @@ impl Hart {
         }
     }
 
-    pub fn fetch(&self, mem: &mut Memory) -> Result<Instruction, MemoryError> {
+    pub fn fetch(&self, mem: &mut Memory) -> Result<(Instruction, bool), MemoryError> {
         let mut window = mem.window(self);
         let inst = window.fetch(self.get_pc())?;
         Ok(decode(inst))

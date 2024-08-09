@@ -26,6 +26,7 @@ pub const SUPPORTED_EXTENTIONS: &[&str] = &[
     "Zaamo",
     "F", 
     "D", 
+    "C",
     // Privileged
     "S",
     "U",
@@ -55,7 +56,6 @@ pub const UNSUPPORTED_EXENTIONS: &[&str] = &[
     "Zdinx",
     "Zhinx",
     "Zhinxmin",
-    "C", // Required, Zc* not noted spereately for now
     "B",
     "J",
     "P",
