@@ -36,8 +36,6 @@ impl MemoryBuffer for SwiController {
     }
 
     fn write_bytes(&mut self, bytes: &[u8], addr: Address) -> Result<(), MemoryBufferError> {
-        dbg!(bytes);
-        dbg!(addr);
         let addr = <Address as Into<u64>>::into(addr);
         if addr % 8 != 0 {
             return Err(MemoryBufferError::UnalignedWrite(addr.into()));

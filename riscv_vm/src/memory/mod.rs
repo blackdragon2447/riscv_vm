@@ -85,22 +85,9 @@ pub enum MemoryError {
     FetchUnsupported,
 }
 
-// impl Debug for Memory {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         // writeln!(f, "range: {:?}", self.mem_range);
-//         for c in self.mem.chunks(32) {
-//             for b in c {
-//                 write!(f, "{:02X} ", b)?;
-//             }
-//             writeln!(f)?;
-//         }
-//         Ok(())
-//     }
-// }
-
 impl MainMemoryBuffer {
-    pub fn new<const SIZE: usize>() -> Self {
-        Self(vec![0u8; SIZE].into_boxed_slice())
+    pub fn new(size: usize) -> Self {
+        Self(vec![0u8; size].into_boxed_slice())
     }
 }
 
@@ -120,11 +107,10 @@ impl MemoryBuffer for MainMemoryBuffer {
 }
 
 impl Memory {
-    pub fn new<const SIZE: usize>() -> Self {
-        let mem = vec![0u8; SIZE].into_boxed_slice();
+    pub fn new(size: usize) -> Self {
         Self {
-            main_buffer: MainMemoryBuffer::new::<SIZE>(),
-            memory_map: MemoryMap::new(0x80000000u64.into()..=(0x80000000u64 + SIZE as u64).into()),
+            main_buffer: MainMemoryBuffer::new(size),
+            memory_map: MemoryMap::new(0x80000000u64.into()..=(0x80000000u64 + size as u64).into()),
             device_regions: IntMap::default(),
             reservations: IntMap::default(),
             next_region_id: 0,
@@ -352,8 +338,6 @@ impl MemoryWindow<'_> {
 
     pub fn write_conditional(&mut self, bytes: &[u8], addr: Address) -> Result<bool, MemoryError> {
         // A reservation exists for this hart and is for the address and size we want to write to
-        dbg!(&self.mem.reservations);
-        dbg!(addr..(addr + bytes.len() as u64));
         if let Some(r) = self.mem.reservations.get(&self.hartid) {
             if *r == (addr..(addr + bytes.len() as u64)) {
                 self.write_bytes(bytes, addr).map(|_| true)
@@ -430,9 +414,9 @@ impl MemoryWindow<'_> {
         };
         if !self.pmp.map_or_else(
             || true,
-            |pmp| pmp.check(addr, self.privilege, AccessMode::Read),
+            |pmp| pmp.check(addr, self.privilege, AccessMode::Exec),
         ) {
-            return Err(MemoryError::PmpDeniedRead);
+            return Err(MemoryError::PmpDeniedFetch);
         }
         // Remove all reservations that
         // contain the address we write to

@@ -10,7 +10,7 @@ use args::parse_args;
 use elf_load::Elf;
 #[cfg(feature = "vga_text_buf")]
 use riscv_vm::devices::vga_text_mode::VgaTextMode;
-use riscv_vm::{devices::simple_uart::SimpleUart, vmstate::VMStateBuilder, MB};
+use riscv_vm::{devices::simple_uart::SimpleUart, vmstate::VMStateBuilder};
 
 fn main() {
     let args = match parse_args(std::env::args()) {
@@ -24,26 +24,18 @@ fn main() {
     let bytes = fs::read(args.kernel.unwrap()).unwrap();
     let elf = Elf::from_bytes(bytes).unwrap();
 
-    let builder = VMStateBuilder::<{ 3 * MB }>::new(args.settings).set_hart_count(args.hart_count);
+    let mut builder = VMStateBuilder::new(args.settings)
+        .set_hart_count(args.hart_count)
+        .mem_size(args.mem_size);
 
-    let builder = if args.uart {
-        builder.add_sync_device::<SimpleUart>(0x10000000u64.into())
-    } else {
-        builder
-    };
+    if args.uart {
+        builder.add_sync_device::<SimpleUart>(0x10000000u64.into());
+    }
 
-    let builder = if args.graphic {
+    if args.graphic {
         #[cfg(feature = "vga_text_buf")]
-        {
-            builder.add_sync_device::<VgaTextMode>(0xB8000u64)
-        }
-        #[cfg(not(any(feature = "vga_text_buf")))]
-        {
-            builder
-        }
-    } else {
-        builder
-    };
+        builder.add_async_device::<VgaTextMode>(0xB8000u64);
+    }
 
     let mut vmstate = builder.build().unwrap();
 

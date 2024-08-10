@@ -352,7 +352,7 @@ mod paging {
 
 #[test]
 fn read() {
-    let mem = Memory::new::<256>();
+    let mem = Memory::new(256);
     let result = mem.read_bytes(0x8000000Fu64.into(), 4);
     let expected_read = vec![0; 4];
     assert!(matches!(result, Ok(expected_read)));
@@ -366,7 +366,7 @@ fn read_pmp() {
         PmpCfg::new_configured(true, false, false, AddressMatch::TOR, false).to_bits() as u64,
     );
     pmp.write_addr_rv64(0, (0x90000000u64 >> 2));
-    let mut mem = Memory::new::<256>();
+    let mut mem = Memory::new(256);
     let mut hart = Hart::new(
         0,
         VMSettings {
@@ -391,7 +391,7 @@ fn read_pmp_denied() {
         PmpCfg::new_configured(false, false, false, AddressMatch::TOR, false).to_bits() as u64,
     );
     pmp.write_addr_rv64(0, (0x90000000u64 >> 2));
-    let mut mem = Memory::new::<256>();
+    let mut mem = Memory::new(256);
     let mut hart = Hart::new(
         0,
         VMSettings {
@@ -410,14 +410,14 @@ fn read_pmp_denied() {
 
 #[test]
 fn read_oob() {
-    let mem = Memory::new::<256>();
+    let mem = Memory::new(256);
     let result = mem.read_bytes(0x800000FFu64.into(), 4);
     assert!(matches!(result, Err(MemoryError::OutOfBoundsRead(_))));
 }
 
 #[test]
 fn write() {
-    let mut mem = Memory::new::<256>();
+    let mut mem = Memory::new(256);
     let to_write = [37; 4];
     let result = mem.write_bytes(&to_write, 0x8000000Fu64.into());
     assert!(matches!(result, Ok(())));
@@ -435,7 +435,7 @@ fn write_pmp_denied() {
         PmpCfg::new_configured(true, false, true, AddressMatch::TOR, false).to_bits() as u64,
     );
     pmp.write_addr_rv64(0, (0x90000000u64 >> 2));
-    let mut mem = Memory::new::<256>();
+    let mut mem = Memory::new(256);
     let mut hart = Hart::new(
         0,
         VMSettings {
@@ -451,7 +451,6 @@ fn write_pmp_denied() {
 
     let to_write = [37; 4];
     let result = window.write_bytes(&to_write, 0x8000000Fu64.into());
-    dbg!(&result);
     assert!(matches!(result, Err(MemoryError::PmpDeniedWrite)));
 }
 
@@ -463,7 +462,7 @@ fn write_pmp() {
         PmpCfg::new_configured(true, true, false, AddressMatch::TOR, false).to_bits() as u64,
     );
     pmp.write_addr_rv64(0, (0x90000000u64 >> 2));
-    let mut mem = Memory::new::<256>();
+    let mut mem = Memory::new(256);
     let mut hart = Hart::new(
         0,
         VMSettings {
@@ -488,7 +487,7 @@ fn write_pmp() {
 
 #[test]
 fn write_oom() {
-    let mut mem = Memory::new::<256>();
+    let mut mem = Memory::new(256);
     let to_write = [37; 4];
     let result = mem.write_bytes(&to_write, 0x800000FFu64.into());
     assert!(matches!(result, Err(MemoryError::OutOfMemory)));
@@ -496,7 +495,7 @@ fn write_oom() {
 
 #[test]
 fn write_oob() {
-    let mut mem = Memory::new::<256>();
+    let mut mem = Memory::new(256);
     let to_write = [37; 4];
     let result = mem.write_bytes(&to_write, 0x800001FFu64.into());
     assert!(matches!(result, Err(MemoryError::OutOfBoundsWrite(_))));
@@ -504,7 +503,7 @@ fn write_oob() {
 
 #[test]
 fn reservation() {
-    let mut mem = Memory::new::<256>();
+    let mut mem = Memory::new(256);
     let hart = Hart::new(0, VMSettings::default(), TimerRef::dummy());
 
     // Populate the memory with random junk

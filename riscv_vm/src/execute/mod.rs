@@ -692,6 +692,7 @@ pub fn execute_rv64(
             hart.set_f32_reg(rd, rdv);
             Ok(result)
         }
+        #[cfg(feature = "float")]
         FCVT_D_S { rd, rs1, rm } => {
             let mut rdv = F64::positive_zero();
             let rs1 = hart.get_f32_reg(rs1).unwrap_or(F32::quiet_nan());

@@ -1,6 +1,6 @@
 use std::{
     default,
-    fmt::Debug,
+    fmt::{Debug, UpperHex},
     ops::{Range, RangeInclusive},
 };
 
@@ -164,7 +164,7 @@ impl PMP {
 
                 AddressMatch::NAPOT => {
                     let mut addr = self.pmpaddr[i];
-                    let mut size = 3;
+                    let mut size = 3; // Minimum size is 2^3 (end in 0)
                     while addr % 2 != 0 {
                         size += 1;
                         addr >>= 1;

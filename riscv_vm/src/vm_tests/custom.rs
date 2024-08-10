@@ -22,12 +22,13 @@ fn rv64ui_v_software_interrupt() -> Result<(), u32> {
     .unwrap();
     let elf = Elf::from_bytes(bytes).unwrap();
 
-    let mut vmstate = VMStateBuilder::<{ (4 * KB) + 128 }>::new(VMSettings {
+    let mut vmstate = VMStateBuilder::new(VMSettings {
         m_mode_swi_enable: true,
         ..Default::default()
     })
+    .mem_size({ (4 * KB) + 128 })
     .set_hart_count(2)
-    .add_sync_device::<TestOutputDevice>(0x70000000u64.into())
+    .sync_device::<TestOutputDevice>(0x70000000u64.into())
     .build()
     .unwrap();
 

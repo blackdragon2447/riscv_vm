@@ -103,14 +103,8 @@ pub enum VMError {
 }
 
 impl VMState {
-    fn new<const MEM_SIZE: usize>(hart_count: u64, settings: VMSettings) -> Self {
-        let mut mem = Memory::new::<MEM_SIZE>();
-        // let timer = MTimer::new(
-        //     hart_count as usize,
-        //     bus.get_handle(InterruptPermission::InterruptController),
-        // );
-        // let timer: DeviceData = Arc::new(RwLock::new(Box::new(timer)));
-        // mem.add_timer(0x1000.into(), 0x1040.into(), timer.clone());
+    fn new(hart_count: u64, settings: VMSettings, mem_size: usize) -> Self {
+        let mut mem = Memory::new(mem_size);
 
         let mut timer = MTimer::new(hart_count as usize);
 
@@ -172,13 +166,6 @@ impl VMState {
         dev.init_device(&mut self.mem);
         self.sync_devices.push(dev);
         Ok(())
-        // let mut memory = DeviceMemory::new(mem_size, addr);
-        // dev.1
-        //     .init_device(&mut memory, self.mem.register_handle(id))?;
-        // self.sync_devices.insert(id, dev.1);
-        // self.mem.add_device_memory(id, memory);
-        // self.device_event_bus.add_device(id, dev.0);
-        // Ok(())
     }
 
     fn add_async_device(&mut self, mut dev: AsyncDeviceHolder) -> Result<(), DeviceInitError> {
@@ -201,21 +188,8 @@ impl VMState {
 
     /// Advance all cores one cycle and, if verbose, print the instruction that was executed
     pub fn step(&mut self, verbose: bool) -> Result<(), VMError> {
-        // TODO
-        // for dev in &mut self.sync_devices {
-        //     dev.1.update(
-        //         &mut *self
-        //             .mem
-        //             .get_device_memory(dev.0)?
-        //             .ok_or(VMError::NoDeviceMemory)?,
-        //         &self
-        //             .device_event_bus
-        //             .get_handle(InterruptPermission::Normal),
-        //     )?;
-        // }
-
         for dev in &mut self.sync_devices {
-            dev.update().unwrap();
+            dev.update()?;
         }
 
         self.timer.read().unwrap().generate_interrupts();
@@ -246,37 +220,6 @@ impl VMState {
                     hart.step(&mut self.mem, false)?;
                 }
             }
-
-            // self.device_event_bus.distribute();
-
-            // for i in self.device_event_bus.interrupts() {
-            //     match i {
-            //         crate::devices::event_bus::InterruptSignal::Set(t, i) => match t {
-            //             InterruptTarget::All => {
-            //                 for h in &mut self.harts {
-            //                     h.interrupt(i);
-            //                 }
-            //             }
-            //             InterruptTarget::Single(h) => {
-            //                 if let Some(h) = self.harts.get_mut(h) {
-            //                     h.interrupt(i);
-            //                 }
-            //             }
-            //         },
-            //         crate::devices::event_bus::InterruptSignal::Clear(t, i) => match t {
-            //             InterruptTarget::All => {
-            //                 for h in &mut self.harts {
-            //                     h.clear_interrupt(i);
-            //                 }
-            //             }
-            //             InterruptTarget::Single(h) => {
-            //                 if let Some(h) = self.harts.get_mut(h) {
-            //                     h.clear_interrupt(i);
-            //                 }
-            //             }
-            //         },
-            //     }
-            // }
         }
 
         for hart in &self.harts {

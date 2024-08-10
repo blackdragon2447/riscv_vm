@@ -221,6 +221,11 @@ reset_vector:
 	or a0, a0, a1
 	csrw satp, a0
 
+	li t0, (1 << (31 + (__riscv_xlen / 64) * (53 - 31))) - 1;
+	csrw pmpaddr0, t0;
+	li t0, PMP_NAPOT | PMP_R | PMP_W | PMP_X;
+	csrw pmpcfg0, t0;
+
 	li a0, 0b01
 	slli a0, a0, 11
 	csrs mstatus, a0

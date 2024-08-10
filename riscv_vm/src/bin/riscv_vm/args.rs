@@ -1,11 +1,12 @@
-use std::{convert::Infallible, fmt::Display, path::PathBuf, str::FromStr};
+use std::{convert::Infallible, fmt::Display, path::PathBuf, str::FromStr, usize};
 
-use riscv_vm::vmstate::VMSettings;
+use riscv_vm::{vmstate::VMSettings, KB, MB};
 
 #[derive(Default, Debug, PartialEq, Eq)]
 pub struct VMArgs {
     pub settings: VMSettings,
     pub hart_count: u64,
+    pub mem_size: usize,
     pub kernel: Option<PathBuf>,
     // firmware: Option<PathBuf>,
     pub graphic: bool,
@@ -49,6 +50,8 @@ pub fn parse_args<I: Iterator<Item = String>>(mut args: I) -> Result<VMArgs, Par
     let mut reset_vec = None;
 
     let mut hart_count = None;
+
+    let mut mem_size = None;
 
     let mut kernel = None;
     // let mut firmware = None;
@@ -124,6 +127,29 @@ pub fn parse_args<I: Iterator<Item = String>>(mut args: I) -> Result<VMArgs, Par
                 "--reset-vec".to_string(),
             )?,
 
+            "--mem-size" => {
+                try_set_arg(
+                    &mut mem_size,
+                    {
+                        let arg = args
+                            .next()
+                            .map(|s| if s.starts_with("--") { None } else { Some(s) })
+                            .flatten()
+                            .ok_or(ParseArgError::MissingValue("--reset-vec".to_string()))?;
+
+                        if let Some(arg) = arg.to_lowercase().strip_suffix("kb") {
+                            arg.parse::<usize>()
+                                .map_err(|_| ParseArgError::Other(format!("{arg} is not a valid number for memory size, see --help for more")))? * KB
+                        } else if let Some(arg) = arg.to_lowercase().strip_suffix("mb") {
+                            arg.parse::<usize>().map_err(|_| ParseArgError::Other(format!("{arg} is not a valid number for memory size, see --help for more")))? * MB
+                        } else {
+                            arg.parse::<usize>().map_err(|_| ParseArgError::Other(format!("{arg} is not a valid number for memory size, see --help for more")))?
+                        }
+                    },
+                    "--reset-vec".to_string(),
+                )?
+            }
+
             "--kernel" => try_set_arg(
                 &mut kernel,
                 PathBuf::from_str(
@@ -180,6 +206,14 @@ pub fn parse_args<I: Iterator<Item = String>>(mut args: I) -> Result<VMArgs, Par
 
     if let Some(hart_count) = hart_count {
         vm_args.hart_count = hart_count;
+    } else {
+        vm_args.hart_count = 1;
+    }
+
+    if let Some(mem_size) = mem_size {
+        vm_args.mem_size = mem_size;
+    } else {
+        vm_args.mem_size = 3 * MB;
     }
 
     vm_args.kernel = kernel;
@@ -191,7 +225,7 @@ pub fn parse_args<I: Iterator<Item = String>>(mut args: I) -> Result<VMArgs, Par
     }
 
     if let Some(graphic) = graphic {
-        if !cfg!(feature = "vga_text_buf") {
+        if !cfg!(feature = "vga_text_buf") && graphic {
             return Err(ParseArgError::Other(
                 "Graphic output is unsupported, see --help for more".to_string(),
             ));
@@ -248,7 +282,7 @@ mod tests {
     #[test]
     fn help() {
         assert_eq!(
-            parse_args(vec!["--help".to_string()].into_iter()),
+            parse_args(vec!["test".to_string(), "--help".to_string()].into_iter()),
             Err(ParseArgError::PrintHelp)
         );
     }
@@ -256,15 +290,25 @@ mod tests {
     #[test]
     fn normal_args() {
         assert_eq!(
-            parse_args(vec!["--kernel".to_string(), "/dev/null".to_string()].into_iter()),
+            parse_args(
+                vec![
+                    "test".to_string(),
+                    "--kernel".to_string(),
+                    "/dev/null".to_string()
+                ]
+                .into_iter()
+            ),
             Ok(VMArgs {
                 kernel: Some(PathBuf::from("/dev/null")),
+                hart_count: 1,
                 ..Default::default()
             })
         );
+        #[cfg(any(feature = "vga_text_buf"))]
         assert_eq!(
             parse_args(
                 vec![
+                    "test".to_string(),
                     "--kernel".to_string(),
                     "/dev/null".to_string(),
                     "--graphic".to_string()
@@ -274,12 +318,29 @@ mod tests {
             Ok(VMArgs {
                 kernel: Some(PathBuf::from("/dev/null")),
                 graphic: true,
+                hart_count: 1,
                 ..Default::default()
             })
+        );
+        #[cfg(not(any(feature = "vga_text_buf")))]
+        assert_eq!(
+            parse_args(
+                vec![
+                    "test".to_string(),
+                    "--kernel".to_string(),
+                    "/dev/null".to_string(),
+                    "--graphic".to_string()
+                ]
+                .into_iter()
+            ),
+            Err(ParseArgError::Other(
+                "Graphic output is unsupported, see --help for more".to_string(),
+            ))
         );
         assert_eq!(
             parse_args(
                 vec![
+                    "test".to_string(),
                     "--kernel".to_string(),
                     "/dev/null".to_string(),
                     "--no-graphic".to_string()
@@ -289,12 +350,14 @@ mod tests {
             Ok(VMArgs {
                 kernel: Some(PathBuf::from("/dev/null")),
                 graphic: false,
+                hart_count: 1,
                 ..Default::default()
             })
         );
         assert_eq!(
             parse_args(
                 vec![
+                    "test".to_string(),
                     "--kernel".to_string(),
                     "/dev/null".to_string(),
                     "--reset-vec".to_string(),
@@ -304,6 +367,7 @@ mod tests {
             ),
             Ok(VMArgs {
                 kernel: Some(PathBuf::from("/dev/null")),
+                hart_count: 1,
                 settings: VMSettings {
                     reset_vec: 0x70000000u64.into(),
                     ..Default::default()

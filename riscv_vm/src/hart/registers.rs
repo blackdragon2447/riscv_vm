@@ -4,6 +4,7 @@ use std::fmt::Debug;
 use softfloat_wrapper::{Float, F32, F64};
 
 #[repr(transparent)]
+#[cfg(feature = "float")]
 pub struct InvalidNaNBox(pub F32);
 
 pub struct Registers {
@@ -14,21 +15,24 @@ pub struct Registers {
 
 impl Debug for Registers {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut debug = f.debug_struct("Registers");
+        // let mut debug = f.debug_struct("Registers");
+        writeln!(f, "{{");
 
         for (i, r) in self.int_registers.iter().enumerate() {
             // debug.field(format!("X{i}").as_str(), &format!("{r:#X}"));
-            debug.field(format!("X{i}").as_str(), &format!("{r:#X}"));
+            writeln!(f, "    X{i}: {r:#X}");
         }
 
-        debug.field("", &"");
+        writeln!(f);
 
         #[cfg(feature = "float")]
         for (i, r) in self.float_registers.iter().enumerate() {
-            debug.field(format!("F{i}").as_str(), &format!("{r:#X}"));
+            writeln!(f, "    F{i}: {r:#X}");
         }
 
-        debug.finish()
+        write!(f, "}}");
+
+        Ok(())
     }
 }
 

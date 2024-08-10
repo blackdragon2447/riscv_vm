@@ -43,7 +43,8 @@ macro_rules! isa_test {
             .unwrap();
             let elf = Elf::from_bytes(bytes).unwrap();
 
-            let mut vmstate = VMStateBuilder::<{ (4 * KB) + 128 }>::default()
+            let mut vmstate = VMStateBuilder::default()
+                .mem_size((4 * KB) + 128)
                 .set_hart_count(1)
                 .build()
                 .unwrap();
@@ -80,7 +81,8 @@ macro_rules! isa_test {
             .unwrap();
             let elf = Elf::from_bytes(bytes).unwrap();
 
-            let mut vmstate = VMStateBuilder::<$mem>::default()
+            let mut vmstate = VMStateBuilder::default()
+                .mem_size($mem)
                 .set_hart_count(1)
                 .build()
                 .unwrap();
@@ -112,7 +114,8 @@ macro_rules! isa_test {
             let bytes = fs::read(format!("../vm_tests/official_tests/isa/{}", $file)).unwrap();
             let elf = Elf::from_bytes(bytes).unwrap();
 
-            let mut vmstate = VMStateBuilder::<{ (4 * KB) + 128 }>::default()
+            let mut vmstate = VMStateBuilder::default()
+                .mem_size({ (4 * KB) + 128 })
                 .set_hart_count(1)
                 .build()
                 .unwrap();
@@ -143,7 +146,8 @@ macro_rules! isa_test {
             let bytes = fs::read(format!("../vm_tests/official_tests/isa/{}", $file)).unwrap();
             let elf = Elf::from_bytes(bytes).unwrap();
 
-            let mut vmstate = VMStateBuilder::<$mem>::default()
+            let mut vmstate = VMStateBuilder::default()
+                .mem_size($mem)
                 .set_hart_count(1)
                 .build()
                 .unwrap();
@@ -179,9 +183,10 @@ macro_rules! isa_test {
             .unwrap();
             let elf = Elf::from_bytes(bytes).unwrap();
 
-            let mut vmstate = VMStateBuilder::<{ (4 * KB) + 128 }>::default()
+            let mut vmstate = VMStateBuilder::default()
+                .mem_size({ (4 * KB) + 128 })
                 .set_hart_count(1)
-                .add_sync_device::<TestOutputDevice>(0x70000000u64.into())
+                .sync_device::<TestOutputDevice>(0x70000000u64.into())
                 .build()
                 .unwrap();
 
@@ -216,9 +221,10 @@ macro_rules! isa_test {
             .unwrap();
             let elf = Elf::from_bytes(bytes).unwrap();
 
-            let mut vmstate = VMStateBuilder::<$mem>::default()
+            let mut vmstate = VMStateBuilder::default()
+                .mem_size($mem)
                 .set_hart_count(1)
-                .add_sync_device::<TestOutputDevice>(0x70000000u64.into())
+                .sync_device::<TestOutputDevice>(0x70000000u64.into())
                 .build()
                 .unwrap();
 
@@ -250,9 +256,10 @@ macro_rules! isa_test {
             let bytes = fs::read(format!("../vm_tests/custom_tests/out/{}", $file)).unwrap();
             let elf = Elf::from_bytes(bytes).unwrap();
 
-            let mut vmstate = VMStateBuilder::<{ (4 * KB) + 128 }>::default()
+            let mut vmstate = VMStateBuilder::default()
+                .mem_size({ (4 * KB) + 128 })
                 .set_hart_count(1)
-                .add_sync_device::<TestOutputDevice>(0x70000000u64.into())
+                .sync_device::<TestOutputDevice>(0x70000000u64.into())
                 .build()
                 .unwrap();
 
@@ -283,9 +290,10 @@ macro_rules! isa_test {
             let bytes = fs::read(format!("../vm_tests/custom_tests/out/{}", $file)).unwrap();
             let elf = Elf::from_bytes(bytes).unwrap();
 
-            let mut vmstate = VMStateBuilder::<$mem>::default()
+            let mut vmstate = VMStateBuilder::default()
+                .mem_size($mem)
                 .set_hart_count(1)
-                .add_sync_device::<TestOutputDevice>(0x70000000u64.into())
+                .sync_device::<TestOutputDevice>(0x70000000u64.into())
                 .build()
                 .unwrap();
 

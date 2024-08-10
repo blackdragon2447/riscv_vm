@@ -56,6 +56,14 @@
 	Set the number of harts (cores) of the vm
 	default value: 1
 
+--mem-size
+	Set the size of the main memory, must be an integer number,
+	may have a postfix of KB or MB to indicate kilobytes or 
+	megabytes respetively. 
+	examples:	--mem-size 3KB
+				--mem-size 16MB 
+	default value: 3MB
+
 --kernel
 	An elf file to load as the kernel, it is loaded at the 
 	location specified in the elf header (provided this is 

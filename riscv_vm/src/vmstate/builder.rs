@@ -19,8 +19,9 @@ use crate::{
 // this bad is fine
 #[allow(clippy::type_complexity)]
 #[derive(Default, Debug)]
-pub struct VMStateBuilder<const MEM_SIZE: usize> {
+pub struct VMStateBuilder {
     hart_count: u64, //TODO: Change to vec HartSettings at some point
+    mem_size: usize,
     settings: VMSettings,
     handled_devices: Vec<HandledDeviceHolder>,
     async_devices: Vec<AsyncDeviceHolder>,
@@ -31,7 +32,7 @@ pub enum VMInitError {
     DeviceInitError(DeviceInitError),
 }
 
-impl<const MEM_SIZE: usize> VMStateBuilder<MEM_SIZE> {
+impl VMStateBuilder {
     /// Create a default instance of the builder with custom settings
     pub fn new(settings: VMSettings) -> Self {
         Self {
@@ -53,6 +54,11 @@ impl<const MEM_SIZE: usize> VMStateBuilder<MEM_SIZE> {
         self
     }
 
+    pub fn mem_size(mut self, mem_size: usize) -> Self {
+        self.mem_size = mem_size;
+        self
+    }
+
     /// Set the number of harts this vm has.
     ///
     /// NOTE: Will at some point be replaced with hart specific settings.
@@ -61,15 +67,14 @@ impl<const MEM_SIZE: usize> VMStateBuilder<MEM_SIZE> {
         self
     }
 
-    #[deprecated]
-    /// DEPRECATED, Does nothing
-    /// Interrupt Contoller will be built in, only a toggle will be available
-    pub fn add_interrupt_controllder<D: Device + AsyncDevice + 'static>(
-        mut self,
-        addr: Address,
-    ) -> Self {
-        unimplemented!();
-
+    /// Add a handled/sync devicem the actual device is specified via the generic, the address
+    /// specifies where the devices memory will be placed in the vm's memory
+    // The device will be passed this base address so it can place its memory mapped registers
+    // relative to this address
+    pub fn sync_device<D: Device + HandledDevice + 'static>(mut self, addr: Address) -> Self {
+        let device = Box::new(D::new());
+        let dev = HandledDeviceHolder::new(device);
+        self.handled_devices.push(dev.1);
         self
     }
 
@@ -77,10 +82,20 @@ impl<const MEM_SIZE: usize> VMStateBuilder<MEM_SIZE> {
     /// specifies where the devices memory will be placed in the vm's memory
     // The device will be passed this base address so it can place its memory mapped registers
     // relative to this address
-    pub fn add_sync_device<D: Device + HandledDevice + 'static>(mut self, addr: Address) -> Self {
+    pub fn add_sync_device<D: Device + HandledDevice + 'static>(&mut self, addr: Address) {
         let device = Box::new(D::new());
         let dev = HandledDeviceHolder::new(device);
         self.handled_devices.push(dev.1);
+    }
+
+    /// Add an async devicem the actual device is specified via the generic, the address
+    /// specifies where the devices memory will be placed in the vm's memory
+    // The device will be passed this base address so it can place its memory mapped registers
+    // relative to this address
+    pub fn async_device<D: Device + AsyncDevice + 'static>(mut self) -> Self {
+        let device = Box::new(D::new());
+        let dev = AsyncDeviceHolder::new(device);
+        self.async_devices.push(dev.1);
         self
     }
 
@@ -88,16 +103,15 @@ impl<const MEM_SIZE: usize> VMStateBuilder<MEM_SIZE> {
     /// specifies where the devices memory will be placed in the vm's memory
     // The device will be passed this base address so it can place its memory mapped registers
     // relative to this address
-    pub fn add_async_device<D: Device + AsyncDevice + 'static>(mut self) -> Self {
+    pub fn add_async_device<D: Device + AsyncDevice + 'static>(mut self) {
         let device = Box::new(D::new());
         let dev = AsyncDeviceHolder::new(device);
         self.async_devices.push(dev.1);
-        self
     }
 
     /// Build a vm from this builder, consumes the builder
     pub fn build(self) -> Result<VMState, VMInitError> {
-        let mut state = VMState::new::<MEM_SIZE>(self.hart_count, self.settings);
+        let mut state = VMState::new(self.hart_count, self.settings, self.mem_size);
         for d in self.handled_devices {
             state.add_sync_device(d)?;
         }

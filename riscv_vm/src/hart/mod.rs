@@ -199,7 +199,9 @@ impl Hart {
                     self.exception(Exception::InstructionAccessFault);
                     return Ok(());
                 }
-                _ => unreachable!("fetch may not return non fetch errors"),
+                _ => {
+                    unreachable!("fetch may not return non fetch errors: {:?}", err);
+                }
             },
         };
 
