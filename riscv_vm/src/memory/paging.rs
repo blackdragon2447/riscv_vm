@@ -1,9 +1,6 @@
 use enumflags2::{bitflags, make_bitflags, BitFlag, BitFlags};
 
-use crate::{
-    hart::privilege::{self, PrivilegeMode},
-    memory::pmp::AccessMode,
-};
+use crate::{hart::privilege::PrivilegeMode, memory::pmp::AccessMode};
 
 use super::{
     address::{Address, VirtAddress},
@@ -333,10 +330,10 @@ impl PteType {
 }
 
 impl Satp {
-    pub fn to_bits(&self) -> u64 {
+    pub fn to_bits(self) -> u64 {
         let mut bits = self.ppn;
 
-        bits |= ((self.mode as u8 as u64) << 60);
+        bits |= (self.mode as u8 as u64) << 60;
 
         bits
     }

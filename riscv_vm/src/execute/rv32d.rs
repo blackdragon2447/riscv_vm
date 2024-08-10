@@ -1,20 +1,19 @@
 #![allow(clippy::useless_conversion)]
 #![allow(non_camel_case_types)]
 #![allow(non_upper_case_globals)]
+#![allow(dead_code)]
+#![allow(unused)]
 
 use riscv_vm_macros::inst;
 
-use std::cmp::Ordering;
-
 use crate::{
     decode::instruction::RoundingMode,
-    hart::trap::Exception,
-    memory::{address::Address, Memory, MemoryWindow},
+    memory::{address::Address, MemoryWindow},
 };
 
 use super::{ExecuteError, ExecuteResult};
 
-use softfloat_wrapper::{ExceptionFlags, Float, F32, F64};
+use softfloat_wrapper::{Float, F32, F64};
 
 inst!(fld(i_mem) for [b32, b64, f64]
     where [rd: float, rs1: int]:
@@ -102,7 +101,7 @@ inst!(fsqrt_d(r) for [b32, b64, f64]
 inst!(fsgnj_d(r) for [b32, b64, f64]
     where [rd: float, rs1: float, rs2: float]:
 {
-    *rd = rs1.clone();
+    *rd = *rs1;
     rd.set_sign(rs2.sign());
     Ok(ExecuteResult::Continue)
 });
@@ -110,7 +109,7 @@ inst!(fsgnj_d(r) for [b32, b64, f64]
 inst!(fsgnjn_d(r) for [b32, b64, f64]
     where [rd: float, rs1: float, rs2: float]:
 {
-    *rd = rs1.clone();
+    *rd = *rs1;
     rd.set_sign(!rs2.sign());
     Ok(ExecuteResult::Continue)
 });
@@ -118,7 +117,7 @@ inst!(fsgnjn_d(r) for [b32, b64, f64]
 inst!(fsgnjx_d(r) for [b32, b64, f64]
     where [rd: float, rs1: float, rs2: float]:
 {
-    *rd = rs1.clone();
+    *rd = *rs1;
     rd.set_sign(rs1.sign() ^ rs2.sign());
     Ok(ExecuteResult::Continue)
 });
@@ -126,26 +125,22 @@ inst!(fsgnjx_d(r) for [b32, b64, f64]
 inst!(fmin_d(r) for [b32, b64, f64]
     where [rd: float, rs1: float, rs2: float]:
 {
-    *rd = if (rs1.is_nan() && rs2.is_nan()) {
+    *rd = if rs1.is_nan() && rs2.is_nan() {
         F64::quiet_nan()
     } else if (rs1.is_negative_zero() && rs2.is_positive_zero())
         || (rs1.is_positive_zero() && rs2.is_negative_zero())
     {
         F64::negative_zero()
-    } else {
-        if rs1.lt_quiet(rs2) {
-            if !rs1.is_nan() {
-                *rs1
-            } else {
-                *rs2
-            }
+    } else if rs1.lt_quiet(rs2) {
+        if !rs1.is_nan() {
+            *rs1
         } else {
-            if !rs2.is_nan() {
-                *rs2
-            } else {
-                *rs1
-            }
+            *rs2
         }
+    } else if !rs2.is_nan() {
+        *rs2
+    } else {
+        *rs1
     };
     Ok(ExecuteResult::Continue)
 });
@@ -153,26 +148,22 @@ inst!(fmin_d(r) for [b32, b64, f64]
 inst!(fmax_d(r) for [b32, b64, f64]
     where [rd: float, rs1: float, rs2: float]:
 {
-    *rd = if (rs1.is_nan() && rs2.is_nan()) {
+    *rd = if rs1.is_nan() && rs2.is_nan() {
         F64::quiet_nan()
     } else if (rs1.is_negative_zero() && rs2.is_positive_zero())
         || (rs1.is_positive_zero() && rs2.is_negative_zero())
     {
         F64::positive_zero()
-    } else {
-        if rs1.lt_quiet(rs2) {
-            if !rs2.is_nan() {
-                *rs2
-            } else {
-                *rs1
-            }
+    } else if rs1.lt_quiet(rs2) {
+        if !rs2.is_nan() {
+            *rs2
         } else {
-            if !rs1.is_nan() {
-                *rs1
-            } else {
-                *rs2
-            }
+            *rs1
         }
+    } else if !rs1.is_nan() {
+        *rs1
+    } else {
+        *rs2
     };
     Ok(ExecuteResult::Continue)
 });
@@ -306,29 +297,20 @@ fn negate<F: Float + Clone>(num: &F) -> F {
 
 #[test]
 fn negations() {
-    assert!(F64::eq(
-        &F64::from_f64(-3.14),
-        &negate(&F64::from_f64(3.14))
-    ));
+    assert!(F64::eq(&F64::from_f64(-3.14), negate(&F64::from_f64(3.14))));
     assert!(F64::eq(
         &F64::from_f64(-0.0000000000000001),
-        &negate(&F64::from_f64(0.0000000000000001))
+        negate(&F64::from_f64(0.0000000000000001))
     ));
-    assert!(F64::eq(
-        &F64::from_f64(-37e9),
-        &negate(&F64::from_f64(37e9))
-    ));
-    assert!(F64::eq(&F64::from_f64(-1.0), &negate(&F64::from_f64(1.0))));
-    assert!(F64::eq(
-        &F64::from_f64(-1e38),
-        &negate(&F64::from_f64(1e38))
-    ));
+    assert!(F64::eq(&F64::from_f64(-37e9), negate(&F64::from_f64(37e9))));
+    assert!(F64::eq(&F64::from_f64(-1.0), negate(&F64::from_f64(1.0))));
+    assert!(F64::eq(&F64::from_f64(-1e38), negate(&F64::from_f64(1e38))));
     assert!(F64::eq(
         &F64::negative_zero(),
-        &negate(&F64::positive_zero())
+        negate(&F64::positive_zero())
     ));
     assert!(F64::eq(
         &F64::negative_infinity(),
-        &negate(&F64::positive_infinity())
+        negate(&F64::positive_infinity())
     ));
 }

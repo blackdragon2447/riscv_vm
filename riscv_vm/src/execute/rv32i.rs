@@ -1,10 +1,12 @@
 #![allow(clippy::useless_conversion)]
 #![allow(non_camel_case_types)]
 #![allow(non_upper_case_globals)]
+#![allow(dead_code)]
+#![allow(unused)]
 
 use riscv_vm_macros::inst;
 
-use crate::memory::{address::Address, Memory, MemoryWindow};
+use crate::memory::{address::Address, MemoryWindow};
 
 use super::{ExecuteError, ExecuteResult};
 

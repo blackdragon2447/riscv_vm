@@ -2,8 +2,6 @@ use compact::decode_compact;
 #[cfg(feature = "float")]
 use instruction::RoundingMode;
 
-use crate::hart::registers::IntRegister;
-
 pub use self::instruction::Instruction;
 
 mod compact;
@@ -21,19 +19,6 @@ pub(crate) enum InstructionType {
     U,
     J,
 }
-
-// #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-// pub(crate) enum CompactInstructionType {
-//     Cr,
-//     Ci,
-//     Css,
-//     Ciw,
-//     Cl,
-//     Cs,
-//     Ca,
-//     Cb,
-//     Cj,
-// }
 
 /// Decode a single RiscV instruction, Invalid instructions are encoded as a variant of the
 /// `Instruction` enum.
@@ -865,7 +850,7 @@ fn decode_i_type(opcode: u32, inst: u32) -> Instruction {
             imm,
         },
         (0b0010011, 0b001) => {
-            let shamt = (imm & 0b11_1111);
+            let shamt = imm & 0b11_1111;
             Instruction::SLLI {
                 rd: rd.into(),
                 rs1: rs1.into(),
@@ -873,7 +858,7 @@ fn decode_i_type(opcode: u32, inst: u32) -> Instruction {
             }
         }
         (0b0010011, 0b101) => {
-            let shamt = (imm & 0b11_1111);
+            let shamt = imm & 0b11_1111;
             match (imm & 0b1111_1100_0000) >> 6 {
                 0b000000 => Instruction::SRLI {
                     rd: rd.into(),
@@ -894,7 +879,7 @@ fn decode_i_type(opcode: u32, inst: u32) -> Instruction {
             imm,
         },
         (0b0011011, 0b001) => {
-            let shamt = (imm & 0b11_1111);
+            let shamt = imm & 0b11_1111;
             Instruction::SLLIW {
                 rd: rd.into(),
                 rs1: rs1.into(),
@@ -902,7 +887,7 @@ fn decode_i_type(opcode: u32, inst: u32) -> Instruction {
             }
         }
         (0b0011011, 0b101) => {
-            let shamt = (imm & 0b11_1111);
+            let shamt = imm & 0b11_1111;
             match (imm & 0b1111_1100_0000) >> 6 {
                 0b000000 => Instruction::SRLIW {
                     rd: rd.into(),
@@ -1027,7 +1012,7 @@ fn decode_b_type(opcode: u32, inst: u32) -> Instruction {
     let imm12 = imm12_10_5 & 0b1000000;
     let imm10_5 = imm12_10_5 & 0b0111111;
 
-    let imm = (((imm4_1 | (imm12_10_5 << 5) | (imm11 << 11) | (imm12 << 6)) as i32) << 19) >> 19;
+    let imm = (((imm4_1 | (imm10_5 << 5) | (imm11 << 11) | (imm12 << 6)) as i32) << 19) >> 19;
 
     match (opcode, funct3) {
         (0b1100011, 0b000) => Instruction::BEQ {
@@ -1110,7 +1095,6 @@ mod masks {
     pub(super) const RS3_MASK: u32 = 0b1111_1000_0000_0000_0000_0000_0000_0000;
     pub(super) const FUNCT7_MASK: u32 = 0b1111_1110_0000_0000_0000_0000_0000_0000;
     pub(super) const FUNCT2_MASK: u32 = 0b0000_0110_0000_0000_0000_0000_0000_0000;
-    pub(super) const IMM11_5_MASK: u32 = 0b1111_1111_0000_0000_0000_0000_0000_0000;
     pub(super) const IMM11_0_MASK: u32 = 0b1111_1111_1111_0000_0000_0000_0000_0000;
     pub(super) const IMM4_0_MASK: u32 = RD_MASK;
     pub(super) const IMM31_12_MASK: u32 = 0b1111_1111_1111_1111_1111_0000_0000_0000;

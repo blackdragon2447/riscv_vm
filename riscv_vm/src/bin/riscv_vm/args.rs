@@ -1,8 +1,8 @@
-use std::{convert::Infallible, fmt::Display, path::PathBuf, str::FromStr, usize};
+use std::{convert::Infallible, default, fmt::Display, path::PathBuf, str::FromStr, usize};
 
 use riscv_vm::{vmstate::VMSettings, KB, MB};
 
-#[derive(Default, Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct VMArgs {
     pub settings: VMSettings,
     pub hart_count: u64,
@@ -11,6 +11,19 @@ pub struct VMArgs {
     // firmware: Option<PathBuf>,
     pub graphic: bool,
     pub uart: bool,
+}
+
+impl Default for VMArgs {
+    fn default() -> Self {
+        Self {
+            settings: Default::default(),
+            hart_count: 1,
+            mem_size: 3 * KB,
+            kernel: None,
+            graphic: false,
+            uart: false,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -31,7 +44,7 @@ impl Display for ParseArgError {
             ParseArgError::MissingValue(arg) => writeln!(f, "Argument \"{arg}\" requires a value, which is not provided"),
             ParseArgError::UnknownArgument(arg) => writeln!(f, "\"{arg}\" is not a valid argument, see --help for valid arguments"),
             ParseArgError::Other(txt) => writeln!(f, "{}", txt),
-            ParseArgError::PrintHelp => Ok(print_help()),
+            ParseArgError::PrintHelp => {print_help(); Ok(())},
         }
     }
 }
@@ -105,8 +118,7 @@ pub fn parse_args<I: Iterator<Item = String>>(mut args: I) -> Result<VMArgs, Par
                 &mut reset_vec,
                 parse_hex(
                     args.next()
-                        .map(|s| if s.starts_with("--") { None } else { Some(s) })
-                        .flatten()
+                        .and_then(|s| if s.starts_with("--") { None } else { Some(s) })
                         .ok_or(ParseArgError::MissingValue("--reset-vec".to_string()))?,
                 )?,
                 "--reset-vec".to_string(),
@@ -115,8 +127,7 @@ pub fn parse_args<I: Iterator<Item = String>>(mut args: I) -> Result<VMArgs, Par
             "--harts" => try_set_arg(
                 &mut hart_count,
                 args.next()
-                    .map(|s| if s.starts_with("--") { None } else { Some(s) })
-                    .flatten()
+                    .and_then(|s| if s.starts_with("--") { None } else { Some(s) })
                     .ok_or(ParseArgError::MissingValue("--reset-vec".to_string()))?
                     .parse::<u64>()
                     .map_err(|_| {
@@ -133,8 +144,7 @@ pub fn parse_args<I: Iterator<Item = String>>(mut args: I) -> Result<VMArgs, Par
                     {
                         let arg = args
                             .next()
-                            .map(|s| if s.starts_with("--") { None } else { Some(s) })
-                            .flatten()
+                            .and_then(|s| if s.starts_with("--") { None } else { Some(s) })
                             .ok_or(ParseArgError::MissingValue("--reset-vec".to_string()))?;
 
                         if let Some(arg) = arg.to_lowercase().strip_suffix("kb") {
@@ -206,14 +216,9 @@ pub fn parse_args<I: Iterator<Item = String>>(mut args: I) -> Result<VMArgs, Par
 
     if let Some(hart_count) = hart_count {
         vm_args.hart_count = hart_count;
-    } else {
-        vm_args.hart_count = 1;
     }
-
     if let Some(mem_size) = mem_size {
         vm_args.mem_size = mem_size;
-    } else {
-        vm_args.mem_size = 3 * MB;
     }
 
     vm_args.kernel = kernel;
@@ -261,7 +266,7 @@ fn try_set_arg<T>(arg: &mut Option<T>, value: T, name: String) -> Result<(), Par
         *arg = Some(value);
         Ok(())
     } else {
-        return Err(ParseArgError::DoubleArg(name));
+        Err(ParseArgError::DoubleArg(name))
     }
 }
 
@@ -300,7 +305,6 @@ mod tests {
             ),
             Ok(VMArgs {
                 kernel: Some(PathBuf::from("/dev/null")),
-                hart_count: 1,
                 ..Default::default()
             })
         );
@@ -350,7 +354,6 @@ mod tests {
             Ok(VMArgs {
                 kernel: Some(PathBuf::from("/dev/null")),
                 graphic: false,
-                hart_count: 1,
                 ..Default::default()
             })
         );
@@ -367,7 +370,6 @@ mod tests {
             ),
             Ok(VMArgs {
                 kernel: Some(PathBuf::from("/dev/null")),
-                hart_count: 1,
                 settings: VMSettings {
                     reset_vec: 0x70000000u64.into(),
                     ..Default::default()

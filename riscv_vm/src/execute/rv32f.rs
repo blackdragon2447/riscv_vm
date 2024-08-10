@@ -1,20 +1,19 @@
 #![allow(clippy::useless_conversion)]
 #![allow(non_camel_case_types)]
 #![allow(non_upper_case_globals)]
+#![allow(dead_code)]
+#![allow(unused)]
 
 use riscv_vm_macros::inst;
 
-use std::cmp::Ordering;
-
 use crate::{
     decode::instruction::RoundingMode,
-    hart::trap::Exception,
-    memory::{address::Address, Memory, MemoryWindow},
+    memory::{address::Address, MemoryWindow},
 };
 
 use super::{ExecuteError, ExecuteResult};
 
-use softfloat_wrapper::{ExceptionFlags, Float, F32};
+use softfloat_wrapper::{Float, F32};
 
 inst!(flw(i_mem) for [b32, b64, f32]
     where [rd: float, rs1: int]:
@@ -102,7 +101,7 @@ inst!(fsqrt_s(r) for [b32, b64, f32]
 inst!(fsgnj_s(r) for [b32, b64, f32]
     where [rd: float, rs1: float, rs2: float]:
 {
-    *rd = rs1.clone();
+    *rd = *rs1;
     rd.set_sign(rs2.sign());
     Ok(ExecuteResult::Continue)
 });
@@ -110,7 +109,7 @@ inst!(fsgnj_s(r) for [b32, b64, f32]
 inst!(fsgnjn_s(r) for [b32, b64, f32]
     where [rd: float, rs1: float, rs2: float]:
 {
-    *rd = rs1.clone();
+    *rd = *rs1;
     rd.set_sign(!rs2.sign());
     Ok(ExecuteResult::Continue)
 });
@@ -118,7 +117,7 @@ inst!(fsgnjn_s(r) for [b32, b64, f32]
 inst!(fsgnjx_s(r) for [b32, b64, f32]
     where [rd: float, rs1: float, rs2: float]:
 {
-    *rd = rs1.clone();
+    *rd = *rs1;
     rd.set_sign(rs1.sign() ^ rs2.sign());
     Ok(ExecuteResult::Continue)
 });
@@ -126,86 +125,92 @@ inst!(fsgnjx_s(r) for [b32, b64, f32]
 inst!(fmin_s(r) for [b32, b64, f32]
     where [rd: float, rs1: float, rs2: float]:
 {
-    // let mut flags = ExceptionFlags::default();
-    // flags.get();
-    // let invalid = flags.is_invalid();
-    // *rd = match rs1.compare(rs2) {
-    //     Some(Ordering::Less) => *rs1,
-    //     Some(Ordering::Equal) => *rs1,
-    //     Some(Ordering::Greater) => *rs2,
-    //     None if rs1.is_nan() && rs2.is_nan() => F32::quiet_nan(),
-    //     None if rs1.is_nan() && !rs2.is_nan() => *rs2,
-    //     _ => *rs1,
-    // };
-    // if(!rs1.is_signaling_nan() && !rs2.is_signaling_nan() && !invalid) {
-    //     let flags = ExceptionFlags::from_bits(flags.to_bits() & !(1 << 4));
-    //     flags.set();
-    // }
-    *rd = if (rs1.is_nan() && rs2.is_nan()) {
+    *rd = if rs1.is_nan() && rs2.is_nan() {
         F32::quiet_nan()
     } else if (rs1.is_negative_zero() && rs2.is_positive_zero())
         || (rs1.is_positive_zero() && rs2.is_negative_zero())
     {
         F32::negative_zero()
-    } else {
-        if rs1.lt_quiet(rs2) {
-            if !rs1.is_nan() {
-                *rs1
-            } else {
-                *rs2
-            }
+    } else if rs1.lt_quiet(rs2) {
+        if !rs1.is_nan() {
+            *rs1
         } else {
-            if !rs2.is_nan() {
-                *rs2
-            } else {
-                *rs1
-            }
+            *rs2
         }
+    } else if !rs2.is_nan() {
+        *rs2
+    } else {
+        *rs1
     };
     Ok(ExecuteResult::Continue)
 });
 
-inst!(fmax_s(r) for [b32, b64, f32]
-    where [rd: float, rs1: float, rs2: float]:
-{
-    // let mut flags = ExceptionFlags::default();
-    // flags.get();
-    // let invalid = flags.is_invalid();
-    // *rd = match rs1.compare(rs2) {
-    //     Some(Ordering::Less) => *rs2,
-    //     Some(Ordering::Equal) => *rs2,
-    //     Some(Ordering::Greater) => *rs1,
-    //     None if rs1.is_nan() && rs2.is_nan() => F32::quiet_nan(),
-    //     None if rs1.is_nan() && !rs2.is_nan() => *rs2,
-    //     _ => *rs1,
-    // };
-    // if(!rs1.is_signaling_nan() && !rs2.is_signaling_nan() && !invalid) {
-    //     let flags = ExceptionFlags::from_bits(flags.to_bits() & !(1 << 4));
-    //     flags.set();
-    // }
-    *rd = if (rs1.is_nan() && rs2.is_nan()) {
-        F32::quiet_nan()
-    } else if (rs1.is_negative_zero() && rs2.is_positive_zero())
-        || (rs1.is_positive_zero() && rs2.is_negative_zero())
+pub(super) fn fmax_s_32(
+    pc: Address,
+    rd: &mut F32,
+    rs1: &F32,
+    rs2: &F32,
+    rm: RoundingMode,
+) -> Result<ExecuteResult, ExecuteError> {
+    type ixlen = i32;
+    type uxlen = u32;
+    type iexlen = i64;
+    type uexlen = u64;
+    const xlen: usize = 32;
     {
-        F32::positive_zero()
-    } else {
-        if rs1.lt_quiet(rs2) {
+        *rd = if (rs1.is_nan() && rs2.is_nan()) {
+            F32::quiet_nan()
+        } else if (rs1.is_negative_zero() && rs2.is_positive_zero())
+            || (rs1.is_positive_zero() && rs2.is_negative_zero())
+        {
+            F32::positive_zero()
+        } else if rs1.lt_quiet(rs2) {
             if !rs2.is_nan() {
                 *rs2
             } else {
                 *rs1
             }
+        } else if !rs1.is_nan() {
+            *rs1
         } else {
-            if !rs1.is_nan() {
-                *rs1
-            } else {
+            *rs2
+        };
+        Ok(ExecuteResult::Continue)
+    }
+}
+pub(super) fn fmax_s_64(
+    pc: Address,
+    rd: &mut F32,
+    rs1: &F32,
+    rs2: &F32,
+    rm: RoundingMode,
+) -> Result<ExecuteResult, ExecuteError> {
+    type ixlen = i64;
+    type uxlen = u64;
+    type iexlen = i128;
+    type uexlen = u128;
+    const xlen: usize = 64;
+    {
+        *rd = if (rs1.is_nan() && rs2.is_nan()) {
+            F32::quiet_nan()
+        } else if (rs1.is_negative_zero() && rs2.is_positive_zero())
+            || (rs1.is_positive_zero() && rs2.is_negative_zero())
+        {
+            F32::positive_zero()
+        } else if rs1.lt_quiet(rs2) {
+            if !rs2.is_nan() {
                 *rs2
+            } else {
+                *rs1
             }
-        }
-    };
-    Ok(ExecuteResult::Continue)
-});
+        } else if !rs1.is_nan() {
+            *rs1
+        } else {
+            *rs2
+        };
+        Ok(ExecuteResult::Continue)
+    }
+}
 
 inst!(fcvt_w_s(r) for [b32, b64, f32]
     where [rd: int, rs1: float, rs2: float]:
@@ -315,29 +320,20 @@ fn negate<F: Float + Clone>(num: &F) -> F {
 
 #[test]
 fn negations() {
-    assert!(F32::eq(
-        &F32::from_f32(-3.14),
-        &negate(&F32::from_f32(3.14))
-    ));
+    assert!(F32::eq(&F32::from_f32(-3.14), negate(&F32::from_f32(3.14))));
     assert!(F32::eq(
         &F32::from_f32(-0.0000000000000001),
-        &negate(&F32::from_f32(0.0000000000000001))
+        negate(&F32::from_f32(0.0000000000000001))
     ));
-    assert!(F32::eq(
-        &F32::from_f32(-37e9),
-        &negate(&F32::from_f32(37e9))
-    ));
-    assert!(F32::eq(&F32::from_f32(-1.0), &negate(&F32::from_f32(1.0))));
-    assert!(F32::eq(
-        &F32::from_f32(-1e38),
-        &negate(&F32::from_f32(1e38))
-    ));
+    assert!(F32::eq(&F32::from_f32(-37e9), negate(&F32::from_f32(37e9))));
+    assert!(F32::eq(&F32::from_f32(-1.0), negate(&F32::from_f32(1.0))));
+    assert!(F32::eq(&F32::from_f32(-1e38), negate(&F32::from_f32(1e38))));
     assert!(F32::eq(
         &F32::negative_zero(),
-        &negate(&F32::positive_zero())
+        negate(&F32::positive_zero())
     ));
     assert!(F32::eq(
         &F32::negative_infinity(),
-        &negate(&F32::positive_infinity())
+        negate(&F32::positive_infinity())
     ));
 }

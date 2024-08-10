@@ -43,7 +43,7 @@ impl<const SIZE: usize> MemoryBuffer for NaiveBuffer<SIZE> {
         bytes: &[u8],
         addr: crate::Address,
     ) -> Result<(), crate::memory::memory_buffer::MemoryBufferError> {
-        &mut self.0[(addr.into())..(<crate::Address as Into<usize>>::into(addr) + bytes.len())]
+        self.0[(addr.into())..(<Address as Into<usize>>::into(addr) + bytes.len())]
             .copy_from_slice(bytes);
         Ok(())
     }
@@ -53,7 +53,7 @@ impl<const SIZE: usize> MemoryBuffer for NaiveBuffer<SIZE> {
         addr: crate::Address,
         size: usize,
     ) -> Result<Vec<u8>, crate::memory::memory_buffer::MemoryBufferError> {
-        Ok(self.0[(addr.into()..(<crate::Address as Into<usize>>::into(addr) + size))].to_vec())
+        Ok(self.0[addr.into()..(<Address as Into<usize>>::into(addr) + size)].to_vec())
     }
 }
 

@@ -6,14 +6,8 @@ mod swi_controller;
 pub(crate) mod timer;
 
 use std::{
-    any::Any,
-    collections::HashMap,
     fmt::Debug,
-    rc::Rc,
-    sync::{
-        mpsc::{self, Receiver, Sender},
-        Arc, RwLock,
-    },
+    sync::{Arc, RwLock},
 };
 
 use elf_load::{
@@ -23,18 +17,17 @@ use elf_load::{
 use swi_controller::SwiController;
 
 use crate::{
-    decode::{decode, Instruction},
+    decode::Instruction,
     devices::{
-        async_device::{AsyncDevice, AsyncDeviceHolder},
-        handled_device::{HandledDevice, HandledDeviceHolder},
-        Device, DeviceError, DeviceInitError,
+        async_device::AsyncDeviceHolder, handled_device::HandledDeviceHolder, DeviceError,
+        DeviceInitError,
     },
-    execute::{execute_rv64, ExecuteError},
-    hart::{self, privilege::PrivilegeMode, trap::InterruptTarget, Hart},
-    memory::{self, address::Address, pmp::PMP, Memory, MemoryError},
+    execute::ExecuteError,
+    hart::{privilege::PrivilegeMode, Hart},
+    memory::{address::Address, Memory, MemoryError},
 };
 
-use self::timer::{MTimer, TimerRef};
+use self::timer::MTimer;
 pub use builder::{VMInitError, VMStateBuilder};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -73,6 +66,7 @@ impl Default for VMSettings {
 }
 
 /// An actual instance of a riscv vm, with memory, devices and harts
+#[allow(unused)]
 pub struct VMState {
     harts: Vec<Hart>,
     mem: Memory,
@@ -158,17 +152,17 @@ impl VMState {
                 elf.header.bitness,
             )));
         }
-        let addr = load_elf_phys(elf, &mut self.mem)?;
+        let _addr = load_elf_phys(elf, &mut self.mem)?;
         Ok(())
     }
 
     fn add_sync_device(&mut self, mut dev: HandledDeviceHolder) -> Result<(), DeviceInitError> {
-        dev.init_device(&mut self.mem);
+        dev.init_device(&mut self.mem)?;
         self.sync_devices.push(dev);
         Ok(())
     }
 
-    fn add_async_device(&mut self, mut dev: AsyncDeviceHolder) -> Result<(), DeviceInitError> {
+    fn add_async_device(&mut self, mut _dev: AsyncDeviceHolder) -> Result<(), DeviceInitError> {
         todo!()
         // let mut memory = DeviceMemory::new(mem_size, addr);
         // dev.1

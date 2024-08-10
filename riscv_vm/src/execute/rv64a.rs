@@ -8,7 +8,7 @@ use riscv_vm_macros::inst;
 
 use crate::{
     hart::trap::Exception,
-    memory::{address::Address, Memory, MemoryWindow},
+    memory::{address::Address, MemoryWindow},
 };
 
 use super::{ExecuteError, ExecuteResult};

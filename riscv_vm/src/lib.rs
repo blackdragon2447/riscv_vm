@@ -1,5 +1,5 @@
-#![allow(dead_code)]
-#![allow(unused)]
+// Because I want it!
+#![allow(clippy::upper_case_acronyms)]
 
 mod decode;
 pub mod devices;

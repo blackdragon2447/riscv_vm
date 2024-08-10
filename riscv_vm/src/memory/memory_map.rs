@@ -1,8 +1,9 @@
 use std::ops::{Range, RangeInclusive};
 
-use super::{address::Address, DeviceRegionId, MemoryError};
+use super::{address::Address, DeviceRegionId};
 
 #[derive(Debug)]
+#[allow(unused)]
 pub enum MemoryRegion {
     Ram(RangeInclusive<Address>),
     Rom(RangeInclusive<Address>),

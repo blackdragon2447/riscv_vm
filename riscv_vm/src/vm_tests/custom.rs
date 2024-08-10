@@ -1,32 +1,25 @@
-use std::{
-    fs::{self, File},
-    io::Write,
-    process::exit,
-};
+use std::fs::{self};
 
 use elf_load::Elf;
 
 use crate::{
-    hart::privilege::PrivilegeMode,
-    memory::{pmp::PMP, KB, MB},
+    memory::{KB, MB},
     vm_tests::util::TestOutputDevice,
-    vmstate::{VMSettings, VMState, VMStateBuilder},
+    vmstate::{VMSettings, VMStateBuilder},
 };
 
-isa_test!(custom: rv64si_v_paging, {1 * MB});
+isa_test!(custom: rv64si_v_paging, {MB});
 #[test]
 fn rv64ui_v_software_interrupt() -> Result<(), u32> {
-    let bytes = fs::read(format!(
-        "../vm_tests/custom_tests/out/rv64si-v-software_interrupt"
-    ))
-    .unwrap();
+    let bytes =
+        fs::read("../vm_tests/custom_tests/out/rv64si-v-software_interrupt".to_string()).unwrap();
     let elf = Elf::from_bytes(bytes).unwrap();
 
     let mut vmstate = VMStateBuilder::new(VMSettings {
         m_mode_swi_enable: true,
         ..Default::default()
     })
-    .mem_size({ (4 * KB) + 128 })
+    .mem_size((4 * KB) + 128)
     .set_hart_count(2)
     .sync_device::<TestOutputDevice>(0x70000000u64.into())
     .build()
@@ -35,7 +28,7 @@ fn rv64ui_v_software_interrupt() -> Result<(), u32> {
     vmstate.load_elf_kernel(&elf).unwrap();
 
     loop {
-        vmstate.step(false);
+        vmstate.step(false).unwrap();
         let bytes = u32::from_le_bytes(
             vmstate
                 .mem()

@@ -3,7 +3,7 @@
 
 use riscv_vm_macros::inst;
 
-use crate::memory::{address::Address, Memory};
+use crate::memory::address::Address;
 
 use super::{ExecuteError, ExecuteResult};
 
@@ -17,7 +17,7 @@ inst!(mulw(r) for [b64]
 inst!(divw(r) for [b64]
     where [rd: int, rs1: int, rs2: int]:
 {
-    if (*rs2 == 0) {
+    if *rs2 == 0 {
         *rd = -1;
     } else {
         *rd = (*rs1 as i32).overflowing_div(*rs2 as i32).0 as ixlen;
@@ -28,7 +28,7 @@ inst!(divw(r) for [b64]
 inst!(divuw(r) for [b64]
     where [rd: int, rs1: int, rs2: int]:
 {
-    if (*rs2 == 0) {
+    if *rs2 == 0 {
         *rd = -1;
     } else {
         *rd = ((*rs1 as u32) / (*rs2 as u32)) as i32 as ixlen;
@@ -39,7 +39,7 @@ inst!(divuw(r) for [b64]
 inst!(remw(r) for [b64]
     where [rd: int, rs1: int, rs2: int]:
 {
-    if (*rs2 == 0) {
+    if *rs2 == 0 {
         *rd = *rs1;
     } else {
         *rd = (*rs1 as i32).overflowing_rem(*rs2 as i32).0 as ixlen;
@@ -50,7 +50,7 @@ inst!(remw(r) for [b64]
 inst!(remuw(r) for [b64]
     where [rd: int, rs1: int, rs2: int]:
 {
-    if (*rs2 == 0) {
+    if *rs2 == 0 {
         *rd = *rs1;
     } else {
         *rd = ((*rs1 as u32) % (*rs2 as u32)) as i32 as ixlen;

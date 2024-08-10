@@ -24,8 +24,8 @@ use softfloat_wrapper::{Float, F32, F64};
 use crate::{
     decode::Instruction::{self, *},
     hart::{
-        self, isa::Isa, privilege::PrivilegeMode, registers::IntRegister, trap::Exception,
-        CsrAddress, Hart,
+        isa::Isa, privilege::PrivilegeMode, registers::IntRegister, trap::Exception, CsrAddress,
+        Hart,
     },
     memory::{address::Address, Memory, MemoryError, MemoryWindow},
 };
@@ -78,6 +78,7 @@ pub fn execute_rv64(
     is_c: bool,
     isa: BitFlags<Isa>,
 ) -> Result<ExecuteResult, ExecuteError> {
+    #[allow(unused)]
     match instruction {
         // rv64i
         LUI { rd, imm } => u_type(hart, rd, imm, rv32i::lui_64),

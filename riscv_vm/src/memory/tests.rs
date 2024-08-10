@@ -1,4 +1,4 @@
-use std::sync::mpsc;
+#![allow(unused_variables)]
 
 use crate::{
     hart::{privilege::PrivilegeMode, Hart},
@@ -144,8 +144,8 @@ mod pmp {
             0b00001111_10001101_00001011_10001001_00011111_10011101_00001011_10001001,
         );
         pmp.write_addr_rv64(2, (0x80000000 >> 2) | 0b011);
-        pmp.write_addr_rv64(1, (0xB1FA0 >> 2));
-        pmp.write_addr_rv64(0, (0xB1000 >> 2));
+        pmp.write_addr_rv64(1, 0xB1FA0 >> 2);
+        pmp.write_addr_rv64(0, 0xB1000 >> 2);
         let ranges = &pmp.ranges()[0..8];
         assert_eq!(
             ranges[2],
@@ -173,7 +173,7 @@ mod pmp {
 
 #[cfg(test)]
 mod paging {
-    use enumflags2::{make_bitflags, BitFlag};
+    use enumflags2::make_bitflags;
 
     use crate::memory::paging::{AddressTranslationMode, Pte, PteFlags, PteType};
 
@@ -354,7 +354,7 @@ mod paging {
 fn read() {
     let mem = Memory::new(256);
     let result = mem.read_bytes(0x8000000Fu64.into(), 4);
-    let expected_read = vec![0; 4];
+    let expected_read = [0; 4];
     assert!(matches!(result, Ok(expected_read)));
 }
 
@@ -365,7 +365,7 @@ fn read_pmp() {
         0,
         PmpCfg::new_configured(true, false, false, AddressMatch::TOR, false).to_bits() as u64,
     );
-    pmp.write_addr_rv64(0, (0x90000000u64 >> 2));
+    pmp.write_addr_rv64(0, 0x90000000u64 >> 2);
     let mut mem = Memory::new(256);
     let mut hart = Hart::new(
         0,
@@ -390,7 +390,7 @@ fn read_pmp_denied() {
         0,
         PmpCfg::new_configured(false, false, false, AddressMatch::TOR, false).to_bits() as u64,
     );
-    pmp.write_addr_rv64(0, (0x90000000u64 >> 2));
+    pmp.write_addr_rv64(0, 0x90000000u64 >> 2);
     let mut mem = Memory::new(256);
     let mut hart = Hart::new(
         0,
@@ -434,7 +434,7 @@ fn write_pmp_denied() {
         0,
         PmpCfg::new_configured(true, false, true, AddressMatch::TOR, false).to_bits() as u64,
     );
-    pmp.write_addr_rv64(0, (0x90000000u64 >> 2));
+    pmp.write_addr_rv64(0, 0x90000000u64 >> 2);
     let mut mem = Memory::new(256);
     let mut hart = Hart::new(
         0,
@@ -461,7 +461,7 @@ fn write_pmp() {
         0,
         PmpCfg::new_configured(true, true, false, AddressMatch::TOR, false).to_bits() as u64,
     );
-    pmp.write_addr_rv64(0, (0x90000000u64 >> 2));
+    pmp.write_addr_rv64(0, 0x90000000u64 >> 2);
     let mut mem = Memory::new(256);
     let mut hart = Hart::new(
         0,
@@ -530,7 +530,7 @@ fn reservation() {
 
     let bytes = 0xdeadbeefu32.to_le_bytes();
 
-    window.write_bytes(&bytes, 0x80000018u64.into());
+    window.write_bytes(&bytes, 0x80000018u64.into()).unwrap();
 
     assert_eq!(
         window.write_conditional(&bytes_reserved, 0x80000018u64.into()),

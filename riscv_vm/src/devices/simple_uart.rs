@@ -1,13 +1,9 @@
-use core::panic;
 use std::{
     io::{stdout, Write},
     sync::{Arc, RwLock},
 };
 
-use crate::{
-    hart::registers,
-    memory::memory_buffer::{MemoryBuffer, NaiveBuffer},
-};
+use crate::memory::memory_buffer::{MemoryBuffer, NaiveBuffer};
 
 use super::{
     handled_device::HandledDevice, Device, DeviceError, DeviceInitError, DeviceMemHandle,
@@ -33,10 +29,12 @@ impl DeviceObject for SimpleUart {
     fn init(&mut self, mut mem: DeviceMemHandle) -> Result<(), DeviceInitError> {
         let mut dev_mem = NaiveBuffer::<8>::new();
         // dev_mem.0[5] |= 0x40;
-        dev_mem.write_bytes(
-            &[dev_mem.read_bytes(5u64.into(), 1).unwrap()[0] | 0x40],
-            5u64.into(),
-        );
+        dev_mem
+            .write_bytes(
+                &[dev_mem.read_bytes(5u64.into(), 1).unwrap()[0] | 0x40],
+                5u64.into(),
+            )
+            .unwrap();
         self.0 = Some(mem.add_memory_buffer(0x10000000u64.into(), dev_mem)?);
         Ok(())
     }
@@ -48,8 +46,8 @@ impl HandledDevice for SimpleUart {
         let reg = mem.read_bytes(0u64.into(), 1).unwrap()[0];
         if reg != 0 {
             print!("{}", std::str::from_utf8(&[reg])?);
-            stdout().flush();
-            mem.write_bytes(&[0], 0u64.into());
+            stdout().flush().unwrap();
+            mem.write_bytes(&[0], 0u64.into()).unwrap();
             let byte = mem.read_bytes(5u64.into(), 1).unwrap()[0] | 0x40;
             mem.write_bytes(&[byte], 5u64.into()).unwrap();
         }

@@ -4,13 +4,7 @@
 
 use riscv_vm_macros::inst;
 
-use std::cmp::Ordering;
-
-use crate::{
-    decode::instruction::RoundingMode,
-    hart::trap::Exception,
-    memory::{address::Address, Memory, MemoryWindow},
-};
+use crate::{decode::instruction::RoundingMode, memory::address::Address};
 
 use super::{ExecuteError, ExecuteResult};
 

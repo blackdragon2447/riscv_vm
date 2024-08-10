@@ -1,7 +1,4 @@
-use crate::{
-    hart::{CsrAddress, Hart},
-    memory::{address::Address, Memory},
-};
+use crate::hart::{CsrAddress, Hart};
 
 use super::{ExecuteError, ExecuteResult};
 
@@ -26,7 +23,7 @@ pub(super) fn csrw(
 ) -> Result<ExecuteResult, ExecuteError> {
     let privilege = hart.privilege();
     hart.get_csr_mut()
-        .write_csr(csr, *rs1 as u64, privilege, false);
+        .write_csr(csr, *rs1 as u64, privilege, false)?;
     Ok(ExecuteResult::CsrUpdate(csr))
 }
 
@@ -88,16 +85,6 @@ pub(super) fn csrwi(
     let privilege = hart.privilege();
     hart.get_csr_mut()
         .write_csr(csr, imm as u64, privilege, false)?;
-    Ok(ExecuteResult::Continue)
-}
-
-pub(super) fn csrri(
-    hart: &mut Hart,
-    rd: &mut i64,
-    csr: CsrAddress,
-) -> Result<ExecuteResult, ExecuteError> {
-    let privilege = hart.privilege();
-    *rd = hart.get_csr_mut().set_csr(csr, 0, privilege, false)? as i64;
     Ok(ExecuteResult::Continue)
 }
 

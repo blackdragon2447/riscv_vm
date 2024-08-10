@@ -10,8 +10,6 @@ use crate::{
     Address,
 };
 
-use super::VMState;
-
 pub struct SwiController {
     mode: PrivilegeMode,
     interrupts: IntMap<usize, Rc<Mutex<BitFlags<InterruptInternal>>>>,
@@ -19,7 +17,7 @@ pub struct SwiController {
 }
 
 impl SwiController {
-    pub(super) fn new(harts: &Vec<Hart>, mode: PrivilegeMode) -> Self {
+    pub(super) fn new(harts: &[Hart], mode: PrivilegeMode) -> Self {
         let interrupts = harts
             .iter()
             .map(|h| (h.get_hart_id() as usize, h.get_mip_ref()))

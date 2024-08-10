@@ -1,11 +1,11 @@
-use enumflags2::{bitflags, make_bitflags, BitFlag, BitFlags};
+use enumflags2::{bitflags, BitFlag, BitFlags};
 #[cfg(feature = "float")]
 use softfloat_wrapper::ExceptionFlags;
 
 use crate::{
     execute::ExecuteError,
     memory::{address::Address, paging::Satp, pmp::PMP},
-    vmstate::timer::{MTimer, TimerRef},
+    vmstate::timer::TimerRef,
 };
 
 #[cfg(feature = "float")]
@@ -15,19 +15,11 @@ use super::{
     counters::Counters,
     csr_address::CsrType,
     isa::Isa,
-    privilege::{self, PrivilegeMode},
-    trap::{Exception, Interrupt, InterruptInternal},
+    privilege::PrivilegeMode,
+    trap::{Exception, InterruptInternal},
     CsrAddress,
 };
-use std::{
-    any::Any,
-    collections::HashMap,
-    fmt::Debug,
-    ops::RangeBounds,
-    rc::Rc,
-    sync::{Mutex, RwLock},
-    time::Instant,
-};
+use std::{collections::HashMap, fmt::Debug, rc::Rc, sync::Mutex};
 
 #[repr(u8)]
 #[derive(Debug, PartialEq, Eq)]
@@ -353,7 +345,7 @@ impl CsrHolder {
 
     #[cfg(feature = "float")]
     pub(crate) fn load_env_fflags(&self) {
-        let mut flags = ExceptionFlags::from_bits(self.fflags.bits() as u8);
+        let flags = ExceptionFlags::from_bits(self.fflags.bits() as u8);
         flags.set();
     }
 
@@ -464,7 +456,7 @@ impl CsrHolder {
                         BitFlags::<Counters>::from_bits_truncate((value & 0b111) as u32);
                 }
                 0x10A => {
-                    self.senvcfg = (value & 0b1);
+                    self.senvcfg = value & 0b1;
                 }
                 0x140 => {
                     self.sscratch = value;
@@ -473,14 +465,14 @@ impl CsrHolder {
                     self.sepc = (value & !0b11).into();
                 }
                 0x142 => {
-                    self.scause = (value & (0xFF | (!0 >> 1)));
+                    self.scause = value & (0xFF | (!0 >> 1));
                 }
                 0x143 => {
                     self.stval = value;
                 }
                 0x144 => {
-                    let mut mip = *self.mip.lock().unwrap();
-                    mip = BitFlags::<InterruptInternal>::from_bits_truncate(
+                    let mut mip = self.mip.lock().unwrap();
+                    *mip = BitFlags::<InterruptInternal>::from_bits_truncate(
                         (mip.bits() & !(TOGGLEABLE_INTERRUPTS & S_INTERRUPT_MASK))
                             | (value & (TOGGLEABLE_INTERRUPTS & S_INTERRUPT_MASK)),
                     );
@@ -524,20 +516,20 @@ impl CsrHolder {
                     self.mepc = (value & !0b11).into();
                 }
                 0x342 => {
-                    self.mcause = (value & (0xFF | (!0 >> 1)));
+                    self.mcause = value & (0xFF | (!0 >> 1));
                 }
                 0x343 => {
                     self.mtval = value;
                 }
                 0x344 => {
                     // TODO: not all interrupts can be set/cleared via mip
-                    let mut mip = *self.mip.lock().unwrap();
-                    mip = BitFlags::<InterruptInternal>::from_bits_truncate(
+                    let mut mip = self.mip.lock().unwrap();
+                    *mip = BitFlags::<InterruptInternal>::from_bits_truncate(
                         (mip.bits() & !TOGGLEABLE_INTERRUPTS) | (value & TOGGLEABLE_INTERRUPTS),
                     );
                 }
                 0x30A => {
-                    self.menvcfg = (value & (0b1 | 0b1 << 62));
+                    self.menvcfg = value & (0b1 | 0b1 << 62);
                 }
                 i @ 0x3A0..=0x3AF if i % 2 == 0 => {
                     self.pmp.write_cfg_rv64((i - 0x3A0) as usize, value)
@@ -623,7 +615,7 @@ impl CsrHolder {
                     );
                 }
                 0x10A => {
-                    self.senvcfg = ((self.senvcfg | mask) & 0b1);
+                    self.senvcfg = (self.senvcfg | mask) & 0b1;
                 }
                 0x140 => {
                     self.sscratch |= mask;
@@ -632,14 +624,14 @@ impl CsrHolder {
                     self.sepc = ((<Address as Into<u64>>::into(self.sepc) | mask) & !0b11).into();
                 }
                 0x142 => {
-                    self.scause = ((self.scause | mask) & (0xFF | (!0 >> 1)));
+                    self.scause = (self.scause | mask) & (0xFF | (!0 >> 1));
                 }
                 0x143 => {
                     self.stval |= mask;
                 }
                 0x144 => {
-                    let mut mip = *self.mip.lock().unwrap();
-                    mip = BitFlags::<InterruptInternal>::from_bits_truncate(
+                    let mut mip = self.mip.lock().unwrap();
+                    *mip = BitFlags::<InterruptInternal>::from_bits_truncate(
                         mip.bits() | (mask & (TOGGLEABLE_INTERRUPTS & S_INTERRUPT_MASK)),
                     );
                 }
@@ -688,20 +680,20 @@ impl CsrHolder {
                     self.mepc = ((<Address as Into<u64>>::into(self.mepc) | mask) & !0b11).into();
                 }
                 0x342 => {
-                    self.mcause = ((self.mcause | mask) & (0xFF | (!0 >> 1)));
+                    self.mcause = (self.mcause | mask) & (0xFF | (!0 >> 1));
                 }
                 0x343 => {
                     self.mtval |= mask;
                 }
                 0x344 => {
                     // TODO: not all interrupts can be set/cleared via mip
-                    let mut mip = *self.mip.lock().unwrap();
-                    mip = BitFlags::<InterruptInternal>::from_bits_truncate(
+                    let mut mip = self.mip.lock().unwrap();
+                    *mip = BitFlags::<InterruptInternal>::from_bits_truncate(
                         self.mie.bits() | (mask & TOGGLEABLE_INTERRUPTS),
                     );
                 }
                 0x30A => {
-                    self.menvcfg = ((self.menvcfg | mask) & (0b1 | 0b1 << 62));
+                    self.menvcfg = (self.menvcfg | mask) & (0b1 | 0b1 << 62);
                 }
                 i @ 0x3A0..=0x3AF if i % 2 == 0 => {
                     self.pmp.write_cfg_rv64(
@@ -788,7 +780,7 @@ impl CsrHolder {
                     );
                 }
                 0x10A => {
-                    self.senvcfg = ((self.senvcfg & !mask) & 0b1);
+                    self.senvcfg = (self.senvcfg & !mask) & 0b1;
                 }
                 0x140 => {
                     self.sscratch &= !mask;
@@ -797,14 +789,14 @@ impl CsrHolder {
                     self.sepc = ((<Address as Into<u64>>::into(self.sepc) & !mask) & !0b11).into();
                 }
                 0x142 => {
-                    self.scause = ((self.scause & !mask) & (0xFF | (!0 >> 1)));
+                    self.scause = (self.scause & !mask) & (0xFF | (!0 >> 1));
                 }
                 0x143 => {
                     self.stval &= !mask;
                 }
                 0x144 => {
-                    let mut mip = *self.mip.lock().unwrap();
-                    mip = BitFlags::<InterruptInternal>::from_bits_truncate(
+                    let mut mip = self.mip.lock().unwrap();
+                    *mip = BitFlags::<InterruptInternal>::from_bits_truncate(
                         mip.bits() & !(mask & (S_INTERRUPT_MASK & TOGGLEABLE_INTERRUPTS)),
                     );
                 }
@@ -853,20 +845,20 @@ impl CsrHolder {
                     self.mepc = ((<Address as Into<u64>>::into(self.mepc) & !mask) & !0b11).into();
                 }
                 0x342 => {
-                    self.mcause = ((self.mcause & !mask) & (0xFF | (!0 >> 1)));
+                    self.mcause = (self.mcause & !mask) & (0xFF | (!0 >> 1));
                 }
                 0x343 => {
                     self.mtval &= !mask;
                 }
                 0x344 => {
                     // TODO: not all interrupts can be set/cleared via mip
-                    let mut mip = *self.mip.lock().unwrap();
-                    mip = BitFlags::<InterruptInternal>::from_bits_truncate(
+                    let mut mip = self.mip.lock().unwrap();
+                    *mip = BitFlags::<InterruptInternal>::from_bits_truncate(
                         self.mie.bits() | (mask & TOGGLEABLE_INTERRUPTS),
                     );
                 }
                 0x30A => {
-                    self.menvcfg = ((self.menvcfg & !mask) & (0b1 | 0b1 << 62));
+                    self.menvcfg = (self.menvcfg & !mask) & (0b1 | 0b1 << 62);
                 }
                 i @ 0x3A0..=0x3AF if i % 2 == 0 => {
                     self.pmp.write_cfg_rv64(
@@ -898,8 +890,8 @@ impl CsrHolder {
         let counter = BitFlags::<Counters>::from_bits_truncate(<u16 as From<CsrAddress>>::from(
             counter - 0xC00u16,
         ) as u32);
-        ((self.mcounteren.contains(counter) && privilege == PrivilegeMode::Supervisor)
-            || (self.scounteren.contains(counter) && privilege == PrivilegeMode::User))
+        (self.mcounteren.contains(counter) && privilege == PrivilegeMode::Supervisor)
+            || (self.scounteren.contains(counter) && privilege == PrivilegeMode::User)
     }
 }
 
@@ -927,28 +919,28 @@ impl Status {
         let mut bits = 0;
 
         if self.sie {
-            bits |= (0b1 << 1);
+            bits |= 0b1 << 1;
         }
 
         if self.spie {
-            bits |= (0b1 << 5);
+            bits |= 0b1 << 5;
         }
 
-        bits |= ((self.spp as u64 & 0b1) << 8);
+        bits |= (self.spp as u64 & 0b1) << 8;
 
-        bits |= ((self.vs as u64 & 0b11) << 9);
-        bits |= ((self.fs as u64 & 0b11) << 13);
-        bits |= ((self.xs as u64 & 0b11) << 15);
+        bits |= (self.vs as u64 & 0b11) << 9;
+        bits |= (self.fs as u64 & 0b11) << 13;
+        bits |= (self.xs as u64 & 0b11) << 15;
 
         if self.sum {
-            bits |= (0b1 << 18);
+            bits |= 0b1 << 18;
         }
 
         if self.mxr {
-            bits |= (0b1 << 19);
+            bits |= 0b1 << 19;
         }
 
-        bits |= (0b10 << 32); // UXL Needs to be 10 for 64 bit
+        bits |= 0b10 << 32; // UXL Needs to be 10 for 64 bit
 
         if self.vs == FloatVectorXternalStatus::Dirty
             || self.fs == FloatVectorXternalStatus::Dirty
@@ -971,7 +963,7 @@ impl Status {
             self.spp = PrivilegeMode::User;
         }
 
-        match (bits >> 9 & 0b11) {
+        match bits >> 9 & 0b11 {
             0b00 => self.vs = FloatVectorXternalStatus::Off,
             0b01 => self.vs = FloatVectorXternalStatus::Initial,
             0b10 => self.vs = FloatVectorXternalStatus::Clean,
@@ -979,7 +971,7 @@ impl Status {
             _ => unreachable!(),
         }
 
-        match (bits >> 13 & 0b11) {
+        match bits >> 13 & 0b11 {
             0b00 => self.fs = FloatVectorXternalStatus::Off,
             0b01 => self.fs = FloatVectorXternalStatus::Initial,
             0b10 => self.fs = FloatVectorXternalStatus::Clean,
@@ -987,7 +979,7 @@ impl Status {
             _ => unreachable!(),
         }
 
-        match (bits >> 15 & 0b11) {
+        match bits >> 15 & 0b11 {
             0b00 => self.xs = FloatVectorXternalStatus::Off,
             0b01 => self.xs = FloatVectorXternalStatus::Initial,
             0b10 => self.xs = FloatVectorXternalStatus::Clean,
@@ -1004,53 +996,53 @@ impl Status {
         let mut bits = 0;
 
         if self.sie {
-            bits |= (0b1 << 1);
+            bits |= 0b1 << 1;
         }
 
         if self.mie {
-            bits |= (0b1 << 3);
+            bits |= 0b1 << 3;
         }
 
         if self.spie {
-            bits |= (0b1 << 5);
+            bits |= 0b1 << 5;
         }
 
         if self.mpie {
-            bits |= (0b1 << 7);
+            bits |= 0b1 << 7;
         }
 
-        bits |= ((self.spp as u64 & 0b1) << 8);
-        bits |= ((self.vs as u64 & 0b11) << 9);
-        bits |= ((self.mpp as u64 & 0b11) << 11);
-        bits |= ((self.fs as u64 & 0b11) << 13);
-        bits |= ((self.xs as u64 & 0b11) << 15);
+        bits |= (self.spp as u64 & 0b1) << 8;
+        bits |= (self.vs as u64 & 0b11) << 9;
+        bits |= (self.mpp as u64 & 0b11) << 11;
+        bits |= (self.fs as u64 & 0b11) << 13;
+        bits |= (self.xs as u64 & 0b11) << 15;
 
         if self.mprv {
-            bits |= (0b1 << 17)
+            bits |= 0b1 << 17
         }
 
         if self.sum {
-            bits |= (0b1 << 18);
+            bits |= 0b1 << 18;
         }
 
         if self.mxr {
-            bits |= (0b1 << 19);
+            bits |= 0b1 << 19;
         }
 
         if self.tvm {
-            bits |= (0b1 << 20);
+            bits |= 0b1 << 20;
         }
 
         if self.tw {
-            bits |= (0b1 << 21);
+            bits |= 0b1 << 21;
         }
 
         if self.tsr {
-            bits |= (0b1 << 22);
+            bits |= 0b1 << 22;
         }
 
-        bits |= (0b10 << 32); // UXL Needs to be 10 for 64 bit.
-        bits |= (0b10 << 34); // SXL Needs to be 10 for 64 bit
+        bits |= 0b10 << 32; // UXL Needs to be 10 for 64 bit.
+        bits |= 0b10 << 34; // SXL Needs to be 10 for 64 bit
 
         if self.vs == FloatVectorXternalStatus::Dirty
             || self.fs == FloatVectorXternalStatus::Dirty
@@ -1077,7 +1069,7 @@ impl Status {
             self.spp = PrivilegeMode::User;
         }
 
-        match (bits >> 9 & 0b11) {
+        match bits >> 9 & 0b11 {
             0b00 => self.vs = FloatVectorXternalStatus::Off,
             0b01 => self.vs = FloatVectorXternalStatus::Initial,
             0b10 => self.vs = FloatVectorXternalStatus::Clean,
@@ -1092,7 +1084,7 @@ impl Status {
             _ => unreachable!(),
         }
 
-        match (bits >> 13 & 0b11) {
+        match bits >> 13 & 0b11 {
             0b00 => self.fs = FloatVectorXternalStatus::Off,
             0b01 => self.fs = FloatVectorXternalStatus::Initial,
             0b10 => self.fs = FloatVectorXternalStatus::Clean,
@@ -1100,7 +1092,7 @@ impl Status {
             _ => unreachable!(),
         }
 
-        match (bits >> 15 & 0b11) {
+        match bits >> 15 & 0b11 {
             0b00 => self.xs = FloatVectorXternalStatus::Off,
             0b01 => self.xs = FloatVectorXternalStatus::Initial,
             0b10 => self.xs = FloatVectorXternalStatus::Clean,

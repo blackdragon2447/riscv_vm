@@ -8,16 +8,9 @@ pub mod registers;
 mod tests;
 pub mod trap;
 
-use core::panic;
 #[cfg(feature = "float")]
 use softfloat_wrapper::{F32, F64};
-use std::{
-    collections::{BinaryHeap, HashMap},
-    rc::Rc,
-    sync::Mutex,
-    time::Instant,
-    usize,
-};
+use std::{collections::BinaryHeap, rc::Rc, sync::Mutex};
 
 use crate::{
     decode::{decode, Instruction},
@@ -36,7 +29,7 @@ use self::{
     csr_holder::CsrHolder,
     privilege::PrivilegeMode,
     registers::{IntRegister, Registers},
-    trap::{Exception, Interrupt, InterruptInternal, TrapCause},
+    trap::{Exception, InterruptInternal, TrapCause},
 };
 
 #[derive(Debug)]
@@ -180,7 +173,7 @@ impl Hart {
         drop(mip);
         drop(mip_ref);
 
-        if (self.waiting_for_interrupt) {
+        if self.waiting_for_interrupt {
             return Ok(());
         }
 

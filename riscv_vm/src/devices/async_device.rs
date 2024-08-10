@@ -1,16 +1,13 @@
+#![allow(unused)]
+
 use std::{
-    any::Any,
     fmt::Debug,
-    future::Future,
-    sync::{
-        mpsc::{self, Receiver, Sender},
-        Arc, RwLock,
-    },
+    sync::mpsc::{self, Sender},
     thread::sleep,
     time::{Duration, Instant},
 };
 
-use crate::memory::{memory_buffer::MemoryBuffer, Memory};
+use crate::memory::Memory;
 
 use super::{DeviceError, DeviceInitError, DeviceMemHandle, DeviceObject};
 
@@ -75,7 +72,7 @@ impl AsyncDeviceHolder {
                         result = self.device.update(AsyncDeviceUpdate::TimeOut)
                     }
                     Ok(AsyncDeviceUpdateResult::Continue) => {
-                        self.device.update(AsyncDeviceUpdate::Continue);
+                        result = self.device.update(AsyncDeviceUpdate::Continue);
                     }
                     Err(e) => {
                         eprintln!("Device {:#?} has errored with error {:#?}", self.device, e);

@@ -1,8 +1,6 @@
-use std::sync::{Arc, RwLock};
-
 use crate::{
     devices::{handled_device::HandledDevice, Device, DeviceObject},
-    memory::memory_buffer::{MemoryBuffer, NaiveBuffer},
+    memory::memory_buffer::NaiveBuffer,
 };
 
 #[derive(Debug)]
@@ -21,7 +19,7 @@ impl DeviceObject for TestOutputDevice {
         &mut self,
         mut mem: crate::devices::DeviceMemHandle,
     ) -> Result<(), crate::devices::DeviceInitError> {
-        mem.add_memory_buffer(0x70000000u64.into(), NaiveBuffer::<128>::new());
+        mem.add_memory_buffer(0x70000000u64.into(), NaiveBuffer::<128>::new())?;
         Ok(())
     }
 }
@@ -52,7 +50,7 @@ macro_rules! isa_test {
             vmstate.load_elf_kernel(&elf).unwrap();
 
             loop {
-                vmstate.step(false);
+                vmstate.step(false).unwrap();
                 let bytes = u32::from_le_bytes(
                     vmstate
                         .mem()
@@ -89,7 +87,7 @@ macro_rules! isa_test {
             vmstate.load_elf_kernel(&elf).unwrap();
 
             loop {
-                vmstate.step(false);
+                vmstate.step(false).unwrap();
                 let bytes = u32::from_le_bytes(
                     vmstate
                         .mem()
@@ -154,7 +152,7 @@ macro_rules! isa_test {
             vmstate.load_elf_kernel(&elf).unwrap();
 
             loop {
-                vmstate.step(false);
+                vmstate.step(false).unwrap();
                 let bytes = u32::from_le_bytes(
                     vmstate
                         .mem()
@@ -193,7 +191,7 @@ macro_rules! isa_test {
             vmstate.load_elf_kernel(&elf).unwrap();
 
             loop {
-                vmstate.step(false);
+                vmstate.step(false).unwrap();
                 let bytes = u32::from_le_bytes(
                     vmstate
                         .mem()
@@ -231,7 +229,7 @@ macro_rules! isa_test {
             vmstate.load_elf_kernel(&elf).unwrap();
 
             loop {
-                vmstate.step(false);
+                vmstate.step(false).unwrap();
                 let bytes = u32::from_le_bytes(
                     vmstate
                         .mem()

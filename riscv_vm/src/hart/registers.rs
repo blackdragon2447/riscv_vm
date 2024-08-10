@@ -16,21 +16,21 @@ pub struct Registers {
 impl Debug for Registers {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // let mut debug = f.debug_struct("Registers");
-        writeln!(f, "{{");
+        writeln!(f, "{{")?;
 
         for (i, r) in self.int_registers.iter().enumerate() {
             // debug.field(format!("X{i}").as_str(), &format!("{r:#X}"));
-            writeln!(f, "    X{i}: {r:#X}");
+            writeln!(f, "    X{i}: {r:#X}")?;
         }
 
-        writeln!(f);
+        writeln!(f)?;
 
         #[cfg(feature = "float")]
         for (i, r) in self.float_registers.iter().enumerate() {
-            writeln!(f, "    F{i}: {r:#X}");
+            writeln!(f, "    F{i}: {r:#X}")?;
         }
 
-        write!(f, "}}");
+        write!(f, "}}")?;
 
         Ok(())
     }

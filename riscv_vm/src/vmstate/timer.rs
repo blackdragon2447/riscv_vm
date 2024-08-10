@@ -8,10 +8,6 @@ use enumflags2::BitFlags;
 use nohash_hasher::IntMap;
 
 use crate::{
-    hart::{
-        self,
-        trap::{Interrupt, InterruptTarget},
-    },
     memory::memory_buffer::{MemoryBuffer, MemoryBufferError},
     trap::InterruptInternal,
     Address,
@@ -85,9 +81,9 @@ impl MTimer {
         TimerRef(self.time.clone())
     }
 
-    pub fn get_cmps(&self) -> &Vec<Option<u64>> {
-        &self.time_cmp
-    }
+    // pub fn get_cmps(&self) -> &Vec<Option<u64>> {
+    //     &self.time_cmp
+    // }
 
     pub fn get_time_micros(&self) -> u64 {
         self.time.lock().unwrap().elapsed().as_micros() as u64
@@ -112,26 +108,23 @@ impl MTimer {
             self.time_cmp[hartid as usize] = Some(micros);
         }
 
-        if (micros as u128) < self.time.lock().unwrap().elapsed().as_micros() {
-            self.interrupts
-                .get(&(hartid as usize))
-                .as_mut()
-                .map(|bits| *bits.lock().unwrap() |= InterruptInternal::MachineTimer);
-        } else {
-            self.interrupts
-                .get(&(hartid as usize))
-                .as_mut()
-                .map(|bits| *bits.lock().unwrap() &= !InterruptInternal::MachineTimer);
+        if let Some(bits) = self.interrupts.get(&(hartid as usize)).as_mut() {
+            bits.lock().unwrap().set(
+                InterruptInternal::MachineTimer,
+                (micros as u128) < self.time.lock().unwrap().elapsed().as_micros(),
+            );
         }
     }
 
     pub fn generate_interrupts(&self) {
         for (i, t) in self.time_cmp.iter().enumerate() {
-            if t.is_some_and(|t| (t as u128) < self.time.lock().unwrap().elapsed().as_micros()) {
-                self.interrupts
-                    .get(&i)
-                    .as_mut()
-                    .map(|bits| *bits.lock().unwrap() |= InterruptInternal::MachineTimer);
+            if let Some(bits) = self.interrupts.get(&i).as_mut() {
+                bits.lock().unwrap().set(
+                    InterruptInternal::MachineTimer,
+                    t.is_some_and(|t| {
+                        (t as u128) < self.time.lock().unwrap().elapsed().as_micros()
+                    }),
+                );
             }
         }
     }

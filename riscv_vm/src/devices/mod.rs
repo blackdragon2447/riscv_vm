@@ -14,15 +14,8 @@
 //! implement [`MemoryBuffer`].
 
 use std::{
-    any::Any,
-    collections::btree_map::Range,
     error::Error,
-    rc::Rc,
-    sync::{
-        mpsc::{self, Receiver, Sender},
-        Arc, PoisonError, RwLock,
-    },
-    time::{Duration, Instant},
+    sync::{Arc, PoisonError, RwLock},
 };
 
 pub use crate::memory::memory_buffer;
@@ -101,7 +94,7 @@ impl<T: Error + Send + 'static> From<T> for DeviceError {
 }
 
 impl<T> From<PoisonError<T>> for DeviceInitError {
-    fn from(value: PoisonError<T>) -> Self {
+    fn from(_value: PoisonError<T>) -> Self {
         Self::MemoryPoison
     }
 }

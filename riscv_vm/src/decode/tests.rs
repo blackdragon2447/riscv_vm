@@ -38,7 +38,6 @@ mod instructions {
     use crate::{
         decode::{decode, Instruction::*},
         hart::registers::IntRegister::*,
-        tests,
     };
 
     #[cfg(feature = "float")]

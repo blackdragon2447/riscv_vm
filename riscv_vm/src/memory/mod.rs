@@ -1,15 +1,6 @@
-use core::panic;
 use std::{
-    any::Any,
-    collections::HashMap,
-    fmt::Debug,
-    fs::File,
-    io::Write,
-    mem,
-    ops::{Add, AddAssign, Deref, Range, RangeBounds, Sub},
-    rc::Rc,
-    sync::{mpsc::Sender, Arc, PoisonError, RwLock, RwLockWriteGuard},
-    u8, usize, vec,
+    ops::{Deref, Range},
+    sync::{Arc, PoisonError, RwLock},
 };
 
 use elf_load::ByteRanges;
@@ -17,11 +8,7 @@ use nohash_hasher::IntMap;
 
 use crate::{
     devices::DeviceInitError,
-    hart::{
-        privilege::{self, PrivilegeMode},
-        Hart,
-    },
-    vmstate::timer::MTimer,
+    hart::{privilege::PrivilegeMode, Hart},
 };
 
 use self::{
@@ -29,7 +16,7 @@ use self::{
     memory_buffer::{MemoryBuffer, MemoryBufferError},
     memory_map::{MemoryMap, MemoryMapError, MemoryRegion},
     paging::{walk_page_table, AccessContext, AddressTranslationMode, PageError, Satp},
-    pmp::{AccessMode, PmpCfg, PMP},
+    pmp::{AccessMode, PMP},
 };
 
 pub mod address;
@@ -122,10 +109,10 @@ impl Memory {
         match self.memory_map.fit(addr..(addr + bytes.len() as u64)) {
             Ok(r) => match r {
                 MemoryRegion::Ram(r) => {
-                    self.main_buffer.write_bytes(bytes, addr - *r.start());
+                    self.main_buffer.write_bytes(bytes, addr - *r.start())?;
                     Ok(())
                 }
-                MemoryRegion::Rom(r) => todo!(),
+                MemoryRegion::Rom(_r) => todo!(),
                 MemoryRegion::IO(o, r) => self.device_regions[o]
                     .write()?
                     .write_bytes(bytes, addr - *r.start())
@@ -142,7 +129,7 @@ impl Memory {
         match self.memory_map.fit(addr..(addr + size as u64)) {
             Ok(r) => match r {
                 MemoryRegion::Ram(r) => Ok(self.main_buffer.read_bytes(addr - *r.start(), size)?),
-                MemoryRegion::Rom(r) => todo!(),
+                MemoryRegion::Rom(_r) => todo!(),
                 MemoryRegion::IO(o, r) => self.device_regions[o]
                     .read()?
                     .read_bytes(addr - *r.start(), size)
@@ -153,20 +140,17 @@ impl Memory {
     }
 
     /// NOTE, does not do atomic checks, pmp checks or page table walks
-    pub fn fetch(&self, addr: Address, privilege: PrivilegeMode) -> Result<u32, MemoryError> {
+    pub fn fetch(&self, addr: Address) -> Result<u32, MemoryError> {
         match self.memory_map.fit(addr..(addr + 4u64)) {
             Ok(r) => match r {
-                MemoryRegion::Ram(r) => {
-                    let idx = addr - *r.start();
-                    Ok(u32::from_le_bytes(
-                        self.main_buffer
-                            .read_bytes(addr - *r.start(), 4)?
-                            .try_into()
-                            .unwrap(),
-                    ))
-                }
-                MemoryRegion::Rom(r) => todo!(),
-                MemoryRegion::IO(o, r) => Ok(u32::from_le_bytes(
+                MemoryRegion::Ram(r) => Ok(u32::from_le_bytes(
+                    self.main_buffer
+                        .read_bytes(addr - *r.start(), 4)?
+                        .try_into()
+                        .unwrap(),
+                )),
+                MemoryRegion::Rom(_r) => todo!(),
+                MemoryRegion::IO(o, _r) => Ok(u32::from_le_bytes(
                     self.device_regions[o]
                         .read()?
                         .read_bytes(addr, 4)
@@ -218,31 +202,6 @@ impl Memory {
     }
 
     #[deprecated]
-    pub fn register_handle(&mut self, dev_id: usize) -> () {
-        unimplemented!()
-        // MemoryRegisterHandle::new(self, dev_id)
-    }
-
-    #[deprecated]
-    fn add_register(&mut self, owner: usize, reg: (), addr: Address) -> Result<(), MemoryMapError> {
-        unimplemented!()
-        // self.memory_map
-        //     .add_region(MemoryRegion::Register(owner, addr))?;
-        // self.registers.insert(addr, reg);
-        // Ok(())
-    }
-
-    // pub fn get_device_memory(
-    //     &mut self,
-    //     id: &usize,
-    // ) -> Result<Option<RwLockWriteGuard<dyn MemoryBuffer + '_>>, MemoryError> {
-    //     if let Some(mem) = self.device_regions.get_mut(id) {
-    //         Ok(Some(mem.write()?))
-    //     } else {
-    //         Ok(None)
-    //     }
-    // }
-
     pub fn dump(&self) {
         unimplemented!()
         // let mut w = File::create("./mem.dump").unwrap();
@@ -366,7 +325,7 @@ impl MemoryWindow<'_> {
     ) -> Result<i32, MemoryError> {
         let bytes = self.read_bytes(addr, 4)?;
         let orig = i32::from_le_bytes(bytes.try_into().unwrap());
-        self.write_bytes(&op(rs, orig).to_le_bytes(), addr);
+        self.write_bytes(&op(rs, orig).to_le_bytes(), addr)?;
         Ok(orig)
     }
 
@@ -379,7 +338,7 @@ impl MemoryWindow<'_> {
     ) -> Result<i64, MemoryError> {
         let bytes = self.read_bytes(addr, 8)?;
         let orig = i64::from_le_bytes(bytes.try_into().unwrap());
-        self.write_bytes(&op(rs, orig).to_le_bytes(), addr);
+        self.write_bytes(&op(rs, orig).to_le_bytes(), addr)?;
         Ok(orig)
     }
 
@@ -424,7 +383,7 @@ impl MemoryWindow<'_> {
             let range = addr..(addr + 4);
             v.start >= range.end || range.start >= v.end
         });
-        self.mem.fetch(addr, self.privilege)
+        self.mem.fetch(addr)
     }
 
     fn read_phys(&self, addr: Address, size: usize) -> Result<Vec<u8>, MemoryError> {
@@ -433,7 +392,7 @@ impl MemoryWindow<'_> {
 }
 
 impl<T> From<PoisonError<T>> for MemoryError {
-    fn from(value: PoisonError<T>) -> Self {
+    fn from(_value: PoisonError<T>) -> Self {
         Self::DeviceMemoryPoison
     }
 }

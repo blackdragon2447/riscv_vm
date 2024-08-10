@@ -3,10 +3,7 @@
 
 use riscv_vm_macros::inst;
 
-use crate::{
-    hart::Hart,
-    memory::{address::Address, Memory},
-};
+use crate::memory::address::Address;
 
 use super::{ExecuteError, ExecuteResult};
 
@@ -45,7 +42,7 @@ inst!(mulhu(r) for [b32, b64]
 inst!(div(r) for [b32, b64]
     where [rd: int, rs1: int, rs2: int]:
 {
-    if (*rs2 == 0) {
+    if *rs2 == 0 {
         *rd = -1;
     } else {
         *rd = (*rs1).overflowing_div(*rs2).0;
@@ -56,7 +53,7 @@ inst!(div(r) for [b32, b64]
 inst!(divu(r) for [b32, b64]
     where [rd: int, rs1: int, rs2: int]:
 {
-    if (*rs2 == 0) {
+    if *rs2 == 0 {
         *rd = uxlen::MAX as ixlen;
     } else {
         *rd = ((*rs1 as uxlen) / (*rs2 as uxlen)) as ixlen;
@@ -67,7 +64,7 @@ inst!(divu(r) for [b32, b64]
 inst!(rem(r) for [b32, b64]
     where [rd: int, rs1: int, rs2: int]:
 {
-    if (*rs2 == 0) {
+    if *rs2 == 0 {
         *rd = *rs1;
     } else {
         *rd = (*rs1).overflowing_rem(*rs2).0;
@@ -78,7 +75,7 @@ inst!(rem(r) for [b32, b64]
 inst!(remu(r) for [b32, b64]
     where [rd: int, rs1: int, rs2: int]:
 {
-    if (*rs2 == 0) {
+    if *rs2 == 0 {
         *rd = *rs1;
     } else {
         *rd = ((*rs1 as uxlen) % (*rs2 as uxlen)) as ixlen;

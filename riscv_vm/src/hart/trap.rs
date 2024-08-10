@@ -93,7 +93,6 @@ impl Ord for InterruptInternal {
                 | InterruptInternal::SupervisorExternal
                 | InterruptInternal::SupervisorSoftware => std::cmp::Ordering::Greater,
                 Self::SupervisorTimer => std::cmp::Ordering::Equal,
-                _ => std::cmp::Ordering::Less,
             },
         }
     }

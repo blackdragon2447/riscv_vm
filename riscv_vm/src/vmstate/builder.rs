@@ -1,7 +1,3 @@
-use std::sync::mpsc::Sender;
-
-use nohash_hasher::IntMap;
-
 use super::VMSettings;
 use crate::{
     devices::{
@@ -71,10 +67,10 @@ impl VMStateBuilder {
     /// specifies where the devices memory will be placed in the vm's memory
     // The device will be passed this base address so it can place its memory mapped registers
     // relative to this address
-    pub fn sync_device<D: Device + HandledDevice + 'static>(mut self, addr: Address) -> Self {
+    pub fn sync_device<D: Device + HandledDevice + 'static>(mut self, _addr: Address) -> Self {
         let device = Box::new(D::new());
         let dev = HandledDeviceHolder::new(device);
-        self.handled_devices.push(dev.1);
+        self.handled_devices.push(dev);
         self
     }
 
@@ -82,10 +78,10 @@ impl VMStateBuilder {
     /// specifies where the devices memory will be placed in the vm's memory
     // The device will be passed this base address so it can place its memory mapped registers
     // relative to this address
-    pub fn add_sync_device<D: Device + HandledDevice + 'static>(&mut self, addr: Address) {
+    pub fn add_sync_device<D: Device + HandledDevice + 'static>(&mut self, _addr: Address) {
         let device = Box::new(D::new());
         let dev = HandledDeviceHolder::new(device);
-        self.handled_devices.push(dev.1);
+        self.handled_devices.push(dev);
     }
 
     /// Add an async devicem the actual device is specified via the generic, the address

@@ -109,7 +109,7 @@ impl Add<u16> for CsrAddress {
 
 impl AddAssign<u16> for CsrAddress {
     fn add_assign(&mut self, rhs: u16) {
-        self.0 += (rhs & 0xFFF)
+        self.0 += rhs & 0xFFF
     }
 }
 

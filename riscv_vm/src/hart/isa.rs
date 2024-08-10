@@ -33,10 +33,10 @@ pub enum Isa {
 
 impl Isa {
     pub fn maximal() -> BitFlags<Self> {
-        Self::I | Self::M | Self::S | Self::U
+        Self::I | Self::M | Self::A | Self::F | Self::D | Self::C | Self::S | Self::U
     }
 
-    pub fn validate(bitflags: &mut BitFlags<Self>) {
+    pub fn _validate(bitflags: &mut BitFlags<Self>) {
         *bitflags &= Self::maximal();
     }
 }

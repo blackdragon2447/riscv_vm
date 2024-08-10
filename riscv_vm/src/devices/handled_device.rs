@@ -1,7 +1,4 @@
-use std::{
-    fmt::Debug,
-    sync::mpsc::{self, Receiver, Sender},
-};
+use std::fmt::Debug;
 
 use crate::memory::Memory;
 
@@ -20,9 +17,8 @@ pub(crate) struct HandledDeviceHolder {
 }
 
 impl HandledDeviceHolder {
-    pub(crate) fn new(device: Box<dyn HandledDevice>) -> (Sender<()>, Self) {
-        let (s, r) = mpsc::channel();
-        (s, Self { device })
+    pub(crate) fn new(device: Box<dyn HandledDevice>) -> Self {
+        Self { device }
     }
 
     pub(crate) fn init_device(&mut self, mem: &mut Memory) -> Result<(), DeviceInitError> {

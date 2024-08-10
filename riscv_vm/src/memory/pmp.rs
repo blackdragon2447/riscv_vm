@@ -1,13 +1,9 @@
-use std::{
-    default,
-    fmt::{Debug, UpperHex},
-    ops::{Range, RangeInclusive},
-};
+use std::{fmt::Debug, ops::RangeInclusive};
 
 use enumflags2::{bitflags, BitFlags};
 
 use super::address::Address;
-use crate::hart::privilege::{self, PrivilegeMode};
+use crate::hart::privilege::PrivilegeMode;
 
 pub struct PMP {
     pmpcfg: [PmpCfg; 64],
@@ -19,6 +15,7 @@ impl Debug for PMP {
         let mut debug = f.debug_struct("PMP");
 
         #[derive(Debug)]
+        #[allow(dead_code)]
         struct PmpDebug {
             pmpcfg: PmpCfg,
             pmpaddr: Address,
@@ -97,7 +94,7 @@ impl PMP {
         u32::from_le_bytes(
             self.pmpcfg[(idx * 4)..((idx + 1) * 4)]
                 .iter()
-                .map(PmpCfg::to_bits)
+                .map(|p| p.to_bits())
                 .collect::<Vec<u8>>()
                 .try_into()
                 .unwrap(),
@@ -258,7 +255,7 @@ impl PmpCfg {
         }
     }
 
-    pub fn to_bits(&self) -> u8 {
+    pub fn to_bits(self) -> u8 {
         let mut bits = 0;
 
         bits |= self.rwx.bits();

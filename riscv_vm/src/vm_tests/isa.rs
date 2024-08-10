@@ -1,14 +1,8 @@
-use std::{fs, process::exit};
+use std::fs;
 
 use elf_load::Elf;
 
-use crate::{
-    hart::privilege::PrivilegeMode,
-    memory::pmp::PMP,
-    memory::{KB, MB},
-    vmstate::VMState,
-    vmstate::VMStateBuilder,
-};
+use crate::{memory::KB, vmstate::VMStateBuilder};
 
 isa_test!(off(tohost: 0x80001000u64): rv64ui_p_add);
 isa_test!(off(tohost: 0x80001000u64): rv64ui_p_addi);
