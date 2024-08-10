@@ -2,7 +2,7 @@
 
 #riscv_prefix := env_var_or_default('RISCV_PREFIX', 'riscv-unknown-elf-')
 cc := env_var_or_default('RISCV_CC', 'riscv-unknown-elf-gcc')
-cflags := "-nostdlib -fno-builtin -mcmodel=medany -march=rv64im_zicsr -mabi=lp64 -T $tests.ld"
+cflags := "-nostdlib -fno-builtin -mcmodel=medany -march=rv64g_zicsr -mabi=lp64 -T $tests.ld"
 
 build:
     #!/usr/bin/env sh

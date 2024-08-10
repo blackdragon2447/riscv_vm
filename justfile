@@ -5,7 +5,7 @@ build-release:
     cargo build --release
 
 run binary:
-	cargo run --bin riscv_vm -- {{binary}}
+	cargo run --bin riscv_vm -- --kernel {{binary}}
 
 docs:
 	cargo doc --no-deps

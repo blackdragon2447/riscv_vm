@@ -33,7 +33,11 @@ pub enum Isa {
 
 impl Isa {
     pub fn maximal() -> BitFlags<Self> {
-        Self::I | Self::M | Self::A | Self::F | Self::D | Self::C | Self::S | Self::U
+        if cfg!(feature = "float") {
+            Self::I | Self::M | Self::A | Self::F | Self::D | Self::C | Self::S | Self::U
+        } else {
+            Self::I | Self::M | Self::A | Self::C | Self::S | Self::U
+        }
     }
 
     pub fn _validate(bitflags: &mut BitFlags<Self>) {
