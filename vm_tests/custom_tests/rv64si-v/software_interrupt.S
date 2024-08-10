@@ -7,6 +7,7 @@
 
 _start:
 	j reset_vector
+	.align 2
 
 mtvec:
 	csrr t5, mcause
