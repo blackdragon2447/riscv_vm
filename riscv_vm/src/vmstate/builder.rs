@@ -88,10 +88,9 @@ impl VMStateBuilder {
     /// specifies where the devices memory will be placed in the vm's memory
     // The device will be passed this base address so it can place its memory mapped registers
     // relative to this address
-    pub fn async_device<D: Device + AsyncDevice + 'static>(mut self) -> Self {
-        let device = Box::new(D::new());
-        let dev = AsyncDeviceHolder::new(device);
-        self.async_devices.push(dev.1);
+    pub fn async_device<D: Device + AsyncDevice + 'static>(mut self, _addr: Address) -> Self {
+        let dev = AsyncDeviceHolder::new::<D>();
+        self.async_devices.push(dev);
         self
     }
 
@@ -99,10 +98,9 @@ impl VMStateBuilder {
     /// specifies where the devices memory will be placed in the vm's memory
     // The device will be passed this base address so it can place its memory mapped registers
     // relative to this address
-    pub fn add_async_device<D: Device + AsyncDevice + 'static>(mut self) {
-        let device = Box::new(D::new());
-        let dev = AsyncDeviceHolder::new(device);
-        self.async_devices.push(dev.1);
+    pub fn add_async_device<D: Device + AsyncDevice + 'static>(&mut self, _addr: Address) {
+        let dev = AsyncDeviceHolder::new::<D>();
+        self.async_devices.push(dev);
     }
 
     /// Build a vm from this builder, consumes the builder

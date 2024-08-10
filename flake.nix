@@ -19,7 +19,15 @@
       };
     in {
       devShells.default = pkgs.mkShell {
+        shellHook = ''
+          export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${pkgs.wayland}/lib:${pkgs.libxkbcommon}/lib:${pkgs.libGL}/lib
+        '';
         buildInputs = with pkgs.pkgsCross.riscv64-embedded.buildPackages; [gcc clang lld llvm just autoconf cmake];
+        nativeBuildInputs = with pkgs; [
+          libxkbcommon
+          libGL
+          wayland
+        ];
       };
     });
 }

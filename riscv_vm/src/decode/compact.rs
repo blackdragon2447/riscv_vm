@@ -3,7 +3,6 @@ use crate::hart::registers::IntRegister;
 use super::Instruction;
 
 pub fn decode_compact(inst: u16) -> Instruction {
-    println!("{:#018b}", inst);
     let opcode = inst & 0b11;
     let funct3 = (inst >> 13) & 0b111;
 
@@ -367,7 +366,7 @@ pub fn decode_compact(inst: u16) -> Instruction {
 fn cl_double_imm(inst: u16) -> i32 {
     let imm_3_5 = (inst >> 10) & 0b111;
     let imm_6_7 = (inst >> 5) & 0b11;
-    
+
     ((imm_3_5 << 3) | (imm_6_7 << 6)) as u32 as i32
 }
 
@@ -375,21 +374,21 @@ fn cl_word_imm(inst: u16) -> i32 {
     let imm_3_5 = (inst >> 10) & 0b111;
     let imm_6 = (inst >> 5) & 0b1;
     let imm_2 = (inst >> 6) & 0b1;
-    
+
     ((imm_2 << 2) | (imm_3_5 << 3) | (imm_6 << 6)) as u32 as i32
 }
 
 fn ci_imm(inst: u16) -> i32 {
     let imm_0_4 = (inst >> 2) & 0b11111;
     let imm_5 = (inst >> 12) & 0b1;
-    
+
     (((imm_0_4 | (imm_5 << 5)) as i32) << 26) >> 26
 }
 
 fn ci_shamt(inst: u16) -> i32 {
     let shamt_0_4 = (inst >> 2) & 0b1111;
     let shamt_5 = (inst >> 12) & 0b1;
-    
+
     (shamt_0_4 | (shamt_5 << 5)) as i32
 }
 
@@ -397,7 +396,7 @@ fn ci_sp_double_imm(inst: u16) -> i32 {
     let imm_6_8 = (inst >> 2) & 0b111;
     let imm_3_4 = (inst >> 5) & 0b11;
     let imm_5 = (inst >> 12) & 0b1;
-    
+
     ((imm_3_4 << 3) | (imm_5 << 5) | (imm_6_8 << 6)) as i32
 }
 
@@ -405,7 +404,7 @@ fn ci_sp_word_imm(inst: u16) -> i32 {
     let imm_6_7 = (inst >> 2) & 0b11;
     let imm_2_4 = (inst >> 4) & 0b111;
     let imm_5 = (inst >> 12) & 0b1;
-    
+
     ((imm_2_4 << 2) | (imm_5 << 5) | (imm_6_7 << 6)) as i32
 }
 
@@ -415,9 +414,8 @@ fn cb_imm(inst: u16) -> i32 {
     let imm_6_7 = (inst >> 5) & 0b11;
     let imm_3_4 = (inst >> 10) & 0b11;
     let imm_8 = (inst >> 12) & 0b1;
-    
-    ((((imm_1_2 << 1) | (imm_3_4 << 3) | (imm_5 << 5) | (imm_6_7 << 6) | (imm_8 << 8))
-        as i32)
+
+    ((((imm_1_2 << 1) | (imm_3_4 << 3) | (imm_5 << 5) | (imm_6_7 << 6) | (imm_8 << 8)) as i32)
         << 23)
         >> 23
 }

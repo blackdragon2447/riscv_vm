@@ -64,7 +64,7 @@ impl<'a> DeviceMemHandle<'a> {
         buf: M,
     ) -> Result<Arc<RwLock<M>>, DeviceInitError>
     where
-        M: MemoryBuffer + 'static,
+        M: MemoryBuffer + Send + 'static,
     {
         self.mem.add_device_memory(base, buf)
     }

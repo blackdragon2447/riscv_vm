@@ -162,9 +162,11 @@ impl VMState {
         Ok(())
     }
 
-    fn add_async_device(&mut self, mut _dev: AsyncDeviceHolder) -> Result<(), DeviceInitError> {
-        todo!()
+    fn add_async_device(&mut self, mut dev: AsyncDeviceHolder) -> Result<(), DeviceInitError> {
+        dev.init_and_run_device(&mut self.mem);
+        Ok(())
         // let mut memory = DeviceMemory::new(mem_size, addr);
+        //
         // dev.1
         //     .init_device(&mut memory, self.mem.register_handle(id))?;
         // self.device_event_bus.add_device(id, dev.0);

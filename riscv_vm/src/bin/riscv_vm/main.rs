@@ -34,7 +34,7 @@ fn main() {
 
     if args.graphic {
         #[cfg(feature = "vga_text_buf")]
-        builder.add_async_device::<VgaTextMode>(0xB8000u64);
+        builder.add_async_device::<VgaTextMode>(0xB8000u64.into());
     }
 
     let mut vmstate = builder.build().unwrap();

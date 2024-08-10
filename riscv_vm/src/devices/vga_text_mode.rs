@@ -1,4 +1,5 @@
 use std::{
+    convert::Infallible,
     iter,
     sync::{Arc, RwLock},
     time::{Duration, Instant},
@@ -8,17 +9,17 @@ use wgpu::{
     include_wgsl, Backends, BlendState, ColorTargetState, DeviceDescriptor, Face, Features,
     FragmentState, FrontFace, Instance, InstanceDescriptor, Limits, MultisampleState,
     PipelineLayoutDescriptor, PolygonMode, PowerPreference, PrimitiveState, PrimitiveTopology,
-    Queue, RenderPipeline, RenderPipelineDescriptor, RequestAdapterOptions, ShaderModuleDescriptor,
-    ShaderSource, Surface, SurfaceConfiguration, SurfaceError, TextureUsages, VertexState,
+    Queue, RenderPipeline, RenderPipelineDescriptor, RequestAdapterOptions, Surface,
+    SurfaceConfiguration, SurfaceError, TextureUsages, VertexState,
 };
 use wgpu_text::{
-    glyph_brush::{ab_glyph::FontRef, Layout, OwnedSection, Section, Text, VerticalAlign},
-    BrushBuilder, TextBrush,
+    glyph_brush::{Layout, OwnedSection, Section, Text, VerticalAlign},
+    BrushBuilder,
 };
 use winit::{
-    dpi::{LogicalSize, PhysicalSize},
+    dpi::PhysicalSize,
     event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
-    event_loop::{self, ControlFlow, EventLoop, EventLoopBuilder},
+    event_loop::{ControlFlow, EventLoop, EventLoopBuilder},
     platform::{wayland::EventLoopBuilderExtWayland, x11::EventLoopBuilderExtX11},
     window::{Window, WindowBuilder},
 };
@@ -26,9 +27,12 @@ use winit::{
 use wgpu::CreateSurfaceError;
 use winit::error::OsError;
 
-use crate::memory::{address::Address, DeviceMemory};
+use crate::memory::memory_buffer::MemoryBuffer;
 
-use super::{AsyncDevice, Device, DeviceInitError};
+use super::{
+    async_device::AsyncDevice, memory_buffer::NaiveBuffer, Device, DeviceInitError,
+    DeviceMemHandle, DeviceObject,
+};
 
 pub struct VgaTextMode {
     surface: Surface,
@@ -36,7 +40,7 @@ pub struct VgaTextMode {
     queue: Queue,
     config: SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
-    render_pipeline: RenderPipeline,
+    _render_pipeline: RenderPipeline,
     sections: Vec<OwnedSection>,
     // The window must be declared after the surface so
     // it gets dropped after it as the surface contains
@@ -44,7 +48,7 @@ pub struct VgaTextMode {
     window: Window,
     event_loop: Option<EventLoop<()>>,
 
-    mem_start: Address,
+    mem: Option<Arc<RwLock<NaiveBuffer<{ <Self as Device>::MEM_SIZE as usize }>>>>,
 }
 
 const COLOR: [(f32, f32, f32, f32); 16] = [
@@ -67,17 +71,12 @@ const COLOR: [(f32, f32, f32, f32); 16] = [
 ];
 
 impl Device for VgaTextMode {
-    const MEN_SIZE: u64 = 80 * 25 * 2;
+    const MEM_SIZE: u64 = 80 * 25 * 2;
 
-    fn init(mem: &mut DeviceMemory) -> Result<Self, super::DeviceInitError>
+    fn new() -> Self
     where
         Self: Sized,
     {
-        // mem.write_bytes(
-        //     &[0x48, 15, 0x65, 15, 0x6C, 15, 0x6C, 15, 0x6F, 15],
-        //     0xB0000u64.into(),
-        // );
-
         let padding = 10;
 
         // let event_loop =
@@ -117,14 +116,15 @@ impl Device for VgaTextMode {
                 80 * 9 + 2 * padding,
                 25 * 16 + 2 * padding,
             ))
-            .build(&event_loop)?;
+            .build(&event_loop)
+            .unwrap();
 
         let instance = Instance::new(InstanceDescriptor {
             backends: Backends::all(),
             ..Default::default()
         });
 
-        let surface = unsafe { instance.create_surface(&window) }?;
+        let surface = unsafe { instance.create_surface(&window) }.unwrap();
 
         let adapter = pollster::block_on(instance.request_adapter(&RequestAdapterOptions {
             power_preference: PowerPreference::default(),
@@ -218,54 +218,61 @@ impl Device for VgaTextMode {
             );
         }
 
-        Ok(Self {
+        Self {
             surface,
             device,
             queue,
             config,
             size: window.inner_size(),
-            render_pipeline,
+            _render_pipeline: render_pipeline,
             sections,
             window,
             event_loop: Some(event_loop),
+            mem: None,
+        }
+    }
+}
 
-            mem_start: mem.start(),
-        })
+impl DeviceObject for VgaTextMode {
+    fn init(&mut self, mut mem: DeviceMemHandle) -> Result<(), DeviceInitError> {
+        self.mem = Some(mem.add_memory_buffer(0xB8000u64.into(), NaiveBuffer::new())?);
+        Ok(())
     }
 }
 
 impl AsyncDevice for VgaTextMode {
-    fn run(mut self, mem: Arc<RwLock<DeviceMemory>>) {
+    fn run(mut self) -> Result<Infallible, super::DeviceError> {
         let event_loop = std::mem::take(&mut self.event_loop).unwrap();
 
         let target_framerate = Duration::from_secs_f64(1.0 / 5.0);
         let mut delta_time = Instant::now();
 
+        let mem = std::mem::take(&mut self.mem).unwrap();
+
         event_loop.run(move |event, _, control_flow| {
             *control_flow = ControlFlow::Poll;
 
-            for i in 0..24 {
+            for i in 0..24u64 {
                 let bytes = mem
                     .read()
                     // we wanna panic here since if we don't have vmem anymore, there is
-                    // probably something ver wrong.
+                    // probably something very wrong.
                     .unwrap()
-                    .read_bytes(self.mem_start + (i * (80 * 2)), 80 * 2)
+                    .read_bytes((i * (80 * 2)).into(), 80 * 2)
                     // This unwrap is safe since were always withing the memory we requested.
                     .unwrap();
 
                 let mut vec = Vec::new();
                 for i in 0..80 {
-                    // This unwrap is safe since were always withing the memory we requested.
-                    vec.push((bytes.get(i * 2).unwrap(), bytes.get(i * 2 + 1).unwrap()));
+                    vec.push((bytes[i * 2], bytes[i * 2 + 1]));
                 }
 
-                let mut section = &mut self.sections[i as usize];
+                let section = &mut self.sections[i as usize];
                 section.text = vec![];
-                for p in vec {
+                for p in &vec {
                     section.text.push(
-                        (&Text::new(&String::from_utf8(vec![*p.0]).unwrap())
-                            .with_color(COLOR[*p.1 as usize])
+                        (&Text::new(&String::from_utf8(vec![p.0]).unwrap())
+                            .with_color(COLOR[p.1 as usize])
                             .to_owned())
                             .into(),
                     );

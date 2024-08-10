@@ -1,4 +1,4 @@
-use std::{convert::Infallible, default, fmt::Display, path::PathBuf, str::FromStr, usize};
+use std::{convert::Infallible, fmt::Display, path::PathBuf, str::FromStr};
 
 use riscv_vm::{vmstate::VMSettings, KB, MB};
 
