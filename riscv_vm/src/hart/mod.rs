@@ -1,6 +1,5 @@
 mod counters;
-mod csr_address;
-mod csr_holder;
+mod csr;
 pub mod isa;
 pub mod privilege;
 pub mod registers;
@@ -15,19 +14,19 @@ use std::{collections::BinaryHeap, rc::Rc, sync::Mutex};
 use crate::{
     decode::{decode, Instruction},
     execute::{execute_rv64, ExecuteError, ExecuteResult},
-    hart::csr_holder::TrapMode,
+    hart::csr::csr_holder::TrapMode,
+    interrupt::timer::TimerRef,
     memory::{address::Address, Memory, MemoryError},
-    vmstate::{timer::TimerRef, VMError, VMSettings},
+    vmstate::{VMError, VMSettings},
 };
 
-pub use csr_address::CsrAddress;
-pub use csr_holder::FloatVectorXternalStatus;
+pub use csr::{csr_address::CsrAddress, csr_holder::FloatVectorXternalStatus, CsrProvider};
 use enumflags2::BitFlags;
 #[cfg(feature = "float")]
 use registers::{FloatRegister, InvalidNaNBox};
 
 use self::{
-    csr_holder::CsrHolder,
+    csr::csr_holder::CsrHolder,
     privilege::PrivilegeMode,
     registers::{IntRegister, Registers},
     trap::{Exception, InterruptInternal, TrapCause},

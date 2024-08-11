@@ -5,6 +5,7 @@ mod decode;
 pub mod devices;
 mod execute;
 mod hart;
+mod interrupt;
 mod memory;
 
 pub use crate::hart::trap;
@@ -32,6 +33,7 @@ pub const SUPPORTED_EXTENTIONS: &[&str] = &[
     "U",
     "Zicsr",
     "Zicntr",
+    "Smcsrind/Sscsrind", // Want
     "RVWMO", // As long as we execute sync this should be guarenteed, once we go async this needs
              // to be manually verified.
 ];
@@ -61,7 +63,6 @@ pub const UNSUPPORTED_EXENTIONS: &[&str] = &[
     "P",
     // Privileged
     "Ssstaten/Smstaten",
-    "Smcsrind/Sscsrind",
     "Smepmp",
     "Smcntrpmf",
     "Smcdeleg",
@@ -72,5 +73,6 @@ pub const UNSUPPORTED_EXENTIONS: &[&str] = &[
     "Svvptc",
     "Sstc", // Want
     "Sscofpmf",
+    "Smaia/Ssaia",
     "H",
 ];

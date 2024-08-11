@@ -43,7 +43,7 @@ pub enum ExecuteResult {
     CsrUpdate(CsrAddress),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum ExecuteError {
     Exception(Exception),
     Fatal,

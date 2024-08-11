@@ -3,7 +3,7 @@ use std::{
     ops::{Add, AddAssign, Sub},
 };
 
-use super::privilege::PrivilegeMode;
+use crate::hart::privilege::PrivilegeMode;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct CsrAddress(u16);

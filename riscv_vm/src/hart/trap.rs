@@ -2,7 +2,7 @@ use enumflags2::bitflags;
 
 #[repr(u64)]
 #[bitflags]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Exception {
     InstructionAddressMisaligned = 0b1 << 0,
     InstructionAccessFault = 0b1 << 1,
