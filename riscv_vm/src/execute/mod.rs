@@ -25,7 +25,7 @@ use crate::{
     decode::Instruction::{self, *},
     hart::{
         isa::Isa, privilege::PrivilegeMode, registers::IntRegister, trap::Exception, CsrAddress,
-        Hart,
+        FloatVectorXternalStatus, Hart,
     },
     memory::{address::Address, Memory, MemoryError, MemoryWindow},
 };
@@ -78,6 +78,31 @@ pub fn execute_rv64(
     is_c: bool,
     isa: BitFlags<Isa>,
 ) -> Result<ExecuteResult, ExecuteError> {
+    if !isa.contains(instruction.extention()) {
+        return Err(ExecuteError::Exception(Exception::IllegalInstruction));
+    }
+    match instruction.extention() {
+        Isa::A => {}
+        Isa::D => {
+            if hart.get_csr().get_status().fs == FloatVectorXternalStatus::Off {
+                return Err(ExecuteError::Exception(Exception::IllegalInstruction));
+            } else {
+                hart.get_csr_mut().get_status_mut().fs = FloatVectorXternalStatus::Dirty;
+            }
+        }
+        Isa::F => {
+            if hart.get_csr().get_status().fs == FloatVectorXternalStatus::Off {
+                return Err(ExecuteError::Exception(Exception::IllegalInstruction));
+            } else {
+                hart.get_csr_mut().get_status_mut().fs = FloatVectorXternalStatus::Dirty;
+            }
+        }
+        Isa::I => {}
+        Isa::M => {}
+        Isa::S => {}
+        Isa::U => {}
+        _ => unimplemented!(),
+    }
     #[allow(unused)]
     match instruction {
         // rv64i

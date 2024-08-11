@@ -21,6 +21,7 @@ use crate::{
 };
 
 pub use csr_address::CsrAddress;
+pub use csr_holder::FloatVectorXternalStatus;
 use enumflags2::BitFlags;
 #[cfg(feature = "float")]
 use registers::{FloatRegister, InvalidNaNBox};

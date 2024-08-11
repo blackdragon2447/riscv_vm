@@ -1,4 +1,4 @@
-use crate::hart::{registers::IntRegister, CsrAddress};
+use crate::hart::{isa::Isa, registers::IntRegister, CsrAddress};
 
 #[cfg(feature = "float")]
 use crate::hart::registers::FloatRegister;

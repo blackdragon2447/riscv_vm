@@ -279,7 +279,7 @@ impl CsrHolder {
                 spp: PrivilegeMode::User,
                 vs: FloatVectorXternalStatus::Off,
                 mpp: PrivilegeMode::User,
-                fs: FloatVectorXternalStatus::Off,
+                fs: FloatVectorXternalStatus::Initial,
                 xs: FloatVectorXternalStatus::Off,
                 mprv: false,
                 sum: false,
