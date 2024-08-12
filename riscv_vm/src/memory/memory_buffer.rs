@@ -68,3 +68,19 @@ impl From<MemoryBufferError> for MemoryError {
         }
     }
 }
+
+pub(crate) struct NullPage;
+
+impl MemoryBuffer for NullPage {
+    fn size(&self) -> u64 {
+        4096
+    }
+
+    fn write_bytes(&mut self, _bytes: &[u8], _addr: Address) -> Result<(), MemoryBufferError> {
+        Ok(())
+    }
+
+    fn read_bytes(&self, _addr: Address, size: usize) -> Result<Vec<u8>, MemoryBufferError> {
+        Ok(vec![0; size])
+    }
+}

@@ -17,7 +17,7 @@ pub struct SwiController {
 }
 
 impl SwiController {
-    pub(super) fn new(harts: &[Hart], mode: PrivilegeMode) -> Self {
+    pub(crate) fn new(harts: &[Hart], mode: PrivilegeMode) -> Self {
         let interrupts = harts
             .iter()
             .map(|h| (h.get_hart_id() as usize, h.get_mip_ref()))

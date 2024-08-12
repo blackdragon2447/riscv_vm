@@ -9,18 +9,23 @@ pub mod trap;
 
 #[cfg(feature = "float")]
 use softfloat_wrapper::{F32, F64};
-use std::{collections::BinaryHeap, rc::Rc, sync::Mutex};
+use std::{cell::RefCell, collections::BinaryHeap, rc::Rc, sync::Mutex};
 
 use crate::{
     decode::{decode, Instruction},
     execute::{execute_rv64, ExecuteError, ExecuteResult},
     hart::csr::csr_holder::TrapMode,
-    interrupt::timer::TimerRef,
+    interrupt::{
+        imsic::{Imsic, ImsicPage},
+        timer::TimerRef,
+    },
     memory::{address::Address, Memory, MemoryError},
     vmstate::{VMError, VMSettings},
 };
 
-pub use csr::{csr_address::CsrAddress, csr_holder::FloatVectorXternalStatus, CsrProvider};
+pub use csr::{
+    csr_address::CsrAddress, csr_holder::FloatVectorXternalStatus, csrind::MiReg, CsrProvider,
+};
 use enumflags2::BitFlags;
 #[cfg(feature = "float")]
 use registers::{FloatRegister, InvalidNaNBox};
@@ -54,6 +59,19 @@ impl Hart {
             vm_settings,
             waiting_for_interrupt: false,
         }
+    }
+
+    pub fn add_imsic(&mut self, mem: &mut Memory, base: (u64, u64), align: u64) {
+        let imsic = Rc::new(RefCell::new(Imsic::new(self.get_mip_ref())));
+
+        let (m_page, s_page) = ImsicPage::make_pages(imsic.clone());
+
+        mem.add_device_memory((base.0 | (self.hart_id * align)).into(), m_page)
+            .unwrap();
+        mem.add_device_memory((base.1 | (self.hart_id * align)).into(), s_page)
+            .unwrap();
+
+        self.csr.add_csr_provider_cell(imsic);
     }
 
     pub fn get_hart_id(&self) -> u64 {

@@ -309,7 +309,7 @@ impl CsrProvider for TestCsrProvider {
 }
 
 #[test]
-fn get_csr_holder() {
+fn csr_provider() {
     let mut csr = CsrHolder::new(37, TimerRef::dummy());
 
     csr.add_csr_provider(TestCsrProvider::default());

@@ -1,6 +1,6 @@
 use std::{
     fmt::Debug,
-    ops::{Add, AddAssign, Sub},
+    ops::{Add, AddAssign, Rem, Sub},
 };
 
 use nohash_hasher::IsEnabled;
@@ -121,6 +121,14 @@ impl Sub for Address {
 
     fn sub(self, rhs: Self) -> Self::Output {
         Self(self.0 - rhs.0)
+    }
+}
+
+impl Rem<u64> for Address {
+    type Output = u64;
+
+    fn rem(self, rhs: u64) -> Self::Output {
+        self.0 % rhs
     }
 }
 

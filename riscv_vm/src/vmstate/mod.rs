@@ -2,9 +2,8 @@
 //! and can than be interacted with directly.
 
 mod builder;
-mod swi_controller;
-pub(crate) mod timer;
 
+use core::panic;
 use std::{
     fmt::Debug,
     sync::{Arc, RwLock},
@@ -14,7 +13,6 @@ use elf_load::{
     data::{Bitness, Endianess, ProgramType, ASI},
     ByteRanges, Elf,
 };
-use swi_controller::SwiController;
 
 use crate::{
     decode::Instruction,
@@ -24,10 +22,10 @@ use crate::{
     },
     execute::ExecuteError,
     hart::{privilege::PrivilegeMode, Hart},
-    memory::{address::Address, Memory, MemoryError},
+    interrupt::{swi_controller::SwiController, timer::MTimer},
+    memory::{address::Address, memory_buffer::NullPage, Memory, MemoryError},
 };
 
-use self::timer::MTimer;
 pub use builder::{VMInitError, VMStateBuilder};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -42,6 +40,9 @@ pub struct VMSettings {
 
     pub s_mode_swi_enable: bool,
     pub s_mode_swi_addr: Address,
+
+    pub imsic_enable: bool,
+    pub imsic_base: Address,
 
     pub reset_vec: Address,
 }
@@ -59,6 +60,9 @@ impl Default for VMSettings {
 
             s_mode_swi_enable: false,
             s_mode_swi_addr: 0x3000.into(),
+
+            imsic_enable: false,
+            imsic_base: 0x100000.into(),
 
             reset_vec: 0x80000000u64.into(),
         }
@@ -121,6 +125,36 @@ impl VMState {
             let m_swi = SwiController::new(&harts, PrivilegeMode::Machine);
             mem.add_device_memory(settings.m_mode_swi_addr, m_swi)
                 .unwrap();
+        }
+
+        if settings.imsic_enable {
+            let c = 12;
+            let k = (hart_count).ilog2() + 1;
+            let boundry = 2u64.pow(k + c);
+            if settings.imsic_base % boundry != 0 {
+                panic!(
+                    "Imsic base address does not align to a {:#X} address boundry, see --help for more",
+                    boundry
+                );
+            }
+            let m_base = settings.imsic_base;
+            let s_base = settings.imsic_base + boundry;
+            let align = 2u64.pow(c);
+            for h in &mut harts {
+                h.add_imsic(&mut mem, (m_base.into(), s_base.into()), align);
+            }
+
+            let mut null_page_base = m_base + (hart_count * align);
+            while null_page_base % boundry != 0 {
+                mem.add_device_memory(null_page_base, NullPage).unwrap();
+                null_page_base += align;
+            }
+
+            let mut null_page_base = s_base + (hart_count * align);
+            while null_page_base % boundry != 0 {
+                mem.add_device_memory(null_page_base, NullPage).unwrap();
+                null_page_base += align;
+            }
         }
 
         Self {

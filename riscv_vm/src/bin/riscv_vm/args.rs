@@ -60,6 +60,9 @@ pub fn parse_args<I: Iterator<Item = String>>(mut args: I) -> Result<VMArgs, Par
     let mut s_mode_swi_enable = None;
     let mut s_mode_swi_addr = None;
 
+    let mut imsic_enable = None;
+    let mut imsic_base = None;
+
     let mut reset_vec = None;
 
     let mut hart_count = None;
@@ -112,6 +115,17 @@ pub fn parse_args<I: Iterator<Item = String>>(mut args: I) -> Result<VMArgs, Par
                         .ok_or(ParseArgError::MissingValue("--sswi-address".to_string()))?,
                 )?,
                 "--sswi-address".to_string(),
+            )?,
+
+            "--imsic" => try_set_arg(&mut imsic_enable, true, "--imsic".to_string())?,
+            "--no-imsic" => try_set_arg(&mut imsic_enable, false, "--no-imsic".to_string())?,
+            "--imsic-base" => try_set_arg(
+                &mut imsic_base,
+                parse_hex(
+                    args.next()
+                        .ok_or(ParseArgError::MissingValue("--imsic-base".to_string()))?,
+                )?,
+                "--imsic-base".to_string(),
             )?,
 
             "--reset-vec" => try_set_arg(
@@ -208,6 +222,13 @@ pub fn parse_args<I: Iterator<Item = String>>(mut args: I) -> Result<VMArgs, Par
     }
     if let Some(m_mode_swi_addr) = m_mode_swi_addr {
         settings.m_mode_swi_addr = m_mode_swi_addr.into();
+    }
+
+    if let Some(imsic_enable) = imsic_enable {
+        settings.imsic_enable = imsic_enable;
+    }
+    if let Some(imsic_base) = imsic_base {
+        settings.imsic_base = imsic_base.into();
     }
 
     if let Some(reset_vec) = reset_vec {

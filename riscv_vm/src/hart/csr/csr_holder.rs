@@ -13,7 +13,9 @@ use crate::{
 #[cfg(feature = "float")]
 use crate::decode::instruction::RoundingMode;
 
-use std::{fmt::Debug, rc::Rc, sync::Mutex};
+use std::{cell::RefCell, fmt::Debug, rc::Rc, sync::Mutex};
+
+type CsrCell = RefCell<(dyn CsrProvider + 'static)>;
 
 use super::{csr_address::CsrType, csrind::MiReg, CsrProvider};
 
@@ -100,7 +102,7 @@ pub struct CsrHolder {
 
     pub pmp: PMP,
 
-    csr_providers: Vec<Box<dyn CsrProvider>>,
+    csr_providers: Vec<Rc<RefCell<dyn CsrProvider>>>,
 
     //Other
     pub(in crate::hart) status: Status,
@@ -293,8 +295,16 @@ impl CsrHolder {
         }
     }
 
+    #[allow(unused)]
     pub(crate) fn add_csr_provider<P: CsrProvider + 'static>(&mut self, provider: P) {
-        self.csr_providers.push(Box::new(provider));
+        self.csr_providers.push(Rc::new(RefCell::new(provider)));
+    }
+
+    pub(crate) fn add_csr_provider_cell<P: CsrProvider + 'static>(
+        &mut self,
+        provider: Rc<RefCell<P>>,
+    ) {
+        self.csr_providers.push(provider);
     }
 
     pub(in crate::hart) fn isa(&self) -> BitFlags<Isa> {
@@ -366,8 +376,8 @@ impl CsrHolder {
     fn get_mireg(&self, reg: MiReg) -> Option<u64> {
         self.csr_providers
             .iter()
-            .find(|p| p.has_sireg(reg, self.miselect))
-            .and_then(|p| p.get_sireg(reg, self.miselect))
+            .find(|p| CsrCell::borrow(p).has_mireg(reg, self.miselect))
+            .and_then(|p| CsrCell::borrow_mut(p).get_mireg(reg, self.miselect))
     }
 
     fn write_mireg(
@@ -378,8 +388,8 @@ impl CsrHolder {
     ) -> Result<Option<u64>, ExecuteError> {
         self.csr_providers
             .iter_mut()
-            .find(|p| p.has_mireg(reg, self.miselect))
-            .map(|p| p.write_mireg(reg, self.miselect, value, should_read))
+            .find(|p| CsrCell::borrow(p).has_mireg(reg, self.miselect))
+            .map(|p| CsrCell::borrow_mut(p).write_mireg(reg, self.miselect, value, should_read))
             .unwrap_or(Err(ExecuteError::Exception(Exception::IllegalInstruction)))
     }
 
@@ -391,8 +401,8 @@ impl CsrHolder {
     ) -> Result<u64, ExecuteError> {
         self.csr_providers
             .iter_mut()
-            .find(|p| p.has_mireg(reg, self.miselect))
-            .map(|p| p.set_mireg(reg, self.miselect, mask, should_write))
+            .find(|p| CsrCell::borrow(p).has_mireg(reg, self.miselect))
+            .map(|p| CsrCell::borrow_mut(p).set_mireg(reg, self.miselect, mask, should_write))
             .unwrap_or(Err(ExecuteError::Exception(Exception::IllegalInstruction)))
     }
 
@@ -404,16 +414,16 @@ impl CsrHolder {
     ) -> Result<u64, ExecuteError> {
         self.csr_providers
             .iter_mut()
-            .find(|p| p.has_mireg(reg, self.miselect))
-            .map(|p| p.clear_mireg(reg, self.miselect, mask, should_write))
+            .find(|p| CsrCell::borrow(p).has_mireg(reg, self.miselect))
+            .map(|p| CsrCell::borrow_mut(p).clear_mireg(reg, self.miselect, mask, should_write))
             .unwrap_or(Err(ExecuteError::Exception(Exception::IllegalInstruction)))
     }
 
     fn get_sireg(&self, reg: MiReg) -> Option<u64> {
         self.csr_providers
             .iter()
-            .find(|p| p.has_sireg(reg, self.siselect))
-            .and_then(|p| p.get_sireg(reg, self.siselect))
+            .find(|p| CsrCell::borrow(p).has_sireg(reg, self.siselect))
+            .and_then(|p| CsrCell::borrow_mut(p).get_sireg(reg, self.siselect))
     }
 
     fn write_sireg(
@@ -424,8 +434,8 @@ impl CsrHolder {
     ) -> Result<Option<u64>, ExecuteError> {
         self.csr_providers
             .iter_mut()
-            .find(|p| p.has_sireg(reg, self.siselect))
-            .map(|p| p.write_sireg(reg, self.siselect, value, should_read))
+            .find(|p| CsrCell::borrow(p).has_sireg(reg, self.siselect))
+            .map(|p| CsrCell::borrow_mut(p).write_sireg(reg, self.siselect, value, should_read))
             .unwrap_or(Err(ExecuteError::Exception(Exception::IllegalInstruction)))
     }
 
@@ -437,8 +447,8 @@ impl CsrHolder {
     ) -> Result<u64, ExecuteError> {
         self.csr_providers
             .iter_mut()
-            .find(|p| p.has_sireg(reg, self.siselect))
-            .map(|p| p.set_sireg(reg, self.siselect, mask, should_write))
+            .find(|p| CsrCell::borrow(p).has_sireg(reg, self.siselect))
+            .map(|p| CsrCell::borrow_mut(p).set_sireg(reg, self.siselect, mask, should_write))
             .unwrap_or(Err(ExecuteError::Exception(Exception::IllegalInstruction)))
     }
 
@@ -450,8 +460,8 @@ impl CsrHolder {
     ) -> Result<u64, ExecuteError> {
         self.csr_providers
             .iter_mut()
-            .find(|p| p.has_sireg(reg, self.siselect))
-            .map(|p| p.clear_sireg(reg, self.siselect, mask, should_write))
+            .find(|p| CsrCell::borrow(p).has_sireg(reg, self.siselect))
+            .map(|p| CsrCell::borrow_mut(p).clear_sireg(reg, self.siselect, mask, should_write))
             .unwrap_or(Err(ExecuteError::Exception(Exception::IllegalInstruction)))
     }
 
@@ -522,8 +532,8 @@ impl CsrHolder {
             _ => self
                 .csr_providers
                 .iter()
-                .find(|p| p.has_csr(addr))
-                .and_then(|p| p.get_csr(addr)),
+                .find(|p| CsrCell::borrow(p).has_csr(addr))
+                .and_then(|p| CsrCell::borrow(p).get_csr(addr)),
         }
     }
 
@@ -602,7 +612,11 @@ impl CsrHolder {
                     );
                 }
                 0x150 => {
-                    if self.csr_providers.iter().any(|p| p.has_siselct(value)) {
+                    if self
+                        .csr_providers
+                        .iter()
+                        .any(|p| CsrCell::borrow(p).has_siselct(value))
+                    {
                         self.siselect = value;
                     }
                 }
@@ -664,7 +678,11 @@ impl CsrHolder {
                     );
                 }
                 0x350 => {
-                    if self.csr_providers.iter().any(|p| p.has_miselct(value)) {
+                    if self
+                        .csr_providers
+                        .iter()
+                        .any(|p| CsrCell::borrow(p).has_miselct(value))
+                    {
                         self.miselect = value;
                     }
                 }
@@ -696,8 +714,8 @@ impl CsrHolder {
                     return if let Some(v) = self
                         .csr_providers
                         .iter_mut()
-                        .find(|p| p.has_csr(addr))
-                        .map(|p| p.write_csr(addr, value, should_read))
+                        .find(|p| CsrCell::borrow(p).has_csr(addr))
+                        .map(|p| CsrCell::borrow_mut(p).write_csr(addr, value, should_read))
                     {
                         v
                     } else {
@@ -794,7 +812,11 @@ impl CsrHolder {
                 }
                 0x150 => {
                     let val = self.siselect | mask;
-                    if self.csr_providers.iter().any(|p| p.has_siselct(val)) {
+                    if self
+                        .csr_providers
+                        .iter()
+                        .any(|p| CsrCell::borrow(p).has_siselct(val))
+                    {
                         self.siselect = val;
                     }
                 }
@@ -866,7 +888,11 @@ impl CsrHolder {
                 }
                 0x350 => {
                     let val = self.miselect | mask;
-                    if self.csr_providers.iter().any(|p| p.has_miselct(val)) {
+                    if self
+                        .csr_providers
+                        .iter()
+                        .any(|p| CsrCell::borrow(p).has_miselct(val))
+                    {
                         self.miselect = val;
                     }
                 }
@@ -900,8 +926,8 @@ impl CsrHolder {
                     return self
                         .csr_providers
                         .iter_mut()
-                        .find(|p| p.has_csr(addr))
-                        .map(|p| p.set_csr(addr, mask, should_write))
+                        .find(|p| CsrCell::borrow(p).has_csr(addr))
+                        .map(|p| CsrCell::borrow_mut(p).set_csr(addr, mask, should_write))
                         .unwrap_or(Err(ExecuteError::Exception(Exception::IllegalInstruction)))
                 }
             }
@@ -990,7 +1016,11 @@ impl CsrHolder {
                 }
                 0x150 => {
                     let val = self.siselect & !mask;
-                    if self.csr_providers.iter().any(|p| p.has_siselct(val)) {
+                    if self
+                        .csr_providers
+                        .iter()
+                        .any(|p| CsrCell::borrow(p).has_siselct(val))
+                    {
                         self.siselect = val;
                     }
                 }
@@ -1062,7 +1092,11 @@ impl CsrHolder {
                 }
                 0x350 => {
                     let val = self.miselect & !mask;
-                    if self.csr_providers.iter().any(|p| p.has_miselct(val)) {
+                    if self
+                        .csr_providers
+                        .iter()
+                        .any(|p| CsrCell::borrow(p).has_miselct(val))
+                    {
                         self.miselect = val;
                     }
                 }
@@ -1096,8 +1130,8 @@ impl CsrHolder {
                     return self
                         .csr_providers
                         .iter_mut()
-                        .find(|p| p.has_csr(addr))
-                        .map(|p| p.clear_csr(addr, mask, should_write))
+                        .find(|p| CsrCell::borrow(p).has_csr(addr))
+                        .map(|p| CsrCell::borrow_mut(p).clear_csr(addr, mask, should_write))
                         .unwrap_or(Err(ExecuteError::Exception(Exception::IllegalInstruction)))
                 }
             }

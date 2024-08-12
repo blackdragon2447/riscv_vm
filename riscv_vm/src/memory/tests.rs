@@ -2,11 +2,12 @@
 
 use crate::{
     hart::{privilege::PrivilegeMode, Hart},
+    interrupt::timer::TimerRef,
     memory::{
         pmp::{AddressMatch, PmpCfg, PMP},
         MemoryError,
     },
-    vmstate::{timer::TimerRef, VMSettings},
+    vmstate::VMSettings,
 };
 
 use super::Memory;

@@ -1,17 +1,17 @@
-use std::ops::{Range, RangeInclusive};
+use std::ops::Range;
 
 use super::{address::Address, DeviceRegionId};
 
 #[derive(Debug)]
 #[allow(unused)]
 pub enum MemoryRegion {
-    Ram(RangeInclusive<Address>),
-    Rom(RangeInclusive<Address>),
-    IO(DeviceRegionId, RangeInclusive<Address>),
+    Ram(Range<Address>),
+    Rom(Range<Address>),
+    IO(DeviceRegionId, Range<Address>),
 }
 
 impl MemoryRegion {
-    pub(super) fn range(&self) -> RangeInclusive<Address> {
+    pub(super) fn range(&self) -> Range<Address> {
         match self {
             MemoryRegion::Ram(r) => r.clone(),
             MemoryRegion::Rom(r) => r.clone(),
@@ -32,7 +32,7 @@ pub enum MemoryMapError {
 }
 
 impl MemoryMap {
-    pub(super) fn new(ram: RangeInclusive<Address>) -> Self {
+    pub(super) fn new(ram: Range<Address>) -> Self {
         Self(vec![MemoryRegion::Ram(ram)])
     }
 
@@ -65,6 +65,17 @@ impl MemoryMap {
     }
 }
 
-fn overlap<T: Ord>(a: RangeInclusive<T>, b: RangeInclusive<T>) -> bool {
-    a.start() <= b.end() && b.start() <= a.end()
+fn overlap<T: Ord>(a: Range<T>, b: Range<T>) -> bool {
+    a.start < b.end && b.start < a.end
+}
+
+#[test]
+fn overlap_test() {
+    assert!(overlap(0..10, 2..8));
+    assert!(overlap(2..8, 0..10));
+
+    assert!(overlap(0..10, 8..12));
+    assert!(overlap(8..12, 0..10));
+
+    assert!(overlap(8..10, 0..10));
 }
