@@ -35,11 +35,11 @@ pub struct VMSettings {
 
     pub timer_addr: Address,
 
-    pub m_mode_swi_enable: bool,
-    pub m_mode_swi_addr: Address,
+    pub mswic_enable: bool,
+    pub mswic_addr: Address,
 
-    pub s_mode_swi_enable: bool,
-    pub s_mode_swi_addr: Address,
+    pub sswic_enable: bool,
+    pub sswic_addr: Address,
 
     pub imsic_enable: bool,
     pub imsic_base: Address,
@@ -55,11 +55,11 @@ impl Default for VMSettings {
 
             timer_addr: 0x1000.into(),
 
-            m_mode_swi_enable: false,
-            m_mode_swi_addr: 0x2000.into(),
+            mswic_enable: false,
+            mswic_addr: 0x2000.into(),
 
-            s_mode_swi_enable: false,
-            s_mode_swi_addr: 0x3000.into(),
+            sswic_enable: false,
+            sswic_addr: 0x3000.into(),
 
             imsic_enable: false,
             imsic_base: 0x100000.into(),
@@ -115,16 +115,14 @@ impl VMState {
 
         let timer = mem.add_device_memory(settings.timer_addr, timer).unwrap();
 
-        if settings.s_mode_swi_enable {
+        if settings.sswic_enable {
             let s_swi = SwiController::new(&harts, PrivilegeMode::Supervisor);
-            mem.add_device_memory(settings.s_mode_swi_addr, s_swi)
-                .unwrap();
+            mem.add_device_memory(settings.sswic_addr, s_swi).unwrap();
         }
 
-        if settings.m_mode_swi_enable {
+        if settings.mswic_enable {
             let m_swi = SwiController::new(&harts, PrivilegeMode::Machine);
-            mem.add_device_memory(settings.m_mode_swi_addr, m_swi)
-                .unwrap();
+            mem.add_device_memory(settings.mswic_addr, m_swi).unwrap();
         }
 
         if settings.imsic_enable {
@@ -276,11 +274,6 @@ impl VMState {
     /// Attempt to fetch on a specific hart and return the decoded instruction
     pub fn fetch(&mut self, hart: usize) -> Result<(Instruction, bool), MemoryError> {
         self.harts[hart].fetch(&mut self.mem)
-    }
-
-    #[deprecated]
-    pub fn dump_mem(&self) {
-        self.mem.dump();
     }
 
     #[deprecated]

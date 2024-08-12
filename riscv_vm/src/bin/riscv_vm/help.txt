@@ -25,9 +25,12 @@
 	spec 3.2.1.
 	default value: 0x1000
 
---mswi
---no-mswi (default)
---mswi-address
+--mswic
+--no-mswic (default)
+--mswi (depricated)
+--no-mswi (depricated)
+--mswic-address
+--mswi-address (depricated)
 	Enable the machine mode software interrupt controller,
 	this memory mapped device allows diffirent Harts to 
 	interrupt eachother for communication. These 
@@ -38,7 +41,10 @@
 
 --sswi
 --no-sswi (default)
---sswi-address
+--sswi (depricated)
+--no-sswi (depricated)
+--sswic-address
+--sswi-address (depricated)
 	Enable the supervisor mode software interrupt controller,
 	this memory mapped device allows diffirent Harts to 
 	interrupt eachother for communication. These
@@ -46,6 +52,22 @@
 	interrupts.
 	diabled by default
 	default address: 0x3000
+
+--imsic
+--no-imsic
+--imsic-base
+	Enable support for Message Signalled Interrupts (MSIs),
+	this adds an Incomming MSI Controller to each hart, 
+	generally this is used in conjunction with an APLIC, tho
+	it can be used allone.
+	The IMSIC base dictates where the pages which receive 
+	MSIs are placed, generally this address needs to be at 
+	least alligned to 
+	  2^(k + 12) 
+	where 
+	  k = ceil(log2(hart_count))
+	then the specified base will be used for machine mode pages 
+	and base + 2^(k + 12) will be used for supervisor mode pages
 
 --reset-vec
 	The address at which the vm starts executing after a reset 

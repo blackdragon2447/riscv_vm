@@ -54,11 +54,11 @@ pub fn parse_args<I: Iterator<Item = String>>(mut args: I) -> Result<VMArgs, Par
     let mut virt_mem_enable = None;
     let mut timer_addr = None;
 
-    let mut m_mode_swi_enable = None;
-    let mut m_mode_swi_addr = None;
+    let mut mswic_enable = None;
+    let mut mswic_addr = None;
 
-    let mut s_mode_swi_enable = None;
-    let mut s_mode_swi_addr = None;
+    let mut sswic_enable = None;
+    let mut sswic_addr = None;
 
     let mut imsic_enable = None;
     let mut imsic_base = None;
@@ -95,26 +95,30 @@ pub fn parse_args<I: Iterator<Item = String>>(mut args: I) -> Result<VMArgs, Par
                 "--timer-address".to_string(),
             )?,
 
-            "--mswi" => try_set_arg(&mut m_mode_swi_enable, true, "--mswi".to_string())?,
-            "--no-mswi" => try_set_arg(&mut m_mode_swi_enable, false, "--no-mswi".to_string())?,
-            "--mswi-address" => try_set_arg(
-                &mut m_mode_swi_addr,
+            "--mswic" | "--mswi" => try_set_arg(&mut mswic_enable, true, "--mswic".to_string())?,
+            "--no-mswic" | "--no-mswi" => {
+                try_set_arg(&mut mswic_enable, false, "--no-mswic".to_string())?
+            }
+            "--mswic-address" | "--mswi-address" => try_set_arg(
+                &mut mswic_addr,
                 parse_hex(
                     args.next()
-                        .ok_or(ParseArgError::MissingValue("--mswi-address".to_string()))?,
+                        .ok_or(ParseArgError::MissingValue("--mswic-address".to_string()))?,
                 )?,
-                "--mswi-address".to_string(),
+                "--mswic-address".to_string(),
             )?,
 
-            "--sswi" => try_set_arg(&mut s_mode_swi_enable, true, "--sswi".to_string())?,
-            "--no-sswi" => try_set_arg(&mut s_mode_swi_enable, false, "--no-sswi".to_string())?,
-            "--sswi-address" => try_set_arg(
-                &mut s_mode_swi_addr,
+            "--sswic" | "--sswi" => try_set_arg(&mut sswic_enable, true, "--sswic".to_string())?,
+            "--no-sswic" | "--no-sswi" => {
+                try_set_arg(&mut sswic_enable, false, "--no-sswic".to_string())?
+            }
+            "--sswic-address" | "--sswi-address" => try_set_arg(
+                &mut sswic_addr,
                 parse_hex(
                     args.next()
-                        .ok_or(ParseArgError::MissingValue("--sswi-address".to_string()))?,
+                        .ok_or(ParseArgError::MissingValue("--sswic-address".to_string()))?,
                 )?,
-                "--sswi-address".to_string(),
+                "--sswic-address".to_string(),
             )?,
 
             "--imsic" => try_set_arg(&mut imsic_enable, true, "--imsic".to_string())?,
@@ -210,18 +214,18 @@ pub fn parse_args<I: Iterator<Item = String>>(mut args: I) -> Result<VMArgs, Par
         settings.virt_mem_enable = virt_mem_enable;
     }
 
-    if let Some(s_mode_swi_enable) = s_mode_swi_enable {
-        settings.s_mode_swi_enable = s_mode_swi_enable;
+    if let Some(mswic_enable) = mswic_enable {
+        settings.mswic_enable = mswic_enable;
     }
-    if let Some(s_mode_swi_addr) = s_mode_swi_addr {
-        settings.s_mode_swi_addr = s_mode_swi_addr.into();
+    if let Some(mswic_addr) = mswic_addr {
+        settings.mswic_addr = mswic_addr.into();
     }
 
-    if let Some(m_mode_swi_enable) = m_mode_swi_enable {
-        settings.m_mode_swi_enable = m_mode_swi_enable;
+    if let Some(sswic_enable) = sswic_enable {
+        settings.sswic_enable = sswic_enable;
     }
-    if let Some(m_mode_swi_addr) = m_mode_swi_addr {
-        settings.m_mode_swi_addr = m_mode_swi_addr.into();
+    if let Some(sswic_addr) = sswic_addr {
+        settings.sswic_addr = sswic_addr.into();
     }
 
     if let Some(imsic_enable) = imsic_enable {

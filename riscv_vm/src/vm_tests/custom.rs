@@ -16,7 +16,7 @@ fn rv64ui_v_software_interrupt() -> Result<(), u32> {
     let elf = Elf::from_bytes(bytes).unwrap();
 
     let mut vmstate = VMStateBuilder::new(VMSettings {
-        m_mode_swi_enable: true,
+        mswic_enable: true,
         ..Default::default()
     })
     .mem_size((4 * KB) + 128)
